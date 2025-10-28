@@ -69,7 +69,7 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 		if (!m_bPeriodicRefresh)
 			return;
 		
-		if (m_Campaign.GetCurrentzone() < 0)
+		if (m_Campaign.GetCurrentZone() < 0)
 		{
 			Show(false);
 			return;
@@ -89,7 +89,7 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 	{
 		int redforScore = m_Campaign.GetRedforScore();
 		int bluforScore = m_Campaign.GetBluforScore();
-		int gameOverScore = m_Campaign.GetCurrentzone();
+		int gameOverScore = m_Campaign.GetCurrentZone();
 		
 		bool isGameRunning = m_Campaign.IsGameRunning();
 		bool isTimerRunning = m_Campaign.IsTimerRunning();

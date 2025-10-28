@@ -174,7 +174,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		if (diff > m_iBaseWaveTime)
 		{
 			m_fLastWaveSpawnTime = now;
-			int spawnCount = s_AIRandomGenerator.RandInt(1, m_iCurrentZone) * m_iBaseAiSpawnCount;
+			int spawnCount = s_AIRandomGenerator.RandInt(1, m_iCurrentZone + 1) * m_iBaseAiSpawnCount;
 			for(int i = 0; i < spawnCount; i++)
 			{
 				SpawnAI(m_aZoneSpawnpoints[m_iCurrentZone].GetRandomElement(), m_aAIGroupPrefabs.GetRandomElement(), m_aZoneWaypoints[m_iCurrentZone].GetRandomElement());
@@ -370,7 +370,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	//! Server side method to end game with winningFactionKey faction victory
+	// Server side method to end game with winningFactionKey faction victory
 	protected void GameEnd(FactionKey winningFactionKey)
 	{
 		Faction faction = m_FactionManager.GetFactionByKey(winningFactionKey);
@@ -414,6 +414,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			if (pc)
 			{
 				SCR_ChimeraCharacter ent = SCR_ChimeraCharacter.Cast(pc.GetControlledEntity());		
+				if (!ent)
+					continue;
 				SCR_DamageManagerComponent damageManager = ent.GetDamageManager();
 				if (!damageManager.IsDestroyed()) {
 					remainingPlayers++;
@@ -488,7 +490,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		return m_iDefendersRemaining;
 	}
 	
-	int GetCurrentzone()
+	int GetCurrentZone()
 	{
 		return m_iCurrentZone;
 	}
