@@ -31,9 +31,6 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	[Attribute("", UIWidgets.Auto, desc: "Names of waypoints to assign to AI groups in zone 3", category: "DiD")]
 	protected ref array<string> m_aWaypointNamesZone3;
 	
-	protected ref array<ref array<string>> m_aZoneWaypoints = {
-		{}, m_aWaypointNamesZone1, m_aWaypointNamesZone2, m_aWaypointNamesZone3
-	};
 	
 	[Attribute("", UIWidgets.Auto, desc: "Names of spawn points where spawn ai in zone 1", category: "DiD")]
 	protected ref array<string> m_aSpawnNamesZone1;
@@ -44,8 +41,15 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	[Attribute("", UIWidgets.Auto, desc: "Names of spawn points where spawn ai in zone 3", category: "DiD")]
 	protected ref array<string> m_aSpawnNamesZone3;
 	
+	
+	protected ref array<ref array<string>> m_aZoneWaypoints = {
+		{}, //Dummy element since zones are from 0 (pregame) to 3
+		m_aWaypointNamesZone1, m_aWaypointNamesZone2, m_aWaypointNamesZone3
+	};
+	
 	protected ref array<ref array<string>> m_aZoneSpawnpoints = {
-		{}, m_aSpawnNamesZone1, m_aSpawnNamesZone2, m_aSpawnNamesZone3
+		{}, //Dummy element since zones are from 0 (pregame) to 3
+		m_aSpawnNamesZone1, m_aSpawnNamesZone2, m_aSpawnNamesZone3
 	};
 		
 	[Attribute("", UIWidgets.Auto, desc: "AI Group prefabs", category: "DiD")]
