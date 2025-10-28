@@ -1,0 +1,148 @@
+AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
+ ID "56B2B479C6B96951"
+ components {
+  SignalsManagerComponent "{66AAF4E352EDE1E7}" {
+  }
+  SCR_CommunicationSoundComponent "{66AAF4E352EDE112}" {
+  }
+  PS_CutsceneManager "{66AAF4E352EDE117}" {
+  }
+  PS_MissionDataManager "{66AAF4E352EDE116}" {
+  }
+  PS_MissionDescriptionManager "{66AAF4E352EDE114}" {
+  }
+  PS_ObjectiveManager "{66AAF4E352EDE11A}" {
+   m_aObjectiveLavels {
+    PS_ObjectiveLevel "{66AAF4E352EDE118}" {
+     m_iScore 0
+     m_sName "#PS-ObjectiveLevel_MajorLoss"
+    }
+    PS_ObjectiveLevel "{66AAF4E352EDE11D}" {
+     m_iScore 25
+     m_sName "#PS-ObjectiveLevel_MinorLoss"
+    }
+    PS_ObjectiveLevel "{66AAF4E352EDE11C}" {
+     m_iScore 50
+     m_sName "#PS-ObjectiveLevel_Draw"
+    }
+    PS_ObjectiveLevel "{66AAF4E352EDE103}" {
+     m_iScore 75
+     m_sName "#PS-ObjectiveLevel_MinorVictory"
+    }
+    PS_ObjectiveLevel "{66AAF4E352EDE102}" {
+     m_iScore 100
+     m_sName "#PS-ObjectiveLevel_MajorVictory"
+    }
+   }
+  }
+  PS_PlayableManager "{66AAF4E352EDE101}" {
+  }
+  PS_VoNRoomsManager "{66AAF4E352EDE107}" {
+  }
+  SCR_CampaignBuildingManagerComponent "{66AAF4E352EDE10D}" {
+   m_sFreeRoamBuildingClientTrigger "{5E191CEAF4B95816}Prefabs/MP/FreeRoamBuildingClientTrigger.et"
+   m_BudgetType CAMPAIGN
+   m_iCompositionRefundPercentage 100
+   m_OutlineManager SCR_CampaignBuildingCompositionOutlineManager "{5DF6FBB5913F3245}" {
+   }
+   m_sPrefabsToBuildResource "{D2527D9AA5B4A33E}Configs/Editor/PlaceableEntities/Compositions/Compositions_FreeRoamBuilding.conf"
+  }
+  SCR_CommandingManagerComponent "{66AAF4E352EDE136}" {
+  }
+  SCR_GameModeSFManager "{66AAF4E352EDE134}" {
+  }
+  SCR_InitWeatherComponent "{66AAF4E352EDE13A}" {
+  }
+  SCR_NametagConfigComponent "{571AA9E54FC9210D}" {
+   m_sConfigPath "{09F7AAA14A642683}Configs/NameTags/NametagFriendlies.conf"
+  }
+  SCR_NotificationSenderComponent "{56FA84B04BE7D4C0}" {
+   m_iKillFeedType DISABLED
+   m_iReceiveKillFeedType ALL
+  }
+  SCR_PreGameGameModeStateComponent "{66AAF4E352EDE13C}" {
+   m_fDuration 0
+   m_bDisableControls 0
+  }
+  SCR_ReconnectComponent "{5A02809D5E8ABE42}" {
+   Enabled 0
+  }
+  SCR_RespawnSystemComponent "{56B2B4793051E7C9}" {
+   m_SpawnLogic SCR_SpawnLogic "{66AAF4E352EDE121}" {
+   }
+  }
+  SCR_RestoreEditorModesComponent "{66AAF4E352EDE120}" {
+  }
+  SCR_SaveLoadComponent "{66AAF4E352EDE127}" {
+   m_Struct SCR_MissionStruct "{66AAF4E352EDE126}" {
+    m_Struct0 SCR_EditorStruct "{66AAF4E352EDE124}" {
+     m_AttributeList SCR_EditorAttributeList "{590C7881C296FA7D}" {
+     }
+    }
+   }
+   m_iAutosavePeriod 600
+  }
+  SCR_TimeAndWeatherHandlerComponent "{66AAF4E352EDE128}" {
+  }
+  SCR_VotingManagerComponent "{5650BB6B6089393A}" {
+   Enabled 0
+  }
+ }
+ coords 0 0 0
+ PlayerControllerPrefab "{4E5DAC62A374950F}Prefabs/Characters/Core/DefaultPlayerControllerMP_Coop.et"
+ m_bAutoPlayerRespawn 0
+ m_bAllowFactionChange 0
+ m_aDisabledResourceTypes {
+  0
+ }
+ m_bTeamSwitch 1
+ m_bPublicCommandBriefing 1
+ m_bRemoveRedundantUnits 0
+ m_iFreezeTime 0
+ m_bHolsterWeapon 0
+ m_iZonePrepareTimeSeconds 90
+ m_iBaseWaveTime 60
+ m_iBaseAiSpawnCount 3
+ m_aWaypointNamesZone1 {
+  "zone1_aiwp_1_def" "zone1_aiwp_2_def" "zone1_aiwp_3_sead"
+ }
+ m_aWaypointNamesZone2 {
+  "zone2_aiwp_1_def" "zone2_aiwp_2_def" "zone2_aiwp_3_sead"
+ }
+ m_aWaypointNamesZone3 {
+  "zone3_aiwp_1_def" "zone3_aiwp_2_sead"
+ }
+ m_aSpawnNamesZone1 {
+  "zone_1_sp_1" "zone_1_sp_2" "zone_1_sp_3"
+ }
+ m_aSpawnNamesZone2 {
+  "zone_2_sp_1" "zone_2_sp_2" "zone_2_sp_3"
+ }
+ m_aSpawnNamesZone3 {
+  "zone_3_sp_1" "zone_3_sp_2" "zone_3_sp_3" "zone_3_sp_4"
+ }
+ m_aAIGroupPrefabs {
+  "{30ED11AA4F0D41E5}Prefabs/Groups/OPFOR/Group_USSR_FireGroup.et" "{56DC5F9D2D6119F2}Prefabs/Groups/OPFOR/KLMK/Group_USSR_MachineGunTeam_KLMK.et" "{43C7A28EEB660FF8}Prefabs/Groups/OPFOR/Group_USSR_Team_GL.et" "{97D45056CFC22FF2}Prefabs/Groups/OPFOR/KLMK/Group_USSR_RifleSquad_KLMK.et" "{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et" "{E382595E188AF8A1}Prefabs/Groups/OPFOR/KLMK/Group_USSR_Team_GL_KLMK.et" "{129039549B0B82FF}Prefabs/Groups/OPFOR/KLMK/Group_USSR_Team_AT_KLMK.et" "{96BAB56E6558788E}Prefabs/Groups/OPFOR/Group_USSR_Team_AT.et"
+ }
+ m_aZonePolygons {
+  "pregame" "zone_1" "zone_2" "zone_3"
+ }
+ {
+  SCR_FactionManager "5EA8C932C68D400F" : "{4A188E44289B9A50}Prefabs/MP/Managers/Factions/FactionManager_Editor.et" {
+   ID "66AAF4E352ED3209"
+  }
+  RadioManagerEntity : "{B8E09FAB91C4ECCD}Prefabs/Radio/RadioManager.et" {
+   ID "66AAF4E352ED3207"
+  }
+  ScriptedChatEntity : "{F69BC912AC8236F9}Prefabs/MP/ScriptedChatEntity.et" {
+   ID "66AAF4E352ED3206"
+  }
+  SCR_EditorSettingsEntity {
+   ID "66AAF4E352EDE19A"
+   m_bIsUnlimitedEditorLegal 1
+  }
+  ItemPreviewManagerEntity "5E7AE0AB2109F297" : "{AB5D049A3AB43FC0}Prefabs/World/Game/ItemPreviewManager_PS.et" {
+   ID "66AAF4E352EDE199"
+  }
+ }
+}

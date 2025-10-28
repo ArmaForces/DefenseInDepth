@@ -1,0 +1,22 @@
+$grp GenericEntity {
+ zone_3_sp_1 {
+  coords 1514.15 58.939 6028.854
+ }
+ zone_3_sp_2 {
+  coords 1450.943 51.297 5922.771
+ }
+ zone_3_sp_3 {
+  coords 1393.899 53.986 5787.786
+ }
+ zone_3_sp_4 {
+  coords 1268.107 10.112 5776.346
+ }
+}
+SCR_DefendWaypoint zone3_aiwp_1_def : "{93291E72AC23930F}Prefabs/AI/Waypoints/AIWaypoint_Defend.et" {
+ coords 1265.993 38.395 6038.206
+ CompletionRadius 45
+}
+SCR_SearchAndDestroyWaypoint zone3_aiwp_2_sead : "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et" {
+ coords 1264.18 36.02 6049.941
+ CompletionRadius 60
+}

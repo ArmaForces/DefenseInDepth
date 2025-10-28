@@ -1,0 +1,6 @@
+SCR_AIWorld : "{E0A05C76552E7F58}Prefabs/AI/SCR_AIWorld.et" {
+ coords 138.185 1 128.264
+}
+SCR_GameModeEditor GameMode_Editor1 : "{D2DE7F43D48A3667}Prefabs/MP/Modes/Editor/GameMode_Editor.et" {
+ coords 142.38 1 125.638
+}

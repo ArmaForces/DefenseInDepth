@@ -1,0 +1,17 @@
+SCR_PlayerController : "{225E51284CC95CFA}Prefabs/Characters/Core/DefaultPlayerControllerMP.et" {
+ ID "1A9BA6BEFA06E3B1"
+ components {
+  SCR_HUDManagerComponent "{2FDC275D9EBCDB8B}" {
+   InfoDisplays {
+    AFM_ScoreInfoDisplay "{66B0FE74C122F849}" {
+     m_LayoutPath "{8AD3B194BF4F97D2}UI/layouts/HUD/DiD_ScoreMainHUD.layout"
+     m_eLayer ALWAYS_TOP
+    }
+    AFM_ScoreMapInfoDisplay "{66B0FE74C5366A94}" {
+     m_LayoutPath "{8AD3B194BF4F97D2}UI/layouts/HUD/DiD_ScoreMainHUD.layout"
+     m_eLayer ALWAYS_TOP
+    }
+   }
+  }
+ }
+}

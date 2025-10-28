@@ -1,0 +1,10 @@
+Projectile : "{C0BDA86B5AA5648C}Prefabs/Weapons/Core/Ammo_Rocket_Base.et" {
+ ID "DA5C6308000CDEF2"
+ components {
+  AICombatPropertiesComponent "{59C92CB0FD688D78}" {
+   Priority 100
+   UsedAgainst 31
+   IndirectlyUsedAgainst 1
+  }
+ }
+}

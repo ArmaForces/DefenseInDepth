@@ -1,0 +1,38 @@
+$grp GenericEntity {
+ zone_1_sp_1 {
+  coords 1816.024 66.126 5906.111
+ }
+ zone_1_sp_2 {
+  coords 1810.01 79.283 5808.938
+ }
+ zone_1_sp_3 {
+  coords 1753.536 81.169 5689.467
+ }
+}
+$grp SCR_DefendWaypoint : "{93291E72AC23930F}Prefabs/AI/Waypoints/AIWaypoint_Defend.et" {
+ zone1_aiwp_1_def {
+  coords 1524.759 54.905 5956.375
+  CompletionRadius 80
+ }
+ zone1_aiwp_2_def {
+  coords 1591.392 60.032 5853.747
+  CompletionRadius 120
+ }
+}
+SCR_SearchAndDestroyWaypoint zone_1_aiwp_3_sead : "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et" {
+ coords 1568.568 58.86 5899.36
+}
+$grp PS_ManualMarker : "{F72D4C32444C2999}PrefabsEditable/Markers/AttackMarker_Red.et" {
+ {
+  coords 1810.719 62.212 5902.111
+  angleY -83.898
+ }
+ {
+  coords 1671.742 73.084 5718.808
+  angleY -70.633
+ }
+ {
+  coords 1686.37 70.336 5832.286
+  angleY -73.251
+ }
+}

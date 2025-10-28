@@ -1,0 +1,248 @@
+FrameWidgetClass "{647AA70BF4EA328B}" {
+ Name "rootFrame"
+ {
+  VerticalLayoutWidgetClass "{647AA70BF4EA328A}" {
+   Name "HorizontalLayout0"
+   Slot FrameWidgetSlot "{59FA8187416ABBD5}" {
+    Anchor 0.5 0 0.5 0
+    PositionX -960
+    OffsetLeft -960
+    PositionY 0
+    OffsetTop 0
+    SizeX 1920
+    OffsetRight -960
+    SizeY 190
+    OffsetBottom -190
+   }
+   {
+    SizeLayoutWidgetClass "{647AA70BF4EA3289}" {
+     Name "SizeLayout0"
+     Slot LayoutSlot "{59FA818607A32BB3}" {
+     }
+     AllowHeightOverride 1
+     HeightOverride 50
+     {
+      HorizontalLayoutWidgetClass "{647AA70BF4EA3288}" {
+       Name "Info"
+       Slot LayoutSlot "{59FA81875A4DD4CE}" {
+       }
+       "Fill Origin" Center
+       {
+        RichTextWidgetClass "{647AA70BF4EAF5EE}" {
+         Name "ScoreBlue"
+         Slot LayoutSlot "{59F6AA923F7EE943}" {
+         }
+         Clipping Ancestor
+         Text "8"
+         "Font Size" 20
+         "Min Font Size" 20
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+         FontProperties FontProperties "{50F46E94D3213183}" {
+          Font "{EABA4FE9D014CCEF}UI/Fonts/RobotoCondensed/RobotoCondensed_Bold.fnt"
+          ShadowSize 5
+          ShadowOffset 4 4
+         }
+        }
+        ImageWidgetClass "{647AA70BF4EAF5E0}" {
+         Name "FlagSideBlue"
+         Slot LayoutSlot "{59F6AA97D4581AF3}" {
+          Padding 10 10 10 5
+         }
+         Size 60 40
+        }
+        ImageWidgetClass "{647AA70BF4EAF078}" {
+         Name "ObjectiveLeft"
+         Slot LayoutSlot "{59F6AA97D4581AF3}" {
+          Padding 0 19 0 19
+         }
+         Texture "{1B3162DF4A33793A}UI/Textures/Conflict/left_UI.edds"
+         Size 12 64
+        }
+        RichTextWidgetClass "{647AA70BF4EAF07B}" {
+         Name "TargetScore"
+         Slot LayoutSlot "{59F6AA923F7EE943}" {
+          Padding 5 0 5 0
+         }
+         Clipping Ancestor
+         Text "3"
+         "Min Font Size" 24
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+         FontProperties FontProperties "{50F46E94D3213183}" {
+          Font "{EABA4FE9D014CCEF}UI/Fonts/RobotoCondensed/RobotoCondensed_Bold.fnt"
+          ShadowSize 5
+          ShadowOffset 4 4
+         }
+        }
+        ImageWidgetClass "{647AA70BF4EAFCE8}" {
+         Name "ObjectiveRight"
+         Slot LayoutSlot "{59F6AA97D4581AF3}" {
+          Padding 0 19 0 19
+         }
+         Texture "{57035929F56B987E}UI/Textures/Conflict/right_UI.edds"
+         Size 12 64
+        }
+        ImageWidgetClass "{647AA70BF4EAFCE9}" {
+         Name "FlagSideRed"
+         Slot LayoutSlot "{59F6AA97D4581AF3}" {
+          Padding 10 10 10 5
+         }
+         Size 60 32
+        }
+        RichTextWidgetClass "{647AA70BF4EAB364}" {
+         Name "ScoreRed"
+         Slot LayoutSlot "{59F6AA923F7EE943}" {
+         }
+         Clipping Ancestor
+         Text "2"
+         "Font Size" 20
+         "Min Font Size" 20
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+         FontProperties FontProperties "{50F46E94D3213183}" {
+          Font "{EABA4FE9D014CCEF}UI/Fonts/RobotoCondensed/RobotoCondensed_Bold.fnt"
+          ShadowSize 5
+          ShadowOffset 4 4
+         }
+        }
+       }
+      }
+     }
+    }
+    RichTextWidgetClass "{647AA70BF4EAB363}" {
+     Name "FlavourText"
+     Slot LayoutSlot "{59FA818758BAF13E}" {
+     }
+     Text "<b> AHOJ </b>"
+     "Font Size" 20
+     "Min Font Size" 20
+     "Horizontal Alignment" Center
+     "Vertical Alignment" Center
+     FontProperties FontProperties "{59F8835AA39ECB3D}" {
+      Font "{EABA4FE9D014CCEF}UI/Fonts/RobotoCondensed/RobotoCondensed_Bold.fnt"
+     }
+    }
+    SizeLayoutWidgetClass "{647AA70BF4EAB362}" {
+     Name "SizeLayout1"
+     Slot LayoutSlot "{59FA81859D0F655B}" {
+     }
+     HeightOverride 36
+     AllowMinDesiredWidth 1
+     {
+      HorizontalLayoutWidgetClass "{647AA70BF4EB649E}" {
+       Name "Countdown"
+       Slot LayoutSlot "{59FA81875EAFB97E}" {
+        SizeMode Fill
+       }
+       "Fill Origin" Center
+       {
+        ImageWidgetClass "{647AA70BF4EB649D}" {
+         Name "TimerLeft"
+         Slot LayoutSlot "{59F6AA975FDBFCC6}" {
+          Padding 0 10 0 10
+         }
+         Texture "{1B3162DF4A33793A}UI/Textures/Conflict/left_UI.edds"
+         Size 16 16
+        }
+        RichTextWidgetClass "{647AA70BF4EB3CD1}" {
+         Name "CountdownWin"
+         Slot LayoutSlot "{59F6AA975807CD22}" {
+          Padding 5 0 5 0
+         }
+         Clipping Ancestor
+         Text "01:00"
+         "Font Size" 36
+         "Min Font Size" 36
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+         FontProperties FontProperties "{50F46E94D3213183}" {
+          Font "{EABA4FE9D014CCEF}UI/Fonts/RobotoCondensed/RobotoCondensed_Bold.fnt"
+          ShadowSize 5
+          ShadowOffset 4 4
+         }
+        }
+        ImageWidgetClass "{647AA70BF4EB3CD0}" {
+         Name "TimerRight"
+         Slot LayoutSlot "{59F6AA975FDBFCC6}" {
+          Padding 0 10 0 10
+         }
+         Texture "{57035929F56B987E}UI/Textures/Conflict/right_UI.edds"
+         Size 16 16
+        }
+       }
+      }
+     }
+    }
+    VerticalLayoutWidgetClass "{647AA70BF4EBD0D5}" {
+     Name "Root"
+     Slot LayoutSlot "{59FA8961A9C51FBF}" {
+      Padding 0 7.5 0 7.5
+     }
+     {
+      RichTextWidgetClass "{647AA70BF4EBD0CA}" {
+       Prefab "{0000000074BDF549}"
+       Name "Popup"
+       Slot LayoutSlot "{59FA897D931ACF38}" {
+        Padding 0 0 0 3
+       }
+       Color 0.761 0.392 0.078 1
+       Text "  "
+       "Font Size" 25
+       "Min Font Size" 25
+       "Horizontal Alignment" Center
+       "Vertical Alignment" Center
+       FontProperties FontProperties "{59FA8964582BD1E3}" {
+        Font "{EABA4FE9D014CCEF}UI/Fonts/RobotoCondensed/RobotoCondensed_Bold.fnt"
+        ShadowSize 5
+        ShadowOffset 4 4
+       }
+      }
+      SizeLayoutWidgetClass "{647AA70BF4EBD0CB}" {
+       Name "SizeLayoutProgress"
+       Slot LayoutSlot "{59FA897D931ACE91}" {
+        HorizontalAlign 1
+        VerticalAlign 1
+       }
+       AllowWidthOverride 1
+       WidthOverride 500
+       AllowHeightOverride 1
+       HeightOverride 4
+       {
+        ProgressBarWidgetClass "{647AA70BF4EB9392}" {
+         Prefab "{00000000FF1C5BAD}"
+         Name "Progress"
+         Slot LayoutSlot "{59FA8186ECFDB84B}" {
+         }
+         "Is Visible" 0
+         Color 0.761 0.392 0.078 0.824
+         style SimpleWithBackground
+         Maximum 1
+         Current 0.5
+         "Draw Background" 0
+        }
+       }
+      }
+      RichTextWidgetClass "{647AA70BF4EB9391}" {
+       Prefab "{0000000044961AA6}"
+       Name "PopupSmall"
+       Slot LayoutSlot "{59FA897D931ACE14}" {
+        Padding 0 3 0 0
+       }
+       "Is Visible" 0
+       "Font Size" 20
+       "Min Font Size" 20
+       "Horizontal Alignment" Center
+       "Vertical Alignment" Center
+       FontProperties FontProperties "{59FA896568D26556}" {
+        Font "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt"
+        ShadowSize 5
+        ShadowOffset 4 4
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

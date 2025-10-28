@@ -1,0 +1,44 @@
+PS_ManualMarker {
+ ID "66ACD57B8D2812E6"
+ components {
+  MeshObject "{66ACD57B8D2812E3}" {
+   Object "{4CB958C15554E9DF}system/wbdata/Gizmo3D/axisZ.xob"
+  }
+  PS_EditableMarkerComponent "{66ACD57B8D2812F4}" {
+   m_EntityType SYSTEM
+   m_UIInfo SCR_EditableDescriptorUIInfo "{66ACD57B8D2812F0}" {
+    Name "#PS-EditableEntity_MapMarker"
+    Icon "{5E7A3FF224D598E3}UI/Textures/FieldManual/Gameplay/Navigation/Tiles/protractor-icon-brown_ui.edds"
+    m_Image "{5E7A3FF224D598E3}UI/Textures/FieldManual/Gameplay/Navigation/Tiles/protractor-icon-brown_ui.edds"
+    m_aAuthoredLabels {
+     1
+    }
+    m_aAutoLabels {
+     7
+    }
+    m_sNameFormat "Marker"
+   }
+   m_bAutoRegister ALWAYS
+   m_bVisible 0
+   m_bStatic 1
+   m_Flags 71
+  }
+  SCR_EditableEntityVisibilityChildComponent "{66ACD57B8D281D0A}" {
+   m_State 96
+  }
+  RplComponent "{66ACD57B8D281D08}" {
+   Streamable Disabled
+  }
+  Hierarchy "{66ACD57B8D281D07}" {
+  }
+ }
+ coords 1060.328 39.01 2682.178
+ angleY 90
+ m_sImageSet "{E23427CAC80DA8B7}UI/Textures/Icons/icons_mapMarkersUI.imageset"
+ m_sImageSetGlow "{67B3A6DC2D712B52}UI/Textures/Icons/icons_mapMarkersUI-glow.imageset"
+ m_MarkerColor 0 0.125 0.502 1
+ m_sQuadName "dot"
+ m_fWorldSize 20
+ m_bVisibleForEmptyFaction 1
+ m_bShowForAnyFaction 1
+}
