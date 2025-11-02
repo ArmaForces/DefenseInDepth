@@ -307,7 +307,6 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		
 		GetGame().GetCallqueue().Remove(GameEndDefendersWin);
 		
-		//SetupActiveSpawns();
 		GetGame().GetCallqueue().CallLater(RespawnAllSpectators, 1000 * 5); 
 		RPC_DoProgressToNextZone();
 		Rpc(RPC_DoProgressToNextZone);

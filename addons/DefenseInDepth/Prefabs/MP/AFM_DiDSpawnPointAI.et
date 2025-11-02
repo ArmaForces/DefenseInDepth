@@ -1,0 +1,8 @@
+AFM_SpawnPointEntity {
+ ID "66B922421699B394"
+ components {
+  GameHierarchyComponent "{66B92242661C590F}" {
+  }
+ }
+ coords 0.281 0.076 -0.303
+}
