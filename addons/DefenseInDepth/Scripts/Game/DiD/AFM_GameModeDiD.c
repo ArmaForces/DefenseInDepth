@@ -21,77 +21,25 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	
 	[Attribute("5", UIWidgets.EditBox, "Base AI spawn count", category: "DiD")]
 	int m_iBaseAiSpawnCount;
-	
-	[Attribute("", UIWidgets.Auto, desc: "Names of waypoints to assign to AI groups in zone 1", category: "DiD")]
-	protected ref array<string> m_aWaypointNamesZone1;
-	
-	[Attribute("", UIWidgets.Auto, desc: "Names of waypoints to assign to AI groups in zone 2", category: "DiD")]
-	protected ref array<string> m_aWaypointNamesZone2;
-	
-	[Attribute("", UIWidgets.Auto, desc: "Names of waypoints to assign to AI groups in zone 3", category: "DiD")]
-	protected ref array<string> m_aWaypointNamesZone3;
-	
-	
-	[Attribute("", UIWidgets.Auto, desc: "Names of spawn points where spawn ai in zone 1", category: "DiD")]
-	protected ref array<string> m_aSpawnNamesZone1;
-	
-	[Attribute("", UIWidgets.Auto, desc: "Names of spawn points where spawn ai in zone 2", category: "DiD")]
-	protected ref array<string> m_aSpawnNamesZone2;
-	
-	[Attribute("", UIWidgets.Auto, desc: "Names of spawn points where spawn ai in zone 3", category: "DiD")]
-	protected ref array<string> m_aSpawnNamesZone3;
-	
-	
-	protected ref array<ref array<string>> m_aZoneWaypoints = {
-		{}, //Dummy element since zones are from 0 (pregame) to 3
-		m_aWaypointNamesZone1, m_aWaypointNamesZone2, m_aWaypointNamesZone3
-	};
-	
-	protected ref array<ref array<string>> m_aZoneSpawnpoints = {
-		{}, //Dummy element since zones are from 0 (pregame) to 3
-		m_aSpawnNamesZone1, m_aSpawnNamesZone2, m_aSpawnNamesZone3
-	};
 		
 	[Attribute("", UIWidgets.Auto, desc: "AI Group prefabs", category: "DiD")]
 	protected ref array<ResourceName> m_aAIGroupPrefabs;
 	
-	[Attribute("", UIWidgets.Auto, desc: "Names of zone polygons", category: "DiD")]
-	protected ref array<string> m_aZonePolygons;
-	
 	protected SCR_FactionManager m_FactionManager;
+	protected AFM_DiDZoneSystem m_ZoneSystem;
 	protected ref ScriptInvoker m_OnMatchSituationChanged;
 
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected bool m_bIsGameRunning = false;
-
-	[RplProp(onRplName: "OnMatchSituationChanged")]
-	protected bool m_bIsTimerRunning = true;
-
-	[RplProp(onRplName: "OnMatchSituationChanged")]
-	protected bool m_bIsWarmup = true;
-	
-	[RplProp(onRplName: "OnMatchSituationChanged")]
-	protected WorldTimestamp m_fZoneTimeoutTimestamp;
 	
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected WorldTimestamp m_fStartTimestamp;
-	
-	[RplProp(onRplName: "OnMatchSituationChanged")]
-	protected int m_iZoneRemainingSeconds;
 	
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected int m_iDefendersRemaining = 0;
 	
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected int m_iAttackersRemaining = 0;
-	
-	// -1: pre match, 0: zone setup, 1-3 zones outer, middle, inner
-	[RplProp(onRplName: "OnMatchSituationChanged")]
-	protected int m_iCurrentZone = -1;
-	
-	protected int m_iCurrentTimer = 0;
-	protected WorldTimestamp m_fLastWaveSpawnTime;
-	protected WorldTimestamp m_fLastZoneAdvanceTime;
 	
 	//------------------------------------------------------------------------------------------------
 	ScriptInvoker GetOnMatchSituationChanged()
@@ -112,10 +60,25 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	{
 		super.EOnInit(owner);
 		
+		if (SCR_Global.IsEditMode())
+			return;
+		
 		m_FactionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
 		if (!m_FactionManager)
 		{
 			Print("Faction manager component is missing!", LogLevel.ERROR);
+		}
+		
+		m_ZoneSystem = AFM_DiDZoneSystem.GetInstance();
+		if (!m_ZoneSystem)
+		{
+			Print("AFM_DiDZoneSystem is missing!", LogLevel.ERROR);
+		}
+		else
+		{
+			m_ZoneSystem.Initialize(this, m_iZonePrepareTimeSeconds, m_iZoneDefenseTimeSeconds, m_iBaseWaveTime, m_iBaseAiSpawnCount, m_sAttackerFactionKey, m_aAIGroupPrefabs);
+			m_ZoneSystem.GetOnZoneChanged().Insert(OnZoneChanged);
+			m_ZoneSystem.GetOnTimerStateChanged().Insert(OnTimerStateChanged);
 		}
 	}
 	
@@ -129,11 +92,14 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		
 		ChimeraWorld world = GetGame().GetWorld();
 		m_fStartTimestamp = world.GetServerTimestamp().PlusSeconds(m_iZonePrepareTimeSeconds);
-		m_fZoneTimeoutTimestamp = world.GetServerTimestamp().PlusSeconds(m_iZonePrepareTimeSeconds);
 		m_bIsGameRunning = true;
-		GetGame().GetCallqueue().CallLater(StartDiDGame, m_iZonePrepareTimeSeconds * 1000);
-		m_iCurrentZone = 0;
-		m_fLastWaveSpawnTime = world.GetServerTimestamp().PlusSeconds(-m_iBaseWaveTime);
+		
+		if (m_ZoneSystem)
+			m_ZoneSystem.StartZoneSystem();
+		
+		//start the main game loop with 1Hz frequency
+		GetGame().GetCallqueue().CallLater(MainGameLoop, 1000, true);
+		
 		OnMatchSituationChanged();
 		Replication.BumpMe();
 	}
@@ -141,13 +107,14 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	
 	protected void MainGameLoop()
 	{
-		if (!IsMaster() || !m_bIsGameRunning || m_bIsWarmup)
+		if (!IsMaster() || !m_bIsGameRunning || !m_ZoneSystem)
 			return;
 		
-		ChimeraWorld world = GetGame().GetWorld();
-		WorldTimestamp now = world.GetServerTimestamp();
+		if (m_ZoneSystem.IsWarmup())
+			return;
+		
 		int remainingDefenders = GetFactionRemainingPlayersCount(m_sDefenderFactionKey);
-		int attackersInZone = GetAICountInsideZone();
+		int attackersInZone = m_ZoneSystem.GetAICountInCurrentZone();
 		
 		if (remainingDefenders != m_iDefendersRemaining)
 		{
@@ -158,175 +125,77 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		if (remainingDefenders == 0)
 		{
 			Print("All defenders are dead, progress to next stage");
-			ProgressToNextZone();
+			m_ZoneSystem.ProgressToNextZone();
 		}
 		
 		if (attackersInZone != m_iAttackersRemaining)
 		{
 			if (attackersInZone > remainingDefenders)
 			{
-				FreezeTime();
+				m_ZoneSystem.FreezeTimer();
 			} else
 			{
-				UnfreezeTime();
+				m_ZoneSystem.UnfreezeTimer();
 			}
 			OnMatchSituationChanged();
 			Replication.BumpMe();
 		}
 		
-		int diff = Math.AbsFloat(now.DiffSeconds(m_fLastWaveSpawnTime));
-		if (diff > m_iBaseWaveTime)
-		{
-			m_fLastWaveSpawnTime = now;
-			int spawnCount = s_AIRandomGenerator.RandInt(1, m_iCurrentZone + 1) * m_iBaseAiSpawnCount;
-			for(int i = 0; i < spawnCount; i++)
-			{
-				SpawnAI(m_aZoneSpawnpoints[m_iCurrentZone].GetRandomElement(), m_aAIGroupPrefabs.GetRandomElement(), m_aZoneWaypoints[m_iCurrentZone].GetRandomElement());
-			}
-		}
+		// Update zone system logic (handles AI spawning)
+		m_ZoneSystem.UpdateZoneLogic();
 		
 		m_iDefendersRemaining = remainingDefenders;
 		m_iAttackersRemaining = attackersInZone;
 	}
 	
-	protected void FreezeTime()
-	{
-		if (!m_bIsTimerRunning)
-			return;
-		
-		m_bIsTimerRunning = false;
-		ChimeraWorld world = GetGame().GetWorld();
-		WorldTimestamp now = world.GetServerTimestamp();
-		
-		m_iZoneRemainingSeconds = m_fZoneTimeoutTimestamp.DiffSeconds(now);
-		GetGame().GetCallqueue().Remove(GameEndDefendersWin);
-		Print("Zone timer frozen, time remaining " + m_iZoneRemainingSeconds);
-		
-	}
+	//------------------------------------------------------------------------------------------------
+	// Zone system callbacks
+	//------------------------------------------------------------------------------------------------
 	
-	protected void UnfreezeTime()
+	protected void OnZoneChanged(int zoneIndex)
 	{
-		if (m_bIsTimerRunning)
-			return;
+		PrintFormat("AFM_GameModeDiD: Zone changed to %1", zoneIndex);
 		
-		m_bIsTimerRunning = true;
-		ChimeraWorld world = GetGame().GetWorld();
-		WorldTimestamp now = world.GetServerTimestamp();
-		m_fZoneTimeoutTimestamp = now.PlusSeconds(m_iZoneRemainingSeconds);
-		GetGame().GetCallqueue().CallLater(GameEndDefendersWin, m_iZoneRemainingSeconds * 1000);
-		Print("Zone timer restarted");
-	}
-	
-	protected void SpawnAI(string spawnpointName, ResourceName groupPrefab, string waypointName)
-	{
-		PrintFormat("Spawning AI group %1 at %2", groupPrefab, spawnpointName);
-		IEntity e = GetGame().GetWorld().FindEntityByName(spawnpointName);
-		if (!e)
-			return;
-		EntitySpawnParams spawnParams = new EntitySpawnParams();
-		vector mat[4];
-		e.GetWorldTransform(mat);
-		spawnParams.Transform = mat;
-		IEntity entity = GetGame().SpawnEntityPrefab(Resource.Load(groupPrefab), GetGame().GetWorld(), spawnParams);
-		if (!entity)
-			return;
-		
-		AIGroup aigroup = AIGroup.Cast(entity);
-		if (!aigroup)
-			return;
-		
-		
-		IEntity wp = GetGame().GetWorld().FindEntityByName(waypointName);
-		AIWaypoint aiwp = AIWaypoint.Cast(wp);
-		if (!aiwp)	
-			return;
-		
-		aigroup.AddWaypoint(aiwp);
-		GetGame().GetCallqueue().CallLater(DisableAIUncon, 500, false, aigroup);
-	}
-	
-	protected void DisableAIUncon(AIGroup group)
-	{
-		array<AIAgent> agents = {};
-		group.GetAgents(agents);
-		
-		foreach(AIAgent agent: agents)
+		if (!m_ZoneSystem.IsWarmup())
 		{
-			IEntity agentEntity = agent.GetControlledEntity();
-			SCR_CharacterDamageManagerComponent damageMgr = SCR_CharacterDamageManagerComponent.Cast(agentEntity.FindComponent(SCR_CharacterDamageManagerComponent));
-			if (!damageMgr)
-				continue;
-			damageMgr.SetPermitUnconsciousness(false, true);
+			// Zone defense phase started
+			GetGame().GetCallqueue().CallLater(RespawnAllSpectators, 1000);
+			GetGame().GetCallqueue().CallLater(GameEndDefendersWin, m_ZoneSystem.GetZoneDefenseTimeSeconds() * 1000);
 		}
-	}
-	
-	protected void StartDiDGame()
-	{
-		if (!IsMaster() || m_iCurrentZone != 0)
-			return;
-		
-		Print("Progressing to first zone");
-		
-		
-		ChimeraWorld world = GetGame().GetWorld();
-		m_iCurrentZone = 1;
-		m_fLastZoneAdvanceTime = world.GetServerTimestamp();
-		m_fZoneTimeoutTimestamp = m_fLastZoneAdvanceTime.PlusSeconds(m_iZoneDefenseTimeSeconds);
-		RespawnAllSpectators();
-		
-		GetGame().GetCallqueue().CallLater(GameEndDefendersWin, m_iZoneDefenseTimeSeconds * 1000);
-		
-		//start the main game loop with 1Hz frequency
-		GetGame().GetCallqueue().CallLater(MainGameLoop, 1000, true);
-		m_bIsWarmup = false;
-		Replication.BumpMe();
-	}
-	
-	protected void ProgressToNextZone()
-	{
-		if (!IsMaster())
-			return;
-		
-		UnfreezeTime();
-		
-		ChimeraWorld world = GetGame().GetWorld();
-		Print("Progressing to next stage from stage " + m_iCurrentZone);
-		m_iCurrentZone = m_iCurrentZone + 1;
-		if (m_iCurrentZone > 3)
+		else
 		{
-			GameEndAttackersWin();
-			return;
+			// Zone warmup/preparation phase
+			GetGame().GetCallqueue().Remove(GameEndDefendersWin);
+			GetGame().GetCallqueue().CallLater(RespawnAllSpectators, 1000 * 5);
 		}
-		//setup warmup
-		m_fLastZoneAdvanceTime = world.GetServerTimestamp();
-		m_bIsWarmup = true;
 		
-		GetGame().GetCallqueue().CallLater(EndWarmup, m_iZonePrepareTimeSeconds * 1000);
-		m_fZoneTimeoutTimestamp = m_fLastZoneAdvanceTime.PlusSeconds(m_iZonePrepareTimeSeconds);
-		
-		
-		GetGame().GetCallqueue().Remove(GameEndDefendersWin);
-		
-		GetGame().GetCallqueue().CallLater(RespawnAllSpectators, 1000 * 5); 
 		RPC_DoProgressToNextZone();
 		Rpc(RPC_DoProgressToNextZone);
 		OnMatchSituationChanged();
 		Replication.BumpMe();
 	}
 	
-	protected void EndWarmup()
+	protected void OnTimerStateChanged()
 	{
-		if (!m_bIsWarmup)
-			return;
-		m_bIsWarmup = false;
+		if (m_ZoneSystem.IsTimerRunning())
+		{
+			// Timer unfrozen
+			GetGame().GetCallqueue().CallLater(GameEndDefendersWin, m_ZoneSystem.GetZoneDefenseTimeSeconds() * 1000);
+		}
+		else
+		{
+			// Timer frozen
+			GetGame().GetCallqueue().Remove(GameEndDefendersWin);
+		}
 		
-		ChimeraWorld world = GetGame().GetWorld();
-		m_fZoneTimeoutTimestamp = world.GetServerTimestamp().PlusSeconds(m_iZoneDefenseTimeSeconds);
-		GetGame().GetCallqueue().CallLater(GameEndDefendersWin, m_iZoneDefenseTimeSeconds * 1000);
-		RespawnAllSpectators();
-		
-		Print("Warmup ending" + m_iCurrentZone);
+		OnMatchSituationChanged();
 		Replication.BumpMe();
+	}
+	
+	void OnAllZonesCompleted()
+	{
+		Print("All zones completed, attackers win!");
+		GameEndAttackersWin();
 	}
 
 	
@@ -429,59 +298,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		return remainingPlayers;
 	}
 	
-	protected int GetAICountInsideZone()
-	{
-		if (!m_aZonePolygons.IsIndexValid(m_iCurrentZone))
-			return 0;
-		
-		ChimeraWorld world = GetGame().GetWorld();
-		WorldTimestamp timeStart = world.GetServerTimestamp();
-		
-		IEntity zoneEntity = world.FindEntityByName(m_aZonePolygons[m_iCurrentZone]);
-		vector zonePos = zoneEntity.GetOrigin();
-		PolylineShapeEntity zonePolyline = PolylineShapeEntity.Cast(zoneEntity);
-		if (!zonePolyline)
-			return 0;
-		
-		array<vector> zonePolylinePoints3d = {};
-		zonePolyline.GetPointsPositions(zonePolylinePoints3d);
-		
-		array<float> zonePolylinePoints2d = {};
-		foreach(vector p: zonePolylinePoints3d)
-		{
-			zonePolylinePoints2d.Insert(p[0] + zonePos[0]);
-			zonePolylinePoints2d.Insert(p[2] + zonePos[2]);
-		}
-		
-		array<AIAgent> agents = {};
-		GetGame().GetAIWorld().GetAIAgents(agents);
-		
-		int count = 0;
-		int totalAgentCount = 0;
-		foreach(AIAgent agent: agents)
-		{
-			if (!agent.IsInherited(SCR_ChimeraAIAgent) || !agent.IsInherited(ChimeraAIAgent))
-				continue;
-
-			IEntity agentEntity = agent.GetControlledEntity();
-			if (!agentEntity)
-				continue;
-			
-			SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(agentEntity);
-			if (!character || character.GetFactionKey() != m_sAttackerFactionKey)
-				continue;
-			
-			vector pos = character.GetOrigin();
-			if (Math2D.IsPointInPolygon(zonePolylinePoints2d, pos[0], pos[2]))
-				count++;
-			totalAgentCount++;
-		}
-		
-		WorldTimestamp end = world.GetServerTimestamp();
-		PrintFormat("GetAICountInsideZone found %1/%2 AIs. Took %3ms", count, totalAgentCount, end.DiffMilliseconds(timeStart).ToString(), level: LogLevel.DEBUG);
-		return count;
-	}
-	
+	//------------------------------------------------------------------------------------------------
+	// Public getters
+	//------------------------------------------------------------------------------------------------
 	
 	int GetRedforScore()
 	{
@@ -495,7 +314,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	
 	int GetCurrentZone()
 	{
-		return m_iCurrentZone;
+		if (m_ZoneSystem)
+			return m_ZoneSystem.GetCurrentZone();
+		return -1;
 	}
 	
 	bool IsGameRunning()
@@ -505,21 +326,25 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	
 	bool IsTimerRunning()
 	{
-		return m_bIsTimerRunning;
+		if (m_ZoneSystem)
+			return m_ZoneSystem.IsTimerRunning();
+		return true;
 	}
 	
 	bool IsWarmup()
 	{
-		return m_bIsWarmup;
+		if (m_ZoneSystem)
+			return m_ZoneSystem.IsWarmup();
+		return true;
 	}
 	
 	WorldTimestamp GetVictoryTimestamp()
 	{
-		if (m_bIsTimerRunning)
-			return m_fZoneTimeoutTimestamp;
+		if (m_ZoneSystem)
+			return m_ZoneSystem.GetZoneTimeoutTimestamp();
 		
 		ChimeraWorld world = GetGame().GetWorld();
-		return world.GetServerTimestamp().PlusSeconds(m_iZoneRemainingSeconds);
+		return world.GetServerTimestamp();
 	}
 	
 	WorldTimestamp GetGameStartTimestamp()

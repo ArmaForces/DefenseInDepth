@@ -1,0 +1,7 @@
+SCR_SearchAndDestroyWaypoint : "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et" {
+ ID "663CBEF736DEBDE0"
+ components {
+  Hierarchy "{66C71AE73F4F713E}" {
+  }
+ }
+}

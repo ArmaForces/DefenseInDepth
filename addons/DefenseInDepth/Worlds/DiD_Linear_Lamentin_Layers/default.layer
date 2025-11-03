@@ -28,7 +28,8 @@ PerceptionManager PerceptionManager1 : "{028DAEAD63E056BE}Prefabs/World/Game/Per
 }
 AFM_GameModeDiD AFM_GameMode_DiD1 : "{E508D7FF014D49F1}Prefabs/MP/Modes/AFM_GameMode_DiD.et" {
  coords 1390.949 46.043 6040.119
- m_iZonePrepareTimeSeconds 120
- m_iBaseWaveTime 90
+ m_iZonePrepareTimeSeconds 10
+ m_iZoneDefenseTimeSeconds 30
+ m_iBaseWaveTime 5
  m_iBaseAiSpawnCount 4
 }

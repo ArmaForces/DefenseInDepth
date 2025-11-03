@@ -1,7 +1,18 @@
 AFM_SpawnPointEntity {
  ID "66B922421699B394"
  components {
-  GameHierarchyComponent "{66B92242661C590F}" {
+  MeshObject "{66C729B5E97AEE30}" {
+   Object "{16D18A4925ADB872}system/wbdata/MaterialEditor/MaterialSphere.xob"
+   Materials {
+    MaterialAssignClass "{66C729B583436CAD}" {
+     SourceMaterial "DummyMaterial"
+     AssignedMaterial "{0058962187F9321A}system/wbdata/Gizmo3D/gizmo3D.emat"
+    }
+   }
+  }
+  SCR_EditableEntityVisibilityChildComponent "{66C729B5A2A7A6BD}" {
+  }
+  Hierarchy "{66C71AE7D4ED2C59}" {
   }
  }
  coords 0.281 0.076 -0.303

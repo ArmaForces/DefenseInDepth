@@ -5,8 +5,7 @@ class AFM_DiDZoneComponentClass: ScriptComponentClass
 class AFM_DiDZoneComponent: ScriptComponent
 {
 	[Attribute("", UIWidgets.Auto, desc: "AI Group prefabs", category: "DiD")]
-	protected ref array<ResourceName> m_aAIGroupPrefabs;
-	
+	protected ref array<ResourceName> m_aAdditionalAIGroups;
 	
 	[Attribute("DidZone", UIWidgets.Auto, desc: "Zone name", category: "DiD")]
 	protected string m_sZoneName;
@@ -26,10 +25,17 @@ class AFM_DiDZoneComponent: ScriptComponent
 		if (SCR_Global.IsEditMode())
 			return;
 		
-		IEntity e = owner.GetChildren();
+		GetGame().GetCallqueue().CallLater(LateInit, 5000);
+	}
+	
+	protected void LateInit()
+	{
+		IEntity e = GetOwner().GetChildren();
+		if (!e)
+			PrintFormat("AFM_DiDZoneComponent %1: No children found!", m_sZoneName, level: LogLevel.ERROR);
+		
 		while (e)
 		{
-			Print("Parsing child " + e);
 			switch (e.Type())
 			{
 				case PolylineShapeEntity:
@@ -38,13 +44,15 @@ class AFM_DiDZoneComponent: ScriptComponent
 				case AFM_SpawnPointEntity:
 					m_aSpawnPoints.Insert(AFM_SpawnPointEntity.Cast(e));
 					break;
+				case SCR_DefendWaypoint:
+				case SCR_SearchAndDestroyWaypoint:
 				case SCR_AIWaypoint:
 					m_aAIWaypoints.Insert(SCR_AIWaypoint.Cast(e));
 					break;
 				default:
 					PrintFormat("AFM_DiDZoneComponent %1: Unknown type %2", m_sZoneName, e.Type().ToString());
 			}
-			e.GetSibling();
+			e = e.GetSibling();
 		}
 		
 		if (!m_PolylineEntity)
@@ -60,9 +68,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 			PrintFormat("AFM_DiDZoneComponent %1: Zone registered", m_sZoneName);
 	}
 	
-	protected int GetAICountInsideZone()
+	int GetAICountInsideZone()
 	{
 		ChimeraWorld world = GetGame().GetWorld();
+		WorldTimestamp timeStart = world.GetServerTimestamp();
 	
 		if (!m_PolylineEntity)
 			return 0;
@@ -83,6 +92,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 		GetGame().GetAIWorld().GetAIAgents(agents);
 		
 		int count = 0;
+		int totalAgentCount = 0;
+		FactionKey attackerFactionKey = "USSR"; //TODO - read this from config
+		
 		foreach(AIAgent agent: agents)
 		{
 			if (!agent.IsInherited(SCR_ChimeraAIAgent) || !agent.IsInherited(ChimeraAIAgent))
@@ -93,15 +105,77 @@ class AFM_DiDZoneComponent: ScriptComponent
 				continue;
 			
 			SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(agentEntity);
-			if (!character || character.GetFactionKey() != "USSR") //TODO! Remove hardcoded faction key
+			if (!character || character.GetFactionKey() != attackerFactionKey)
 				continue;
 			
 			vector pos = character.GetOrigin();
 			if (Math2D.IsPointInPolygon(zonePolylinePoints2d, pos[0], pos[2]))
 				count++;
+			totalAgentCount++;
 		}
 		
+		WorldTimestamp end = world.GetServerTimestamp();
+		PrintFormat("AFM_DiDZoneComponent %1: Found %2/%3 AIs inside zone. Took %4ms", m_sZoneName, count, totalAgentCount, end.DiffMilliseconds(timeStart).ToString(), level: LogLevel.DEBUG);
 		return count;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	void SpawnAI(ResourceName groupPrefab)
+	{
+		if (m_aSpawnPoints.Count() == 0)
+		{
+			PrintFormat("AFM_DiDZoneComponent %1: No spawn points available", m_sZoneName, LogLevel.WARNING);
+			return;
+		}
+		
+		if (m_aAIWaypoints.Count() == 0)
+		{
+			PrintFormat("AFM_DiDZoneComponent %1: No waypoints available", m_sZoneName, LogLevel.WARNING);
+			return;
+		}
+		
+		AFM_SpawnPointEntity spawnPoint = m_aSpawnPoints.GetRandomElement();
+		SCR_AIWaypoint waypoint = m_aAIWaypoints.GetRandomElement();
+		
+		PrintFormat("AFM_DiDZoneComponent %1: Spawning AI group %2", m_sZoneName, groupPrefab);
+		
+		EntitySpawnParams spawnParams = new EntitySpawnParams();
+		vector mat[4];
+		spawnPoint.GetWorldTransform(mat);
+		spawnParams.Transform = mat;
+		
+		IEntity entity = GetGame().SpawnEntityPrefab(Resource.Load(groupPrefab), GetGame().GetWorld(), spawnParams);
+		if (!entity)
+		{
+			PrintFormat("AFM_DiDZoneComponent %1: Failed to spawn entity", m_sZoneName, LogLevel.ERROR);
+			return;
+		}
+		
+		AIGroup aigroup = AIGroup.Cast(entity);
+		if (!aigroup)
+		{
+			PrintFormat("AFM_DiDZoneComponent %1: Spawned entity is not an AIGroup", m_sZoneName, LogLevel.ERROR);
+			return;
+		}
+		
+		aigroup.AddWaypoint(waypoint);
+		GetGame().GetCallqueue().CallLater(DisableAIUnconsciousness, 500, false, aigroup);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	protected void DisableAIUnconsciousness(AIGroup group)
+	{
+		array<AIAgent> agents = {};
+		group.GetAgents(agents);
+		
+		foreach(AIAgent agent: agents)
+		{
+			IEntity agentEntity = agent.GetControlledEntity();
+			SCR_CharacterDamageManagerComponent damageMgr = SCR_CharacterDamageManagerComponent.Cast(agentEntity.FindComponent(SCR_CharacterDamageManagerComponent));
+			if (!damageMgr)
+				continue;
+			damageMgr.SetPermitUnconsciousness(false, true);
+		}
 	}
 	
 	int GetZoneIndex()
@@ -112,6 +186,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 	string GetZoneName()
 	{
 		return m_sZoneName;
+	}
+	
+	//TODO: Use me
+	ref array<ResourceName> GetZoneAdditionalAIGroupPrefabs()
+	{
+		return m_aAdditionalAIGroups;
 	}
 }
 

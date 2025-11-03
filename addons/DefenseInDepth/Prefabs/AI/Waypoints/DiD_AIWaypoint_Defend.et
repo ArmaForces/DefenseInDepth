@@ -1,0 +1,7 @@
+SCR_DefendWaypoint : "{93291E72AC23930F}Prefabs/AI/Waypoints/AIWaypoint_Defend.et" {
+ ID "663CBEF736DEBDE0"
+ components {
+  Hierarchy "{66C71AE734C4EF69}" {
+  }
+ }
+}
