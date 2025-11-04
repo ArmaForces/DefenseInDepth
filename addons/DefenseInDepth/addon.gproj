@@ -3,7 +3,7 @@ GameProject {
  GUID "66AAF4C2037310FC"
  TITLE "DefenseInDepth"
  Dependencies {
-  "58D0FB3206B6F859" "5EAF2B0473DB5A99" ""
+  "58D0FB3206B6F859" "5EAF2B0473DB5A99"
  }
  Configurations {
   GameProjectConfig PC {

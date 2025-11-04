@@ -3,6 +3,9 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
   components {
    AFM_DiDZoneComponent "{66B900F8E01E1100}" {
     m_iZoneIndex 3
+    m_iPrepareTimeSeconds 10
+    m_iDefenseTimeSeconds 42
+    m_iWaveIntervalSeconds 13
    }
   }
   coords 1550.1 39 2807.664
@@ -301,7 +304,12 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
  zone_2 {
   components {
    AFM_DiDZoneComponent "{66B900F8E01E1100}" {
+    m_sZoneName "DidZone 2"
     m_iZoneIndex 2
+    m_iPrepareTimeSeconds 10
+    m_iDefenseTimeSeconds 25
+    m_iWaveIntervalSeconds 15
+    m_iSpawnCountPerWave 2
    }
   }
   coords 1388.161 39 2774.808
@@ -598,6 +606,15 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
   }
  }
  zone_1 {
+  components {
+   AFM_DiDZoneComponent "{66B900F8E01E1100}" {
+    m_sZoneName "DidZone 1"
+    m_iPrepareTimeSeconds 10
+    m_iDefenseTimeSeconds 60
+    m_iWaveIntervalSeconds 10
+    m_iSpawnCountPerWave 1
+   }
+  }
   coords 1250.854 39 2730.854
   {
    PolylineShapeEntity {
