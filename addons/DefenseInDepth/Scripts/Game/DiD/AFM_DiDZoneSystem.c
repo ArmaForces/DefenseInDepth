@@ -291,6 +291,18 @@ class AFM_DiDZoneSystem: GameSystem
 		return zone.GetDefenderCount();
 	}
 	
+	AFM_PlayerSpawnPointEntity GetCurrentZonePlayerSpawnPoint()
+	{
+		if (!m_aZones.IsIndexValid(m_iActiveZone) || m_iActiveZone < 1)
+			return null;
+		
+		AFM_DiDZoneComponent zone = m_aZones[m_iActiveZone];
+		if (!zone)
+			return null;
+		
+		return zone.GetPlayerSpawnPoint();
+	}
+	
 	int GetCurrentZone()
 	{
 		return m_iActiveZone;

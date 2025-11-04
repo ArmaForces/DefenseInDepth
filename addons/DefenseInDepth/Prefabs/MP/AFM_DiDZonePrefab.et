@@ -10,25 +10,4 @@ AFM_DiDZoneEntity {
   }
  }
  coords 1433.546 50.97 5870.503
- {
-  $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
-   zone_1_sp_3 {
-    ID "66B900FA58426554"
-    coords 320.624 30.182 -179.714
-   }
-   zone_1_sp_1 {
-    ID "66B900FA5843DAC5"
-    coords 0.281 0.076 -0.303
-   }
-  }
-  SCR_DefendWaypoint zone1_aiwp_2_def : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
-   ID "66B900FA5FA18EC8"
-   coords 157.846 9.062 -16.756
-   CompletionRadius 10
-  }
-  SCR_SearchAndDestroyWaypoint zone_1_aiwp_3_sead : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
-   ID "66B900FA5FA0579D"
-   coords 135.022 7.89 28.857
-  }
- }
 }

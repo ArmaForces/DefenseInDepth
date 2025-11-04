@@ -12,6 +12,7 @@ AFM_DiDZoneEntity zone1 {
     "{96BAB56E6558788E}Prefabs/Groups/OPFOR/Group_USSR_Team_AT.et"
    }
    m_sZoneName "Outskirts"
+   m_iPrepareTimeSeconds 15
   }
   Hierarchy "{66C71AE7EF54AAC8}" {
   }
@@ -833,14 +834,20 @@ AFM_DiDZoneEntity zone1 {
    }
   }
   $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
-   zone_1_sp_1 {
-    coords 0.281 0.076 -0.303
-   }
    zone_1_sp_2 {
     coords 375.865 28.197 -61.138
    }
    zone_1_sp_3 {
     coords 320.624 30.182 -179.714
+   }
+   zone_1_sp_8 {
+    coords 342.736 -3.273 68.415
+   }
+   zone_1_sp_1 {
+    coords -39.387 -34.61 -194.238
+   }
+   zone_1_sp_9 {
+    coords 120.732 -38.188 280.47
    }
   }
   $grp SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
@@ -852,6 +859,9 @@ AFM_DiDZoneEntity zone1 {
     coords 157.846 9.062 -16.756
     CompletionRadius 120
    }
+  }
+  AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
+   coords 78.478 6.073 20.088
   }
   SCR_SearchAndDestroyWaypoint zone_1_aiwp_3_sead : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
    coords 135.022 7.89 28.857

@@ -10,6 +10,22 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
   }
   coords 1550.1 39 2807.664
   {
+   AFM_PlayerSpawnPointEntity {
+    components {
+     Hierarchy "{66C93DD5B3ED3BDF}" {
+     }
+    }
+    coords 197.786 0 79.357
+   }
+   $grp AFM_SpawnPointEntity {
+    {
+     coords 3.609 0.076 -23.679
+     angles 0 -28.126 0
+    }
+    {
+     coords -7.304 0.165 25.476
+    }
+   }
    PolylineShapeEntity {
     components {
      Hierarchy "{66C729B67CED85A5}" {
@@ -283,21 +299,10 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
     }
    }
    SCR_DefendWaypoint {
-    ID "66B900FA5FA18EC8"
     coords 111.421 0 52.803
    }
    SCR_SearchAndDestroyWaypoint {
-    ID "66B900FA5FA0579D"
     coords 135.022 -0.001 28.857
-   }
-   AFM_SpawnPointEntity {
-    ID "66B900FA5843DAC5"
-    coords 3.609 0.076 -23.679
-    angles 0 -28.126 0
-   }
-   AFM_SpawnPointEntity {
-    ID "66B900FA58426554"
-    coords -7.304 0.165 25.476
    }
   }
  }
@@ -314,6 +319,22 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
   }
   coords 1388.161 39 2774.808
   {
+   AFM_PlayerSpawnPointEntity {
+    components {
+     Hierarchy "{66C93DD5B3ED3BDF}" {
+     }
+    }
+    coords 332.462 0 85.925
+   }
+   $grp AFM_SpawnPointEntity {
+    {
+     coords 3.609 0.076 -23.679
+     angles 0 -28.126 0
+    }
+    {
+     coords -7.304 0.165 25.476
+    }
+   }
    PolylineShapeEntity {
     components {
      Hierarchy "{66C729B67CED85A5}" {
@@ -587,21 +608,10 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
     }
    }
    SCR_DefendWaypoint {
-    ID "66B900FA5FA18EC8"
     coords 111.421 0 52.803
    }
    SCR_SearchAndDestroyWaypoint {
-    ID "66B900FA5FA0579D"
     coords 135.022 -0.001 28.857
-   }
-   AFM_SpawnPointEntity {
-    ID "66B900FA5843DAC5"
-    coords 3.609 0.076 -23.679
-    angles 0 -28.126 0
-   }
-   AFM_SpawnPointEntity {
-    ID "66B900FA58426554"
-    coords -7.304 0.165 25.476
    }
   }
  }
@@ -617,6 +627,22 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
   }
   coords 1250.854 39 2730.854
   {
+   AFM_PlayerSpawnPointEntity {
+    components {
+     Hierarchy "{66C93DD5B3ED3BDF}" {
+     }
+    }
+    coords 473.05 0 122.264
+   }
+   $grp AFM_SpawnPointEntity {
+    {
+     coords 79.918 0.076 -4.516
+     angles 0 -28.126 0
+    }
+    {
+     coords 70.197 0.165 44.076
+    }
+   }
    PolylineShapeEntity {
     components {
      Hierarchy "{66C729B67CED85A5}" {
@@ -890,21 +916,10 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
     }
    }
    SCR_DefendWaypoint {
-    ID "66B900FA5FA18EC8"
     coords 111.421 0 52.803
    }
    SCR_SearchAndDestroyWaypoint {
-    ID "66B900FA5FA0579D"
     coords 135.022 -0.001 28.857
-   }
-   AFM_SpawnPointEntity {
-    ID "66B900FA5843DAC5"
-    coords 79.918 0.076 -4.516
-    angles 0 -28.126 0
-   }
-   AFM_SpawnPointEntity {
-    ID "66B900FA58426554"
-    coords 70.197 0.165 44.076
    }
   }
  }

@@ -39,9 +39,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 	int m_iSpawnCountPerWave;
 	
 	protected PolylineShapeEntity m_PolylineEntity;
+	protected AFM_PlayerSpawnPointEntity m_PlayerSpawnPoint;
 	protected ref array<SCR_AIWaypoint> m_aAIWaypoints= {};
 	protected ref array<AFM_SpawnPointEntity> m_aSpawnPoints = {};
-	
+		
 	// Zone state management
 	protected EAFMZoneState m_eZoneState = EAFMZoneState.INACTIVE;
 	protected WorldTimestamp m_fZoneStartTime;
@@ -89,6 +90,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 				case SCR_AIWaypoint:
 					m_aAIWaypoints.Insert(SCR_AIWaypoint.Cast(e));
 					break;
+				case AFM_PlayerSpawnPointEntity:
+					m_PlayerSpawnPoint = AFM_PlayerSpawnPointEntity.Cast(e);
+					break;
 				default:
 					PrintFormat("AFM_DiDZoneComponent %1: Unknown type %2", m_sZoneName, e.Type().ToString());
 			}
@@ -101,6 +105,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 			PrintFormat("AFM_DiDZoneComponent %1: Missing AI Waypoints, zone wont work properly!", m_sZoneName, level:LogLevel.ERROR);
 		if (m_aSpawnPoints.Count() == 0)
 			PrintFormat("AFM_DiDZoneComponent %1: Missing AI Spawnpoints, zone wont work properly!", m_sZoneName, level:LogLevel.ERROR);
+		if (!m_PlayerSpawnPoint)
+			PrintFormat("AFM_DiDZoneComponent %1: Missing player spawnpoint, zone wont work properly!", m_sZoneName, level:LogLevel.ERROR);
 		
 		if (!AFM_DiDZoneSystem.GetInstance().RegisterZone(this))
 			PrintFormat("AFM_DiDZoneComponent %1: Failed to register zone!", m_sZoneName, LogLevel.ERROR);
@@ -417,7 +423,6 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return m_sZoneName;
 	}
 
-	
 	EAFMZoneState GetZoneState()
 	{
 		return m_eZoneState;
@@ -440,6 +445,11 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return m_fZoneEndTime;
 	}
 	
+	AFM_PlayerSpawnPointEntity GetPlayerSpawnPoint()
+	{
+		return m_PlayerSpawnPoint;
+	}
+	
 	protected bool IsZoneTimeExpired()
 	{
 		if (m_eZoneState != EAFMZoneState.ACTIVE)
@@ -448,19 +458,4 @@ class AFM_DiDZoneComponent: ScriptComponent
 		ChimeraWorld world = GetGame().GetWorld();
 		return world.GetServerTimestamp().GreaterEqual(m_fZoneEndTime);
 	}
-}
-
-class AFM_SpawnPointEntityClass: GenericEntityClass
-{}
-
-class AFM_SpawnPointEntity: GenericEntity
-{
-	
-}
-
-class AFM_DiDZoneEntityClass: GenericEntityClass
-{}
-
-class AFM_DiDZoneEntity: GenericEntity
-{
 }

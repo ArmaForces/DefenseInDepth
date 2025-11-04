@@ -157,6 +157,14 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	{
 		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
 		array<PS_PlayableContainer> playableContainers = playableManager.GetPlayablesSorted();
+		AFM_PlayerSpawnPointEntity currentSpawnPoint = m_ZoneSystem.GetCurrentZonePlayerSpawnPoint();
+		
+		if (!currentSpawnPoint)
+		{
+			Print("Unable to find player spawn point!", LogLevel.ERROR);
+			return;
+		}
+		
 		foreach (PS_PlayableContainer container : playableContainers)
 		{
 			PS_PlayableComponent pcomp = container.GetPlayableComponent();
@@ -167,12 +175,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 				int playerId = playableManager.GetPlayerByPlayableRemembered(pcomp.GetRplId());
 				if (playerId == -1)
 					continue;
-				RespawnPlayer(playerId, pcomp);
+				RespawnPlayer(playerId, pcomp, currentSpawnPoint.GetOrigin());
 			}
 		}
 	}
 	
-	protected void RespawnPlayer(int playerId, PS_PlayableComponent playableComponent)
+	protected void RespawnPlayer(int playerId, PS_PlayableComponent playableComponent, vector pos)
 	{
 		if (playableComponent)
 		{
@@ -180,6 +188,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			if (prefabToSpawn != "")
 			{
 				PS_RespawnData respawnData = new PS_RespawnData(playableComponent, prefabToSpawn);
+				respawnData.m_aSpawnTransform[3] = pos;
+				
 				Respawn(playerId, respawnData);
 				return;
 			}
@@ -218,37 +228,6 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		GameEnd(m_sAttackerFactionKey);
 	}
 	
-	//------------------------------------------------------------------------------------------------
-	protected int GetFactionRemainingPlayersCount(FactionKey fKey)
-	{
-		SCR_Faction faction = SCR_Faction.Cast(m_FactionManager.GetFactionByKey(fKey));
-		if (!faction)
-		{
-			PrintFormat("Could not find faction %1", fKey, level:LogLevel.WARNING);
-			return 0;
-		}
-		array<int> playerIds = new array<int>;
-		
-		faction.GetPlayersInFaction(playerIds);
-		int remainingPlayers = 0;
-		
-		foreach(int id: playerIds)
-		{
-			PlayerController pc = GetGame().GetPlayerManager().GetPlayerController(id);
-			if (pc)
-			{
-				SCR_ChimeraCharacter ent = SCR_ChimeraCharacter.Cast(pc.GetControlledEntity());		
-				if (!ent)
-					continue;
-				SCR_DamageManagerComponent damageManager = ent.GetDamageManager();
-				if (!damageManager.IsDestroyed()) {
-					remainingPlayers++;
-				}
-			}
-		}
-		PrintFormat("Found %1 players in faction %2", remainingPlayers, fKey, level: LogLevel.SPAM);
-		return remainingPlayers;
-	}
 	
 	//------------------------------------------------------------------------------------------------
 	// Public getters
