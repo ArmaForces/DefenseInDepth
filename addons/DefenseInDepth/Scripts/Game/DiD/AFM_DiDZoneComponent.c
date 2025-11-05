@@ -41,6 +41,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	[Attribute("5", UIWidgets.EditBox, "Base AI spawn count", category: "DiD")]
 	int m_iSpawnCountPerWave;
 	
+	[Attribute("50", UIWidgets.EditBox, "Max AI group count", category: "DiD")]
+	int m_iMaxAICount;
+	
 	protected PolylineShapeEntity m_PolylineEntity;
 	protected AFM_PlayerSpawnPointEntity m_PlayerSpawnPoint;
 	protected ref array<SCR_AIWaypoint> m_aAIWaypoints= {};
@@ -222,6 +225,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 			return;
 		}
 		
+		if (GetActiveAICount() > m_iMaxAICount)
+		{
+			PrintFormat("AFM_DiDZoneComponent %1: AI Group limit reached, skipping AI spawn", m_sZoneName, LogLevel.WARNING);
+			return;
+		}
+		
 		AFM_SpawnPointEntity spawnPoint = m_aSpawnPoints.GetRandomElement();
 		SCR_AIWaypoint waypoint = m_aAIWaypoints.GetRandomElement();
 		
@@ -361,6 +370,17 @@ class AFM_DiDZoneComponent: ScriptComponent
 		
 		PrintFormat("AFM_DiDZoneComponent %1: Zone UNFROZEN, resuming with %2 seconds",
 		 m_sZoneName, m_iRemainingTimeSeconds);
+	}
+	
+	protected int GetActiveAICount()
+	{
+		int cnt = 0;
+		foreach(AIGroup group: m_aSpawnedAIGroups)
+		{
+			if (group)
+				cnt++;
+		}
+		return cnt;
 	}
 	
 	//------------------------------------------------------------------------------------------------
