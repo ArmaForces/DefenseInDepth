@@ -23,6 +23,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	[Attribute("DidZone", UIWidgets.Auto, desc: "Zone name", category: "DiD")]
 	protected string m_sZoneName;
 	
+	[Attribute("1", UIWidgets.Auto, desc: "Stop the timer when redfor presence is higher than blufor?", category: "DiD")]
+	protected bool m_bStopTimerOnRedforSuperiority;
+	
 	[Attribute("1", UIWidgets.EditBox, "Zone index (1 to N), 1 is played first, N is the last zone", category: "DiD")]
 	int m_iZoneIndex;
 	
@@ -408,13 +411,16 @@ class AFM_DiDZoneComponent: ScriptComponent
 			}
 			
 			// Handle freeze/unfreeze logic
-			if (attackerCount > defenderCount && m_eZoneState == EAFMZoneState.ACTIVE)
+			if (m_bStopTimerOnRedforSuperiority)
 			{
-				FreezeZone();
-			}
-			else if (attackerCount <= defenderCount && m_eZoneState == EAFMZoneState.FROZEN)
-			{
-				UnfreezeZone();
+				if (attackerCount > defenderCount && m_eZoneState == EAFMZoneState.ACTIVE)
+				{
+					FreezeZone();
+				}
+				else if (attackerCount <= defenderCount && m_eZoneState == EAFMZoneState.FROZEN)
+				{
+					UnfreezeZone();
+				}
 			}
 			
 			if (m_eZoneState == EAFMZoneState.ACTIVE || m_eZoneState == EAFMZoneState.FROZEN)

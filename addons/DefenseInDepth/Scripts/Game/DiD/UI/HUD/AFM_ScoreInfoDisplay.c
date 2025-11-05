@@ -132,6 +132,22 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 			m_wLeftScore.SetColor(Color.FromInt(Color.WHITE));
 			m_wWinScore.SetColor(Color.FromInt(Color.WHITE));
 			SCR_PopUpNotification.GetInstance().Offset(false);
+			
+			m_wLeftFlag.SetVisible(true);
+			m_wRightFlag.SetVisible(true);
+			m_wLeftScore.SetVisible(true);
+			m_wRightScore.SetVisible(true);
+			m_wWinScore.SetVisible(true);
+		}
+		else
+		{
+			m_wCountdownOverlay.SetVisible(false);
+			m_wLeftFlag.SetVisible(false);
+			m_wRightFlag.SetVisible(false);
+			m_wLeftScore.SetVisible(false);
+			m_wRightScore.SetVisible(false);
+			m_wWinScore.SetVisible(false);
+			m_wFlavour.SetVisible(false);
 		}
 	}
 	

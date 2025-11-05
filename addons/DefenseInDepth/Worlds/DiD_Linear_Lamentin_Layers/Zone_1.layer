@@ -12,7 +12,6 @@ AFM_DiDZoneEntity zone1 {
     "{96BAB56E6558788E}Prefabs/Groups/OPFOR/Group_USSR_Team_AT.et"
    }
    m_sZoneName "Outskirts"
-   m_iPrepareTimeSeconds 90
    m_iDefenseTimeSeconds 900
   }
   Hierarchy "{66C71AE7EF54AAC8}" {

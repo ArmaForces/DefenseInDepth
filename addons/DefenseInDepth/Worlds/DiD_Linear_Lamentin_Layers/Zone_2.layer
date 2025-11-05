@@ -9,9 +9,18 @@ PS_ManualMarker : "{5CDEA09445852F9D}PrefabsEditable/Markers/SupportStationMarke
 AFM_DiDZoneEntity zone2 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
  components {
   AFM_DiDZoneComponent "{66B900F8E01E1100}" {
+   m_aAIGroupPrefabs {
+    "{30ED11AA4F0D41E5}Prefabs/Groups/OPFOR/Group_USSR_FireGroup.et"
+    "{56DC5F9D2D6119F2}Prefabs/Groups/OPFOR/KLMK/Group_USSR_MachineGunTeam_KLMK.et"
+    "{43C7A28EEB660FF8}Prefabs/Groups/OPFOR/Group_USSR_Team_GL.et"
+    "{97D45056CFC22FF2}Prefabs/Groups/OPFOR/KLMK/Group_USSR_RifleSquad_KLMK.et"
+    "{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et"
+    "{E382595E188AF8A1}Prefabs/Groups/OPFOR/KLMK/Group_USSR_Team_GL_KLMK.et"
+    "{129039549B0B82FF}Prefabs/Groups/OPFOR/KLMK/Group_USSR_Team_AT_KLMK.et"
+    "{96BAB56E6558788E}Prefabs/Groups/OPFOR/Group_USSR_Team_AT.et"
+   }
    m_sZoneName "Town"
    m_iZoneIndex 2
-   m_iPrepareTimeSeconds 60
    m_iDefenseTimeSeconds 450
    m_iWaveIntervalSeconds 60
   }

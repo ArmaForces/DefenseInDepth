@@ -28,4 +28,5 @@ PerceptionManager PerceptionManager1 : "{028DAEAD63E056BE}Prefabs/World/Game/Per
 }
 AFM_GameModeDiD AFM_GameMode_DiD1 : "{E508D7FF014D49F1}Prefabs/MP/Modes/AFM_GameMode_DiD.et" {
  coords 1390.949 46.043 6040.119
+ m_bDisableGarbageSystem 0
 }
