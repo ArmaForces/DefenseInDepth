@@ -12,7 +12,8 @@ AFM_DiDZoneEntity zone1 {
     "{96BAB56E6558788E}Prefabs/Groups/OPFOR/Group_USSR_Team_AT.et"
    }
    m_sZoneName "Outskirts"
-   m_iPrepareTimeSeconds 15
+   m_iPrepareTimeSeconds 90
+   m_iDefenseTimeSeconds 900
   }
   Hierarchy "{66C71AE7EF54AAC8}" {
   }
@@ -866,6 +867,40 @@ AFM_DiDZoneEntity zone1 {
   SCR_SearchAndDestroyWaypoint zone_1_aiwp_3_sead : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
    coords 135.022 7.89 28.857
   }
+ }
+}
+GenericEntity : "{45C675ED3CFBBEC5}Prefabs/Props/Military/Compositions/US/ArsenalBox_US.et" {
+ coords 1527.486 56.629 5921.125
+ angles 0 -78.93 0
+}
+PS_ManualMarker : "{5CDEA09445852F9D}PrefabsEditable/Markers/SupportStationMarker.et" {
+ coords 1526.361 56.515 5920.793
+ angles 0 0 0
+}
+$grp GenericEntity : "{7649AC4689618998}Prefabs/Props/Military/Compositions/US/BuildingService_US.et" {
+ {
+  components {
+   SCR_CampaignBuildingProviderComponent "{5EBCED04D0321687}" {
+    m_aAvailableTraits {
+     TRAIT_FORTIFICATION
+     THEME_MILITARY
+    }
+   }
+  }
+  coords 1528.273 56.44 5923.732
+  angles 0 -106.458 0
+ }
+ {
+  components {
+   SCR_CampaignBuildingProviderComponent "{5EBCED04D0321687}" {
+    m_aAvailableTraits {
+     TRAIT_FORTIFICATION
+     THEME_MILITARY
+    }
+   }
+  }
+  coords 1289.929 37.453 6018.585
+  angles 0 -18.07 0
  }
 }
 $grp PS_ManualMarker : "{F72D4C32444C2999}PrefabsEditable/Markers/AttackMarker_Red.et" {

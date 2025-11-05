@@ -1,3 +1,23 @@
+GenericEntity : "{45C675ED3CFBBEC5}Prefabs/Props/Military/Compositions/US/ArsenalBox_US.et" {
+ coords 1068.557 2.722 6016.626
+ angles 0 -96.592 0
+}
+PS_ManualMarker : "{5CDEA09445852F9D}PrefabsEditable/Markers/SupportStationMarker.et" {
+ coords 1069.093 2.719 6019.984
+ angles 0 0 0
+}
+GenericEntity : "{7649AC4689618998}Prefabs/Props/Military/Compositions/US/BuildingService_US.et" {
+ components {
+  SCR_CampaignBuildingProviderComponent "{5EBCED04D0321687}" {
+   m_aAvailableTraits {
+    TRAIT_FORTIFICATION
+    THEME_MILITARY
+   }
+  }
+ }
+ coords 1071.764 2.719 6018.605
+ angles 0 -3.365 0
+}
 AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
  components {
   AFM_DiDZoneComponent "{66B900F8E01E1100}" {
@@ -13,7 +33,10 @@ AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    }
    m_sZoneName "Harbour"
    m_iZoneIndex 3
-   m_iPrepareTimeSeconds 15
+   m_iPrepareTimeSeconds 120
+   m_iDefenseTimeSeconds 300
+   m_iWaveIntervalSeconds 60
+   m_iSpawnCountPerWave 8
   }
  }
  coords 1022.905 2.684 6026.365

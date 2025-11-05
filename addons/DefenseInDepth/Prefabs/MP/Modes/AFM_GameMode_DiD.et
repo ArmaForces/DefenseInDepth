@@ -43,7 +43,14 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
    m_sFreeRoamBuildingClientTrigger "{5E191CEAF4B95816}Prefabs/MP/FreeRoamBuildingClientTrigger.et"
    m_BudgetType CAMPAIGN
    m_iCompositionRefundPercentage 100
+   m_bDisassembleOnlyWhenCapturing 0
    m_OutlineManager SCR_CampaignBuildingCompositionOutlineManager "{5DF6FBB5913F3245}" {
+    m_sSlotFlatSmallLayout "{7FD4E6A668B4537A}Prefabs/Compositions/Misc/FreeRoamBuilding/Layouts/FRB_SlotFLatSmall.et"
+    m_sSlotFlatMediumLayout "{579FF731013436B5}Prefabs/Compositions/Misc/FreeRoamBuilding/Layouts/FRB_SlotFlatMedium.et"
+    m_sSlotFlatLargeLayout "{ED9D7F29497B9BF7}Prefabs/Compositions/Misc/FreeRoamBuilding/Layouts/FRB_SlotFlatLarge.et"
+    m_sSlotRoadSmallLayout "{8DBA7E7BF662A393}Prefabs/Compositions/Misc/FreeRoamBuilding/Layouts/FRB_SlotRoadSmall.et"
+    m_sSlotRoadMediumLayout "{3A5E87ADA26C6940}Prefabs/Compositions/Misc/FreeRoamBuilding/Layouts/FRB_SlotRoadMedium.et"
+    m_sSlotRoadLargeLayout "{D06D9D47008E794F}Prefabs/Compositions/Misc/FreeRoamBuilding/Layouts/FRB_SlotRoadLarge.et"
    }
    m_sPrefabsToBuildResource "{D2527D9AA5B4A33E}Configs/Editor/PlaceableEntities/Compositions/Compositions_FreeRoamBuilding.conf"
   }
@@ -64,27 +71,18 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
    m_fDuration 0
    m_bDisableControls 0
   }
-  SCR_ReconnectComponent "{5A02809D5E8ABE42}" {
-   Enabled 0
-  }
   SCR_RespawnSystemComponent "{56B2B4793051E7C9}" {
    m_SpawnLogic SCR_SpawnLogic "{66AAF4E352EDE121}" {
    }
   }
   SCR_RestoreEditorModesComponent "{66AAF4E352EDE120}" {
   }
-  SCR_SaveLoadComponent "{66AAF4E352EDE127}" {
-   m_Struct SCR_MissionStruct "{66AAF4E352EDE126}" {
-    m_Struct0 SCR_EditorStruct "{66AAF4E352EDE124}" {
-     m_AttributeList SCR_EditorAttributeList "{590C7881C296FA7D}" {
-     }
-    }
-   }
-   m_iAutosavePeriod 600
-  }
   SCR_TimeAndWeatherHandlerComponent "{66AAF4E352EDE128}" {
   }
   SCR_VotingManagerComponent "{5650BB6B6089393A}" {
+   Enabled 0
+  }
+  SCR_ReconnectComponent "{5A02809D5E8ABE42}" {
    Enabled 0
   }
  }
@@ -93,45 +91,20 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
  m_bAutoPlayerRespawn 0
  m_bAllowFactionChange 0
  m_aDisabledResourceTypes {
-  0
+  SUPPLIES
  }
  m_bTeamSwitch 1
  m_bPublicCommandBriefing 1
- m_bRemoveRedundantUnits 0
+ m_bRemoveRedundantUnits 1
  m_iFreezeTime 0
+ m_bDisableGarbageSystem 1
+ m_bDisableArmaVision 0
  m_bHolsterWeapon 0
- m_iZonePrepareTimeSeconds 90
- m_iBaseWaveTime 60
- m_iBaseAiSpawnCount 3
- m_aWaypointNamesZone1 {
-  "zone1_aiwp_1_def" "zone1_aiwp_2_def" "zone1_aiwp_3_sead"
- }
- m_aWaypointNamesZone2 {
-  "zone2_aiwp_1_def" "zone2_aiwp_2_def" "zone2_aiwp_3_sead"
- }
- m_aWaypointNamesZone3 {
-  "zone3_aiwp_1_def" "zone3_aiwp_2_sead"
- }
- m_aSpawnNamesZone1 {
-  "zone_1_sp_1" "zone_1_sp_2" "zone_1_sp_3"
- }
- m_aSpawnNamesZone2 {
-  "zone_2_sp_1" "zone_2_sp_2" "zone_2_sp_3"
- }
- m_aSpawnNamesZone3 {
-  "zone_3_sp_1" "zone_3_sp_2" "zone_3_sp_3" "zone_3_sp_4"
- }
- m_aAIGroupPrefabs {
-  "{30ED11AA4F0D41E5}Prefabs/Groups/OPFOR/Group_USSR_FireGroup.et" "{56DC5F9D2D6119F2}Prefabs/Groups/OPFOR/KLMK/Group_USSR_MachineGunTeam_KLMK.et" "{43C7A28EEB660FF8}Prefabs/Groups/OPFOR/Group_USSR_Team_GL.et" "{97D45056CFC22FF2}Prefabs/Groups/OPFOR/KLMK/Group_USSR_RifleSquad_KLMK.et" "{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et" "{E382595E188AF8A1}Prefabs/Groups/OPFOR/KLMK/Group_USSR_Team_GL_KLMK.et" "{129039549B0B82FF}Prefabs/Groups/OPFOR/KLMK/Group_USSR_Team_AT_KLMK.et" "{96BAB56E6558788E}Prefabs/Groups/OPFOR/Group_USSR_Team_AT.et"
- }
- m_aZonePolygons {
-  "pregame" "zone_1" "zone_2" "zone_3"
- }
  {
   SCR_FactionManager "5EA8C932C68D400F" : "{4A188E44289B9A50}Prefabs/MP/Managers/Factions/FactionManager_Editor.et" {
    ID "66AAF4E352ED3209"
   }
-  RadioManagerEntity : "{B8E09FAB91C4ECCD}Prefabs/Radio/RadioManager.et" {
+  RadioManagerEntity : "{B8E09FAB91C4ECCD}Prefabs/Systems/Radio/RadioManager.et" {
    ID "66AAF4E352ED3207"
   }
   ScriptedChatEntity : "{F69BC912AC8236F9}Prefabs/MP/ScriptedChatEntity.et" {

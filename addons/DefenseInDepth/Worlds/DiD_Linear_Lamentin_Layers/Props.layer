@@ -1,110 +1,96 @@
 $grp GenericEntity : "{010D5FBC85347C39}Prefabs/Compositions/Misc/SubCompositions/Fortifications/Sandbag_MG_US_01_M2HB.et" {
  {
   coords 1527.684 57.369 5912.576
-  angleY 91.257
+  angles 0 91.257 0
  }
  {
   coords 1507.335 60.344 5844.478
-  angleY 95.124
+  angles 0 95.124 0
  }
 }
 StaticModelEntity : "{23BB711062057CC5}Prefabs/Props/Military/Sandbags/Sandbag_01_bunker_plastic_foundation_camonet.et" {
  coords 1529.391 56.983 5916.61
- angleY 94.956
+ angles 0 94.956 0
 }
 $grp GenericEntity : "{258D0520BA0FC415}Prefabs/Compositions/Slotted/SlotFlatSmall/SandbagPosition_S_US_04.et" {
  {
   coords 1256.452 36.136 5995.328
-  angleY -171.978
+  angles 0 -171.978 0
  }
  {
   coords 1313.695 39.229 6039.486
-  angleY 46.44
+  angles 0 46.44 0
  }
 }
 $grp GenericEntity : "{382758319508ECF1}Prefabs/Compositions/Misc/SubCompositions/Sandbag_Barricade_US_03.et" {
  {
   coords 1302.975 38.099 6029.908
-  angleY 138.37
+  angles 0 138.37 0
  }
  {
   coords 1307.729 39.489 5899.077
-  angleY 138.37
- }
-}
-$grp GenericEntity : "{45C675ED3CFBBEC5}Prefabs/Props/Military/Compositions/US/ArsenalBox_US.et" {
- {
-  coords 1279.807 41.347 6031.457
-  angleY -53.576
- }
- {
-  coords 1527.486 56.629 5921.125
-  angleY -78.93
- }
- {
-  coords 1313.288 39.466 5904.544
-  angleY -36.056
+  angles 0 138.37 0
  }
 }
 GenericEntity : "{4D69F9D77C372BE5}Prefabs/Compositions/Slotted/SlotFlatSmall/MachineGunNest_S_US_01_M60.et" {
  coords 1494.288 58.28 5806.054
- angleY 120.022
+ angles 0 120.022 0
 }
 GenericEntity : "{5CCB08EAB05B1BE1}Prefabs/Compositions/Misc/SubCompositions/SandbagCover_US_15.et" {
  coords 1312.633 38.56 5950.958
- angleY -154.614
+ angles 0 -154.614 0
 }
 $grp GenericEntity : "{917158017F425567}Prefabs/Compositions/Slotted/SlotFlatSmall/SandbagPosition_S_US_01.et" {
  {
   coords 1528.268 56.221 5929.612
-  angleY 101.044
+  angles 0 101.044 0
  }
  {
   coords 1335.499 40.077 6017.184
-  angleY 142.018
+  angles 0 142.018 0
  }
 }
 GenericEntity : "{AF770C825EA592CF}Prefabs/Compositions/Slotted/SlotRoadLarge/Barricade_L_US_01.et" {
  coords 1270.95 37.164 5950.455
- angleY 147.119
+ angles 0 147.119 0
 }
 GenericEntity : "{B1EF20282529F4B4}Prefabs/Compositions/Misc/SubCompositions/Sandbag_Barricade_US_01.et" {
  coords 1305.334 37.831 6033.108
- angleY 134.588
+ angles 0 134.588 0
 }
 $grp GenericEntity : "{C0D09A53EEA441D6}Prefabs/Compositions/Slotted/SlotFlatSmall/MachineGunNest_S_US_02.et" {
  {
   coords 1534.667 54.052 5969.268
-  angleY 95.34
+  angles 0 95.34 0
  }
  {
   coords 1401.411 47.951 6004.318
-  angleY 112.827
+  angles 0 112.827 0
  }
  {
   coords 1323.487 39.824 5917.478
-  angleY 140.541
+  angles 0 140.541 0
  }
 }
 $grp GenericEntity : "{E08F31F0EC81F2AD}Prefabs/Compositions/Misc/SubCompositions/Sandbag_Barricade_US_05.et" {
  {
   coords 1301.136 37.156 5985.697
-  angleY 146.717
+  angles 0 146.717 0
  }
  {
   coords 1291.92 37.51 6018.432
-  angleY 137.594
+  angles 0 137.594 0
  }
  {
   coords 1529.13 56.602 5922.174
-  angleY 97.042
+  angles 0 97.042 0
  }
  {
   coords 1312.419 39.484 5902.243
-  angleY 138.419
+  angles 0 138.419 0
  }
  {
   coords 1321.001 39.631 5904.376
-  angleY 130.577
+  angles 0 130.577 0
  }
 }

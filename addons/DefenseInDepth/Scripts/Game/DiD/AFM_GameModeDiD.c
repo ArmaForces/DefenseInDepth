@@ -159,11 +159,6 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		array<PS_PlayableContainer> playableContainers = playableManager.GetPlayablesSorted();
 		AFM_PlayerSpawnPointEntity currentSpawnPoint = m_ZoneSystem.GetCurrentZonePlayerSpawnPoint();
 		
-		if (!currentSpawnPoint)
-		{
-			Print("Unable to find player spawn point!", LogLevel.ERROR);
-			return;
-		}
 		
 		foreach (PS_PlayableContainer container : playableContainers)
 		{
@@ -175,12 +170,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 				int playerId = playableManager.GetPlayerByPlayableRemembered(pcomp.GetRplId());
 				if (playerId == -1)
 					continue;
-				RespawnPlayer(playerId, pcomp, currentSpawnPoint.GetOrigin());
+				RespawnPlayer(playerId, pcomp, currentSpawnPoint);
 			}
 		}
 	}
 	
-	protected void RespawnPlayer(int playerId, PS_PlayableComponent playableComponent, vector pos)
+	protected void RespawnPlayer(int playerId, PS_PlayableComponent playableComponent, AFM_PlayerSpawnPointEntity sp)
 	{
 		if (playableComponent)
 		{
@@ -188,7 +183,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			if (prefabToSpawn != "")
 			{
 				PS_RespawnData respawnData = new PS_RespawnData(playableComponent, prefabToSpawn);
-				respawnData.m_aSpawnTransform[3] = pos;
+				
+				if (sp)
+					respawnData.m_aSpawnTransform[3] = sp.GetOrigin();
 				
 				Respawn(playerId, respawnData);
 				return;

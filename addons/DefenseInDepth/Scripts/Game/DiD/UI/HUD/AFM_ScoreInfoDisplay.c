@@ -144,7 +144,10 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 			return;
 		
 		if (!m_Campaign || !m_Campaign.ShowUI())
+		{
+			HideHUD();
 			return;
+		}
 		
 		GetGame().GetCallqueue().Remove(HideHUD);
 		

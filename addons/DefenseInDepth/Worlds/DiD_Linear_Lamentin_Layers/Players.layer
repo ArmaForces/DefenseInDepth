@@ -9,10 +9,6 @@ $grp SCR_AIGroup : "{47EADE5E4E07076C}Prefabs/Groups/BLUFOR/Group_US_FireTeam_P.
   coords 1517.542 54.774 5927.363
  }
 }
-GenericEntity : "{F09296B9255F6704}Prefabs/Compositions/Misc/SubCompositions/Tents/Tent_CommandPost_US_01.et" {
- coords 1268.56 37.225 6016.182
- angles 0 65.339 0
-}
 SCR_AIGroup : "{FCBE9E46702ED307}Prefabs/Groups/BLUFOR/Group_US_PlatoonHQ_P.et" {
  coords 1506.419 54.924 5918.962
  angles 0 89.246 0

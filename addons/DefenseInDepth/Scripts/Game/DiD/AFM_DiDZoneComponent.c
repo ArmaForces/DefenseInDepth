@@ -49,6 +49,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected WorldTimestamp m_fZoneEndTime;
 	protected WorldTimestamp m_fLastSpawnTime;
 	protected int m_iRemainingTimeSeconds;
+	protected ref array<AIGroup> m_aSpawnedAIGroups = {};
 	
 	// Faction configuration
 	//TODO - fetch from gamemode
@@ -244,6 +245,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 		}
 		
 		aigroup.AddWaypoint(waypoint);
+		m_aSpawnedAIGroups.Insert(aigroup);
 		GetGame().GetCallqueue().CallLater(DisableAIUnconsciousness, 500, false, aigroup);
 	}
 	
@@ -292,7 +294,30 @@ class AFM_DiDZoneComponent: ScriptComponent
 	void DeactivateZone()
 	{
 		m_eZoneState = EAFMZoneState.INACTIVE;
+		RemoveSpawnedAI();
 		PrintFormat("AFM_DiDZoneComponent %1: Deactivated", m_sZoneName);
+	}
+	
+	protected void RemoveSpawnedAI()
+	{
+		foreach(AIGroup group: m_aSpawnedAIGroups)
+		{
+			if (!group)
+				continue;
+		
+			array<AIAgent> agents = {};
+			group.GetAgents(agents);
+			
+			foreach(AIAgent agent: agents)
+			{
+				if (!agent)
+					continue;
+				IEntity ent = agent.GetControlledEntity();
+				if (!ent)
+					continue;
+				SCR_EntityHelper.DeleteEntityAndChildren(ent);
+			}
+		}
 	}
 	
 	protected void FinishZoneHeld()
