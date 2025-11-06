@@ -12,6 +12,7 @@ AFM_DiDZoneEntity zone1 {
     "{96BAB56E6558788E}Prefabs/Groups/OPFOR/Group_USSR_Team_AT.et"
    }
    m_sZoneName "Outskirts"
+   m_iPrepareTimeSeconds 900
    m_iDefenseTimeSeconds 900
   }
   Hierarchy "{66C71AE7EF54AAC8}" {
@@ -844,10 +845,10 @@ AFM_DiDZoneEntity zone1 {
     coords 342.736 -3.273 68.415
    }
    zone_1_sp_1 {
-    coords -39.387 -34.61 -194.238
+    coords 92.684 -7.375 -251.644
    }
    zone_1_sp_9 {
-    coords 120.732 -38.188 280.47
+    coords 219.119 -38.188 280.47
    }
   }
   $grp SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {

@@ -25,6 +25,7 @@ AFM_DiDZoneEntity zone2 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    }
    m_sZoneName "Town"
    m_iZoneIndex 2
+   m_iPrepareTimeSeconds 600
    m_iDefenseTimeSeconds 450
    m_iWaveIntervalSeconds 60
   }

@@ -26,8 +26,10 @@ AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    m_sZoneName "Harbour"
    m_bStopTimerOnRedforSuperiority 0
    m_iZoneIndex 3
+   m_iPrepareTimeSeconds 900
    m_iDefenseTimeSeconds 300
-   m_iSpawnCountPerWave 8
+   m_iWaveIntervalSeconds 100
+   m_iSpawnCountPerWave 6
   }
  }
  coords 1022.905 2.684 6026.365
