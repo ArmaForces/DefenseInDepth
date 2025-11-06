@@ -69,15 +69,14 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		m_ZoneSystem = AFM_DiDZoneSystem.GetInstance();
 		if (!m_ZoneSystem)
 		{
-			Print("AFM_DiDZoneSystem is missing!", LogLevel.ERROR);
+			Print("AFM_DiDZoneSystem is missing", LogLevel.ERROR);
 		}
 		else
 		{
 			m_ZoneSystem.GetOnZoneChanged().Insert(OnZoneChanged);
-			m_ZoneSystem.GetOnTimerStateChanged().Insert(OnTimerStateChanged);
+			m_ZoneSystem.GetOnZoneUpdate().Insert(OnZoneUpdate);
 			m_ZoneSystem.GetOnAllZonesCompleted().Insert(OnAllZonesCompleted);
 			m_ZoneSystem.GetOnZoneHeld().Insert(OnZoneHeld);
-			m_ZoneSystem.GetOnFactionCountChanged().Insert(OnFactionCountStateChanged);
 		}
 	}
 	
@@ -117,15 +116,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		Replication.BumpMe();
 	}
 	
-	protected void OnTimerStateChanged()
+	protected void OnZoneUpdate()
 	{
-		UpdateLocalGameState();
-		OnMatchSituationChanged();
-		Replication.BumpMe();
-	}
-	
-	protected void OnFactionCountStateChanged()
-	{	
 		UpdateLocalGameState();
 		OnMatchSituationChanged();
 		Replication.BumpMe();
@@ -143,7 +135,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	
 	protected void UpdateLocalGameState()
 	{
-		m_iCurrentZone = m_ZoneSystem.GetCurrentZone();
+		m_iCurrentZone = m_ZoneSystem.GetCurrentZoneIndex();
 		m_bIsWarmup = m_ZoneSystem.IsWarmup();
 		m_bIsTimerRunning = m_ZoneSystem.IsTimerRunning();
 		m_iAttackersRemaining = m_ZoneSystem.GetAICountInCurrentZone();

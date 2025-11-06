@@ -1,14 +1,11 @@
 class AFM_DiDZoneSystem: GameSystem
 {
-	protected ref array<AFM_DiDZoneComponent> m_aZones;
-	
-	// Index of current active zone (changes every zone advance)
-	protected int m_iActiveZone = 0;
-	protected int m_iMaxZoneIndex = 0;
+	protected ref map<int, AFM_DiDZoneComponent> m_aZones = new map<int, AFM_DiDZoneComponent>();
+	protected AFM_DiDZoneComponent m_ActiveZone = null;
 	
 	
 	// How often should the system check zones (in seconds)
-	protected float m_fCheckInterval = 1.0;
+	protected const float m_fCheckInterval = 1.0;
 	protected float m_fCheckTimer = 0;
 	
 	protected int m_iAttackersInActiveZone = 0;
@@ -16,20 +13,20 @@ class AFM_DiDZoneSystem: GameSystem
 	
 	// Callbacks
 	protected ref ScriptInvoker m_OnZoneChanged;
-	protected ref ScriptInvoker m_OnTimerStateChanged;
+	protected ref ScriptInvoker m_OnZoneUpdate;
 	protected ref ScriptInvoker m_OnAllZonesCompleted;
 	protected ref ScriptInvoker m_OnZoneHeld;
-	protected ref ScriptInvoker m_OnFactionCountChange;
 	
 	// Game mode reference
 	protected AFM_GameModeDiD m_GameMode;
 	protected SCR_FactionManager m_FactionManager;
 	protected bool m_bIsSystemActive = false;
 	
+	protected const int m_iStartingZoneIndex = 1;
+	
 	//------------------------------------------------------------------------------------------------
 	void AFM_DiDZoneSystem()
 	{
-		m_aZones = new array<AFM_DiDZoneComponent>();
 		m_FactionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
 		m_GameMode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
 	}
@@ -67,7 +64,7 @@ class AFM_DiDZoneSystem: GameSystem
 		m_fCheckTimer = 0;
 
 		// Process the current zone
-		ProcessZone(m_iActiveZone);
+		ProcessZone();
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -83,23 +80,13 @@ class AFM_DiDZoneSystem: GameSystem
 		
 		int zoneIndex = zone.GetZoneIndex();  
 		
-		//TODO: Refactor me and change m_aZones to map or something
-		// Ensure array is large enough
-        while (m_aZones.Count() <= zoneIndex)
-        {
-            m_aZones.Insert(null);
-        }
-		
-		if (m_aZones[zoneIndex] != null)
+		if (m_aZones.Contains(zoneIndex))
 		{
 			PrintFormat("Zone %1 is already present at index %2", zone.GetZoneName(), zoneIndex, level: LogLevel.ERROR);
 			return false;
 		}
 		
-		m_aZones[zoneIndex] = zone;
-		
-		if (zoneIndex > m_iMaxZoneIndex)
-			m_iMaxZoneIndex = zoneIndex;
+		m_aZones.Insert(zoneIndex, zone);
 		
 		//TODO: Add late init here
 		
@@ -111,22 +98,22 @@ class AFM_DiDZoneSystem: GameSystem
 	{
 		m_bIsSystemActive = true;
 		Enable(true);
-		m_iActiveZone = 1;
 		
-		PrintFormat("AFM_DiDZoneSystem: Started zone system with %1 zones", m_iMaxZoneIndex);
+		PrintFormat("AFM_DiDZoneSystem: Started zone system with %1 zones", m_aZones.Count());
 		
 		// Activate first zone in prepare phase
-		if (m_aZones.IsIndexValid(m_iActiveZone) && m_aZones[m_iActiveZone])
+		if (m_aZones.Contains(m_iStartingZoneIndex))
 		{
-			m_aZones[m_iActiveZone].ActivateZone(true);
+			m_ActiveZone = m_aZones[m_iStartingZoneIndex];
+			m_ActiveZone.ActivateZone(true);
 			
 			if (m_OnZoneChanged)
-				m_OnZoneChanged.Invoke(m_iActiveZone);
+				m_OnZoneChanged.Invoke(m_iStartingZoneIndex);
 		} 
 		else
 		{
 			PrintFormat("AFM_DiDZoneSystem: Zone index %1 is invalid! Zone count: %2", 
-				m_iActiveZone, m_aZones.Count(), level:LogLevel.ERROR
+				m_iStartingZoneIndex, m_aZones.Count(), level:LogLevel.ERROR
 			);
 			StopZoneSystem();
 		}
@@ -136,23 +123,21 @@ class AFM_DiDZoneSystem: GameSystem
 	// Main zone processing method
 	//------------------------------------------------------------------------------------------------
 	
-	protected void ProcessZone(int zoneIndex)
+	protected void ProcessZone()
 	{
-		if (!m_aZones.IsIndexValid(zoneIndex) || !m_aZones[zoneIndex])
+		if (!m_ActiveZone)
 		{	
-			PrintFormat("AFM_DiDZoneSystem: Zone index %1 is invalid! Zone count: %2", 
-				zoneIndex, m_aZones.Count(), level:LogLevel.ERROR
-			);
+			PrintFormat("AFM_DiDZoneSystem: Invalid active zone!", level:LogLevel.ERROR);
 			return;
 		}
-		AFM_DiDZoneComponent zone = m_aZones[zoneIndex];
 		
 		// Don't process zones that are already finished
-		if (zone.IsZoneFinished())
+		if (m_ActiveZone.IsZoneFinished())
 			return;
 		
-		EAFMZoneState previousState = zone.GetZoneState();
-		EAFMZoneState currentState = zone.Process();
+		EAFMZoneState previousState = m_ActiveZone.GetZoneState();
+		EAFMZoneState currentState = m_ActiveZone.Process();
+		int zoneIndex = m_ActiveZone.GetZoneIndex();
 		
 		// Handle state transitions
 		if (previousState != currentState)
@@ -177,8 +162,8 @@ class AFM_DiDZoneSystem: GameSystem
 			return;
 		}
 		
-		int attackersCount = zone.GetAICountInsideZone();
-		int defendersCount = zone.GetDefenderCount();
+		int attackersCount = m_ActiveZone.GetAICountInsideZone();
+		int defendersCount = m_ActiveZone.GetDefenderCount();
 		bool sendUpdate = (attackersCount != m_iAttackersInActiveZone || defendersCount != m_iDefendersRemaining);
 		m_iAttackersInActiveZone = attackersCount;
 		m_iDefendersRemaining = defendersCount;
@@ -186,8 +171,8 @@ class AFM_DiDZoneSystem: GameSystem
 		
 		if (sendUpdate)
 		{
-			if (m_OnFactionCountChange)
-				m_OnFactionCountChange.Invoke();
+			if (m_OnZoneUpdate)
+				m_OnZoneUpdate.Invoke();
 		}
 	}
 	
@@ -207,30 +192,30 @@ class AFM_DiDZoneSystem: GameSystem
 		if ((oldState == EAFMZoneState.ACTIVE && newState == EAFMZoneState.FROZEN) ||
 			(oldState == EAFMZoneState.FROZEN && newState == EAFMZoneState.ACTIVE))
 		{
-			if (m_OnTimerStateChanged)
-				m_OnTimerStateChanged.Invoke();
+			if (m_OnZoneUpdate)
+				m_OnZoneUpdate.Invoke();
 		}
 	}
 	
 	//------------------------------------------------------------------------------------------------
 	protected void ProgressToNextZone()
 	{
-		// Deactivate current zone
-		if (m_aZones.IsIndexValid(m_iActiveZone) && m_aZones[m_iActiveZone])
+		int newZoneIndex = m_iStartingZoneIndex;
+		if (m_ActiveZone)
 		{
-			m_aZones[m_iActiveZone].DeactivateZone();
+			newZoneIndex = m_ActiveZone.GetZoneIndex() + 1;
+			m_ActiveZone.DeactivateZone();
 		}
 		
-		m_iActiveZone++;
+		m_ActiveZone = m_aZones[newZoneIndex];
 		
-		Print("AFM_DiDZoneSystem: Progressing to zone " + m_iActiveZone);
+		Print("AFM_DiDZoneSystem: Progressing to zone " + newZoneIndex);
 		
 		// Check if all zones completed
-		if (m_iActiveZone > m_iMaxZoneIndex)
+		if (newZoneIndex > m_aZones.Count())
 		{
-			PrintFormat("AFM_DiDZoneSystem: All zones completed (max: %1)", m_iMaxZoneIndex);
+			PrintFormat("AFM_DiDZoneSystem: All zones completed (max: %1)", m_aZones.Count());
 			StopZoneSystem();
-			m_iActiveZone = -1; // Mark as completed
 			
 			if (m_OnAllZonesCompleted)
 				m_OnAllZonesCompleted.Invoke();
@@ -238,12 +223,12 @@ class AFM_DiDZoneSystem: GameSystem
 		}
 		
 		// Activate next zone in prepare phase
-		if (m_aZones.IsIndexValid(m_iActiveZone) && m_aZones[m_iActiveZone])
+		if (m_ActiveZone)
 		{
-			m_aZones[m_iActiveZone].ActivateZone(true);
+			m_ActiveZone.ActivateZone(true);
 			
 			if (m_OnZoneChanged)
-				m_OnZoneChanged.Invoke(m_iActiveZone);
+				m_OnZoneChanged.Invoke();
 		}
 	}
 
@@ -254,91 +239,66 @@ class AFM_DiDZoneSystem: GameSystem
 	
 	int GetAICountInCurrentZone()
 	{
-		if (!m_aZones.IsIndexValid(m_iActiveZone) || m_iActiveZone < 1)
+		if (!m_ActiveZone)
 			return -1;
 		
-		AFM_DiDZoneComponent currentZone = m_aZones[m_iActiveZone];
-		if (!currentZone)
-			return -1;
-		
-		return currentZone.GetAICountInsideZone();
+		return m_ActiveZone.GetAICountInsideZone();
 	}
 	
 	int GetDefenderCount()
 	{
-		if (!m_aZones.IsIndexValid(m_iActiveZone) || m_iActiveZone < 1)
+		if (!m_ActiveZone)
 			return -1;
 		
-		AFM_DiDZoneComponent zone = m_aZones[m_iActiveZone];
-		if (!zone)
-			return -1;
-		
-		return zone.GetDefenderCount();
+		return m_ActiveZone.GetDefenderCount();
 	}
 	
 	AFM_PlayerSpawnPointEntity GetCurrentZonePlayerSpawnPoint()
 	{
-		if (!m_aZones.IsIndexValid(m_iActiveZone) || m_iActiveZone < 1)
+		if (!m_ActiveZone)
 			return null;
 		
-		AFM_DiDZoneComponent zone = m_aZones[m_iActiveZone];
-		if (!zone)
-			return null;
-		
-		return zone.GetPlayerSpawnPoint();
+		return m_ActiveZone.GetPlayerSpawnPoint();
 	}
 	
-	int GetCurrentZone()
+	int GetCurrentZoneIndex()
 	{
-		return m_iActiveZone;
+		if (m_ActiveZone)
+			return m_ActiveZone.GetZoneIndex();
+		return -1;
 	}
 	
 	int GetMaxZoneIndex()
 	{
-		return m_iMaxZoneIndex;
+		return m_aZones.Count();
 	}
 	
 	bool IsTimerRunning()
 	{
-		if (!m_aZones.IsIndexValid(m_iActiveZone) || m_iActiveZone < 1)
-			return true;
+		if (!m_ActiveZone)
+			return false;
 		
-		AFM_DiDZoneComponent zone = m_aZones[m_iActiveZone];
-		if (!zone)
-			return true;
-		
-		EAFMZoneState state = zone.GetZoneState();
+		EAFMZoneState state = m_ActiveZone.GetZoneState();
 		return (state == EAFMZoneState.ACTIVE || state == EAFMZoneState.PREPARE);
 	}
 	
 	bool IsWarmup()
 	{
-		if (!m_aZones.IsIndexValid(m_iActiveZone) || m_iActiveZone < 1)
+		if (!m_ActiveZone)
 			return false;
 		
-		AFM_DiDZoneComponent zone = m_aZones[m_iActiveZone];
-		if (!zone)
-			return false;
-		
-		return zone.GetZoneState() == EAFMZoneState.PREPARE;
+		return m_ActiveZone.GetZoneState() == EAFMZoneState.PREPARE;
 	}
 	
 	WorldTimestamp GetZoneTimeoutTimestamp()
 	{
-		if (!m_aZones.IsIndexValid(m_iActiveZone) || m_iActiveZone < 1)
+		if (!m_ActiveZone)
 		{
 			ChimeraWorld world = GetGame().GetWorld();
 			return world.GetServerTimestamp();
 		}
 		
-		AFM_DiDZoneComponent zone = m_aZones[m_iActiveZone];
-		if (!zone)
-		{
-			ChimeraWorld world = GetGame().GetWorld();
-			return world.GetServerTimestamp();
-		}
-		
-		return zone.GetZoneEndTime();
+		return m_ActiveZone.GetZoneEndTime();
 	}
 	
 	
@@ -362,12 +322,12 @@ class AFM_DiDZoneSystem: GameSystem
 		return m_OnZoneChanged;
 	}
 	
-	ScriptInvoker GetOnTimerStateChanged()
+	ScriptInvoker GetOnZoneUpdate()
 	{
-		if (!m_OnTimerStateChanged)
-			m_OnTimerStateChanged = new ScriptInvoker();
+		if (!m_OnZoneUpdate)
+			m_OnZoneUpdate = new ScriptInvoker();
 		
-		return m_OnTimerStateChanged;
+		return m_OnZoneUpdate;
 	}
 	
 	ScriptInvoker GetOnAllZonesCompleted()
@@ -384,13 +344,5 @@ class AFM_DiDZoneSystem: GameSystem
 			m_OnZoneHeld = new ScriptInvoker();
 		
 		return m_OnZoneHeld;
-	}
-	
-	ScriptInvoker GetOnFactionCountChanged()
-	{
-		if (!m_OnFactionCountChange)
-			m_OnFactionCountChange = new ScriptInvoker();
-		
-		return m_OnFactionCountChange;
 	}
 }
