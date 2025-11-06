@@ -11,9 +11,6 @@ class AFM_DiDZoneSystem: GameSystem
 	protected float m_fCheckInterval = 1.0;
 	protected float m_fCheckTimer = 0;
 	
-	protected FactionKey m_sAttackerFactionKey = "USSR";
-	protected FactionKey m_sDefenderFactionKey = "US";
-	
 	protected int m_iAttackersInActiveZone = 0;
 	protected int m_iDefendersRemaining = 0;
 	
@@ -34,6 +31,7 @@ class AFM_DiDZoneSystem: GameSystem
 	{
 		m_aZones = new array<AFM_DiDZoneComponent>();
 		m_FactionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
+		m_GameMode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -103,22 +101,9 @@ class AFM_DiDZoneSystem: GameSystem
 		if (zoneIndex > m_iMaxZoneIndex)
 			m_iMaxZoneIndex = zoneIndex;
 		
-		// Initialize factions in the zone
-		if (m_FactionManager)
-		{
-			zone.InitializeFactions(m_sDefenderFactionKey, m_sAttackerFactionKey, m_FactionManager);
-		}
+		//TODO: Add late init here
 		
 		return true;
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	void Initialize(AFM_GameModeDiD gameMode, FactionKey defenderFactionKey, FactionKey attackerFactionKey, SCR_FactionManager factionManager)
-	{
-		m_GameMode = gameMode;
-		m_sDefenderFactionKey = defenderFactionKey;
-		m_sAttackerFactionKey = attackerFactionKey;
-		m_FactionManager = factionManager;
 	}
 	
 	//------------------------------------------------------------------------------------------------

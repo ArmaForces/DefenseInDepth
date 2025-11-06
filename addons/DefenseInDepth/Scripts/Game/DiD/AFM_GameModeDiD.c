@@ -73,7 +73,6 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		}
 		else
 		{
-			m_ZoneSystem.Initialize(this, m_sDefenderFactionKey, m_sAttackerFactionKey, m_FactionManager);
 			m_ZoneSystem.GetOnZoneChanged().Insert(OnZoneChanged);
 			m_ZoneSystem.GetOnTimerStateChanged().Insert(OnTimerStateChanged);
 			m_ZoneSystem.GetOnAllZonesCompleted().Insert(OnAllZonesCompleted);

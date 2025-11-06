@@ -58,10 +58,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected ref array<AIGroup> m_aSpawnedAIGroups = {};
 	
 	// Faction configuration
-	//TODO - fetch from gamemode
-	protected FactionKey m_sAttackerFactionKey = "USSR";
-	protected FactionKey m_sDefenderFactionKey = "US";
-	protected SCR_FactionManager m_FactionManager;
+	protected SCR_Faction m_RedforFaction;
+	protected SCR_Faction m_BluforFaction;
 	
 	
 	override void OnPostInit(IEntity owner)
@@ -119,28 +117,26 @@ class AFM_DiDZoneComponent: ScriptComponent
 			PrintFormat("AFM_DiDZoneComponent %1: Failed to register zone!", m_sZoneName, LogLevel.ERROR);
 		else
 			PrintFormat("AFM_DiDZoneComponent %1: Zone registered", m_sZoneName);
-	}
-	
-	//------------------------------------------------------------------------------------------------
-	void InitializeFactions(FactionKey defenderKey, FactionKey attackerKey, SCR_FactionManager factionManager)
-	{
-		m_sDefenderFactionKey = defenderKey;
-		m_sAttackerFactionKey = attackerKey;
-		m_FactionManager = factionManager;
+		
+		
+		AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
+		if (!gamemode)
+		{
+			PrintFormat("AFM_DiDZoneComponent %1: Invalid gamemode!", m_sZoneName, level: LogLevel.ERROR);
+			return;
+		}
+		m_RedforFaction = gamemode.GetRedforFaction();
+		m_BluforFaction = gamemode.GetBluforFaction();
 	}
 	
 	//------------------------------------------------------------------------------------------------
 	int GetDefenderCount()
 	{
-		if (!m_FactionManager)
-			return -1;
-		
-		SCR_Faction faction = SCR_Faction.Cast(m_FactionManager.GetFactionByKey(m_sDefenderFactionKey));
-		if (!faction)
+		if (!m_BluforFaction)
 			return -1;
 		
 		array<int> playerIds = new array<int>;
-		faction.GetPlayersInFaction(playerIds);
+		m_BluforFaction.GetPlayersInFaction(playerIds);
 		int remainingPlayers = 0;
 		
 		foreach(int id: playerIds)
@@ -196,7 +192,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 				continue;
 			
 			SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(agentEntity);
-			if (!character || character.GetFactionKey() != m_sAttackerFactionKey)
+			if (!character || character.GetFactionKey() != m_RedforFaction.GetFactionKey())
 				continue;
 			
 			vector pos = character.GetOrigin();
@@ -443,21 +439,19 @@ class AFM_DiDZoneComponent: ScriptComponent
 				}
 			}
 			
-			if (m_eZoneState == EAFMZoneState.ACTIVE || m_eZoneState == EAFMZoneState.FROZEN)
+			int timeSinceLastSpawn = Math.AbsInt(now.DiffSeconds(m_fLastSpawnTime));
+			if (timeSinceLastSpawn >= m_iWaveIntervalSeconds)
 			{
-				int timeSinceLastSpawn = Math.AbsInt(now.DiffSeconds(m_fLastSpawnTime));
-				if (timeSinceLastSpawn >= m_iWaveIntervalSeconds)
+				m_fLastSpawnTime = now;
+				int spawnCount = s_AIRandomGenerator.RandInt(1, m_iZoneIndex + 1) * m_iSpawnCountPerWave;
+				
+				for (int i = 0; i < spawnCount; i++)
 				{
-					m_fLastSpawnTime = now;
-					int spawnCount = s_AIRandomGenerator.RandInt(1, m_iZoneIndex + 1) * m_iSpawnCountPerWave;
-					
-					for (int i = 0; i < spawnCount; i++)
-					{
-						if (m_aAIGroupPrefabs && m_aAIGroupPrefabs.Count() > 0)
-							SpawnAI(m_aAIGroupPrefabs.GetRandomElement());
-					}
+					if (m_aAIGroupPrefabs && m_aAIGroupPrefabs.Count() > 0)
+						SpawnAI(m_aAIGroupPrefabs.GetRandomElement());
 				}
 			}
+			
 		}
 		
 		return m_eZoneState;
