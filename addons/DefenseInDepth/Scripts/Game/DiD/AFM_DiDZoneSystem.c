@@ -21,6 +21,7 @@ class AFM_DiDZoneSystem: GameSystem
 	protected AFM_GameModeDiD m_GameMode;
 	protected SCR_FactionManager m_FactionManager;
 	protected bool m_bIsSystemActive = false;
+	protected bool m_bSkipWarmup = false;
 	
 	protected const int m_iStartingZoneIndex = 1;
 	
@@ -210,6 +211,7 @@ class AFM_DiDZoneSystem: GameSystem
 		m_ActiveZone = m_aZones[newZoneIndex];
 		
 		Print("AFM_DiDZoneSystem: Progressing to zone " + newZoneIndex);
+		m_bSkipWarmup = false;
 		
 		// Check if all zones completed
 		if (newZoneIndex > m_aZones.Count())
@@ -231,7 +233,6 @@ class AFM_DiDZoneSystem: GameSystem
 				m_OnZoneChanged.Invoke();
 		}
 	}
-
 	
 	//------------------------------------------------------------------------------------------------
 	// Public API / Getters
@@ -299,6 +300,14 @@ class AFM_DiDZoneSystem: GameSystem
 		}
 		
 		return m_ActiveZone.GetZoneEndTime();
+	}
+	
+	void ForceEndPrepareStage()
+	{
+		if (!m_ActiveZone || m_ActiveZone.GetZoneState() != EAFMZoneState.PREPARE)
+			return;
+		
+		m_ActiveZone.ForceEndPrepareStage();
 	}
 	
 	

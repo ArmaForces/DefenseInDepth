@@ -158,8 +158,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	
 	int GetAICountInsideZone()
 	{
-		ChimeraWorld world = GetGame().GetWorld();
-		WorldTimestamp timeStart = world.GetServerTimestamp();
+		WorldTimestamp timeStart = GetCurrentTimestamp();
 	
 		if (!m_PolylineEntity)
 			return -1;
@@ -201,7 +200,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 			totalAgentCount++;
 		}
 		
-		WorldTimestamp end = world.GetServerTimestamp();
+		WorldTimestamp end = GetCurrentTimestamp();
 		PrintFormat("AFM_DiDZoneComponent %1: Found %2/%3 AIs inside zone. Took %4ms", m_sZoneName, count, totalAgentCount, end.DiffMilliseconds(timeStart).ToString(), level: LogLevel.DEBUG);
 		return count;
 	}
@@ -277,8 +276,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	
 	void ActivateZone(bool isPreparePhase)
 	{
-		ChimeraWorld world = GetGame().GetWorld();
-		WorldTimestamp now = world.GetServerTimestamp();
+		WorldTimestamp now = GetCurrentTimestamp();
 		
 		if (isPreparePhase)
 		{
@@ -345,9 +343,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 		if (m_eZoneState != EAFMZoneState.ACTIVE)
 			return;
 		
-		ChimeraWorld world = GetGame().GetWorld();
-		WorldTimestamp now = world.GetServerTimestamp();
-		m_iRemainingTimeSeconds = m_fZoneEndTime.DiffSeconds(now);
+		m_iRemainingTimeSeconds = m_fZoneEndTime.DiffSeconds(GetCurrentTimestamp());
 		m_eZoneState = EAFMZoneState.FROZEN;
 		
 		PrintFormat("AFM_DiDZoneComponent %1: Zone FROZEN with %2 seconds remaining",
@@ -359,9 +355,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 		if (m_eZoneState != EAFMZoneState.FROZEN)
 			return;
 		
-		ChimeraWorld world = GetGame().GetWorld();
-		WorldTimestamp now = world.GetServerTimestamp();
-		m_fZoneEndTime = now.PlusSeconds(m_iRemainingTimeSeconds);
+		m_fZoneEndTime = GetCurrentTimestamp().PlusSeconds(m_iRemainingTimeSeconds);
 		m_eZoneState = EAFMZoneState.ACTIVE;
 		
 		PrintFormat("AFM_DiDZoneComponent %1: Zone UNFROZEN, resuming with %2 seconds",
@@ -394,8 +388,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 		// Get defender count internally
 		int defenderCount = GetDefenderCount();
 		
-		ChimeraWorld world = GetGame().GetWorld();
-		WorldTimestamp now = world.GetServerTimestamp();
+		WorldTimestamp now = GetCurrentTimestamp();
 		
 		// Check for state transitions based on timer
 		if (m_eZoneState == EAFMZoneState.PREPARE)
@@ -478,13 +471,20 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return m_eZoneState == EAFMZoneState.FINISHED_HELD || m_eZoneState == EAFMZoneState.FINISHED_FAILED;
 	}
 	
+	void ForceEndPrepareStage()
+	{
+		if (m_eZoneState != EAFMZoneState.PREPARE)
+			return;
+		
+		m_fZoneEndTime = GetCurrentTimestamp();
+	}
+	
 	WorldTimestamp GetZoneEndTime()
 	{
 		if (m_eZoneState == EAFMZoneState.FROZEN)
 		{
 			// Return calculated end time based on remaining seconds
-			ChimeraWorld world = GetGame().GetWorld();
-			return world.GetServerTimestamp().PlusSeconds(m_iRemainingTimeSeconds);
+			return GetCurrentTimestamp().PlusSeconds(m_iRemainingTimeSeconds);
 		}
 		
 		return m_fZoneEndTime;
@@ -500,7 +500,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 		if (m_eZoneState != EAFMZoneState.ACTIVE)
 			return false;
 		
+		return GetCurrentTimestamp().GreaterEqual(m_fZoneEndTime);
+	}
+	
+	protected WorldTimestamp GetCurrentTimestamp()
+	{
 		ChimeraWorld world = GetGame().GetWorld();
-		return world.GetServerTimestamp().GreaterEqual(m_fZoneEndTime);
+		return world.GetServerTimestamp();
 	}
 }

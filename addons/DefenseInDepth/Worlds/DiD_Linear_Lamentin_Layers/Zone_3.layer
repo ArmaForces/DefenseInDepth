@@ -6,15 +6,7 @@ PS_ManualMarker : "{5CDEA09445852F9D}PrefabsEditable/Markers/SupportStationMarke
  coords 1069.093 2.719 6019.984
  angles 0 0 0
 }
-GenericEntity : "{7649AC4689618998}Prefabs/Props/Military/Compositions/US/BuildingService_US.et" {
- components {
-  SCR_CampaignBuildingProviderComponent "{5EBCED04D0321687}" {
-   m_aAvailableTraits {
-    TRAIT_FORTIFICATION
-    THEME_MILITARY
-   }
-  }
- }
+GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
  coords 1071.764 2.719 6018.605
  angles 0 -3.365 0
 }

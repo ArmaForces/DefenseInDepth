@@ -1,0 +1,25 @@
+GenericEntity : "{7649AC4689618998}Prefabs/Props/Military/Compositions/US/BuildingService_US.et" {
+ ID "F0DBA538AC2A0552"
+ components {
+  SCR_CampaignBuildingProviderComponent "{5EBCED04D0321687}" {
+   m_bAnyFactionCanUse 1
+   m_iRank RENEGADE
+  }
+  ActionsManagerComponent "{5CB66A0F7D87DD32}" {
+   additionalActions {
+    AFM_VoteSkipWarmupAction "{66CCEEC6D8EB3798}" {
+     ParentContextList {
+      "OpenFreeformBuilding"
+     }
+     UIInfo UIInfo "{66CCEEC6D8EB37F8}" {
+      Name "End warmup phase"
+     }
+     ActionTitle "End warmup phase"
+     VisibilityRange 10
+     Duration 1.5
+     "Sort Priority" 2
+    }
+   }
+  }
+ }
+}

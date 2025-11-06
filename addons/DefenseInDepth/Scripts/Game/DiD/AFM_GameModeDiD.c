@@ -52,6 +52,22 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			m_OnMatchSituationChanged.Invoke();
 	}
 	
+	void ForceEndPrepareStage()
+	{
+		if (m_ZoneSystem)
+			m_ZoneSystem.ForceEndPrepareStage();
+		else //no zone system - assume we are a proxy
+			Rpc(RPC_DoForceEndPrepareStage);
+	}
+	
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	void RPC_DoForceEndPrepareStage()
+	{
+		if (!m_ZoneSystem)
+			return;
+		m_ZoneSystem.ForceEndPrepareStage();
+	}
+	
 	override void EOnInit(IEntity owner)
 	{
 		super.EOnInit(owner);

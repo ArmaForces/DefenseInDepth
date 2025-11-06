@@ -1,3 +1,6 @@
+GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
+ coords 1756.535 39 2890.292
+}
 $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
  zone_3 {
   components {
@@ -611,7 +614,7 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
   components {
    AFM_DiDZoneComponent "{66B900F8E01E1100}" {
     m_sZoneName "DidZone 1"
-    m_iPrepareTimeSeconds 10
+    m_iPrepareTimeSeconds 35
     m_iDefenseTimeSeconds 60
     m_iWaveIntervalSeconds 10
     m_iSpawnCountPerWave 1

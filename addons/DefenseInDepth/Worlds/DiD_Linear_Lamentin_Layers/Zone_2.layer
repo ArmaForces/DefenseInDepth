@@ -6,6 +6,10 @@ PS_ManualMarker : "{5CDEA09445852F9D}PrefabsEditable/Markers/SupportStationMarke
  coords 1290.432 37.499 6020.635
  angles 0 0 0
 }
+GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
+ coords 1289.929 37.453 6018.585
+ angles 0 -18.07 0
+}
 AFM_DiDZoneEntity zone2 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
  components {
   AFM_DiDZoneComponent "{66B900F8E01E1100}" {
