@@ -206,7 +206,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	void SpawnAI(ResourceName groupPrefab)
+	protected void SpawnAI(ResourceName groupPrefab)
 	{
 		if (m_aSpawnPoints.Count() == 0)
 		{
@@ -272,36 +272,6 @@ class AFM_DiDZoneComponent: ScriptComponent
 				continue;
 			damageMgr.SetPermitUnconsciousness(false, true);
 		}
-	}
-	
-	void ActivateZone(bool isPreparePhase)
-	{
-		WorldTimestamp now = GetCurrentTimestamp();
-		
-		if (isPreparePhase)
-		{
-			m_eZoneState = EAFMZoneState.PREPARE;
-			m_fZoneStartTime = now;
-			m_fZoneEndTime = now.PlusSeconds(m_iPrepareTimeSeconds);
-			PrintFormat("AFM_DiDZoneComponent %1: Entering PREPARE state for %2 seconds",
-			 m_sZoneName, m_iPrepareTimeSeconds);
-		}
-		else
-		{
-			m_eZoneState = EAFMZoneState.ACTIVE;
-			m_fZoneStartTime = now;
-			m_fZoneEndTime = now.PlusSeconds(m_iDefenseTimeSeconds);
-			m_fLastSpawnTime = now.PlusSeconds(-m_iWaveIntervalSeconds); // Spawn immediately
-			PrintFormat("AFM_DiDZoneComponent %1: Entering ACTIVE state for %2 seconds",
-			 m_sZoneName, m_iDefenseTimeSeconds);
-		}
-	}
-	
-	void DeactivateZone()
-	{
-		m_eZoneState = EAFMZoneState.INACTIVE;
-		RemoveSpawnedAI();
-		PrintFormat("AFM_DiDZoneComponent %1: Deactivated", m_sZoneName);
 	}
 	
 	protected void RemoveSpawnedAI()
@@ -373,80 +343,95 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return cnt;
 	}
 	
+	protected EAFMZoneState HandlePrepareLogic()
+	{
+		// Check if preparation time is over
+		if (GetCurrentTimestamp().GreaterEqual(m_fZoneEndTime))
+		{
+			// Transition to ACTIVE state
+			m_eZoneState = EAFMZoneState.ACTIVE;
+			WorldTimestamp now = GetCurrentTimestamp();
+			m_fZoneStartTime = now;
+			m_fZoneEndTime = now.PlusSeconds(m_iDefenseTimeSeconds);
+			m_fLastSpawnTime = now.PlusSeconds(-m_iWaveIntervalSeconds); // Spawn immediately
+			PrintFormat("AFM_DiDZoneComponent %1: PREPARE -> ACTIVE", m_sZoneName);	
+		}
+		
+		return m_eZoneState;
+	}
+	
+	protected EAFMZoneState HandleActiveZoneLogic()
+	{
+		int defenderCount = GetDefenderCount();
+		int attackerCount = GetAICountInsideZone();
+		WorldTimestamp now = GetCurrentTimestamp();
+		
+		if (defenderCount == 0)
+		{
+			FinishZoneFailed();
+			return m_eZoneState;
+		}
+		
+		if (IsZoneTimeExpired())
+		{
+			FinishZoneHeld();
+			return m_eZoneState;
+		}
+		
+		//freeze/unfreeze zone
+		if (m_bStopTimerOnRedforSuperiority)
+		{
+			if (attackerCount > defenderCount && m_eZoneState == EAFMZoneState.ACTIVE)
+			{
+				FreezeZone();
+			}
+			else if (attackerCount <= defenderCount && m_eZoneState == EAFMZoneState.FROZEN)
+			{
+				UnfreezeZone();
+			}
+		}
+		
+		//TODO: Move me to dedicated spawner component
+		int timeSinceLastSpawn = Math.AbsInt(now.DiffSeconds(m_fLastSpawnTime));
+		if (timeSinceLastSpawn >= m_iWaveIntervalSeconds)
+		{
+			m_fLastSpawnTime = now;
+			int spawnCount = s_AIRandomGenerator.RandInt(1, m_iZoneIndex + 1) * m_iSpawnCountPerWave;
+			
+			for (int i = 0; i < spawnCount; i++)
+			{
+				if (m_aAIGroupPrefabs && m_aAIGroupPrefabs.Count() > 0)
+					SpawnAI(m_aAIGroupPrefabs.GetRandomElement());
+			}
+		}
+		
+		return m_eZoneState;
+	}
+	
 	//------------------------------------------------------------------------------------------------
 	// Main process method - called periodically by the zone system
 	//------------------------------------------------------------------------------------------------
 	
 	EAFMZoneState Process()
 	{
-		// Don't process inactive or finished zones
-		if (m_eZoneState == EAFMZoneState.INACTIVE || 
-			m_eZoneState == EAFMZoneState.FINISHED_HELD || 
-			m_eZoneState == EAFMZoneState.FINISHED_FAILED)
-			return m_eZoneState;
-		
-		// Get defender count internally
-		int defenderCount = GetDefenderCount();
-		
-		WorldTimestamp now = GetCurrentTimestamp();
-		
-		// Check for state transitions based on timer
-		if (m_eZoneState == EAFMZoneState.PREPARE)
+		switch (m_eZoneState)
 		{
-			// Check if preparation time is over
-			if (now.GreaterEqual(m_fZoneEndTime))
-			{
-				// Transition to ACTIVE state
-				m_eZoneState = EAFMZoneState.ACTIVE;
-				m_fZoneStartTime = now;
-				m_fZoneEndTime = now.PlusSeconds(m_iDefenseTimeSeconds);
-				m_fLastSpawnTime = now.PlusSeconds(-m_iWaveIntervalSeconds); // Spawn immediately
-				PrintFormat("AFM_DiDZoneComponent %1: PREPARE -> ACTIVE", m_sZoneName);
-			}
-		}
-		else if (m_eZoneState == EAFMZoneState.ACTIVE || m_eZoneState == EAFMZoneState.FROZEN)
-		{
-			int attackerCount = GetAICountInsideZone();
-			if (defenderCount == 0)
-			{
-				FinishZoneFailed();
+			case EAFMZoneState.INACTIVE:
+			case EAFMZoneState.FINISHED_HELD:
+			case EAFMZoneState.FINISHED_FAILED:
+				//don't process inactive zones
 				return m_eZoneState;
-			}
-			
-			if (IsZoneTimeExpired())
-			{
-				FinishZoneHeld();
+			case EAFMZoneState.PREPARE:
+				return HandlePrepareLogic();
+			case EAFMZoneState.ACTIVE:
+			case EAFMZoneState.FROZEN:
+				return HandleActiveZoneLogic();
+			default:
+				PrintFormat("AFM_DiDZoneComponent %1: Unknown zone state %2", m_sZoneName, m_eZoneState, level:LogLevel.ERROR);
 				return m_eZoneState;
-			}
-			
-			// Handle freeze/unfreeze logic
-			if (m_bStopTimerOnRedforSuperiority)
-			{
-				if (attackerCount > defenderCount && m_eZoneState == EAFMZoneState.ACTIVE)
-				{
-					FreezeZone();
-				}
-				else if (attackerCount <= defenderCount && m_eZoneState == EAFMZoneState.FROZEN)
-				{
-					UnfreezeZone();
-				}
-			}
-			
-			int timeSinceLastSpawn = Math.AbsInt(now.DiffSeconds(m_fLastSpawnTime));
-			if (timeSinceLastSpawn >= m_iWaveIntervalSeconds)
-			{
-				m_fLastSpawnTime = now;
-				int spawnCount = s_AIRandomGenerator.RandInt(1, m_iZoneIndex + 1) * m_iSpawnCountPerWave;
-				
-				for (int i = 0; i < spawnCount; i++)
-				{
-					if (m_aAIGroupPrefabs && m_aAIGroupPrefabs.Count() > 0)
-						SpawnAI(m_aAIGroupPrefabs.GetRandomElement());
-				}
-			}
-			
 		}
 		
+		//unreachable code but required for parser
 		return m_eZoneState;
 	}
 	
@@ -469,6 +454,36 @@ class AFM_DiDZoneComponent: ScriptComponent
 	bool IsZoneFinished()
 	{
 		return m_eZoneState == EAFMZoneState.FINISHED_HELD || m_eZoneState == EAFMZoneState.FINISHED_FAILED;
+	}
+	
+	void ActivateZone(bool isPreparePhase)
+	{
+		WorldTimestamp now = GetCurrentTimestamp();
+		
+		if (isPreparePhase)
+		{
+			m_eZoneState = EAFMZoneState.PREPARE;
+			m_fZoneStartTime = now;
+			m_fZoneEndTime = now.PlusSeconds(m_iPrepareTimeSeconds);
+			PrintFormat("AFM_DiDZoneComponent %1: Entering PREPARE state for %2 seconds",
+			 m_sZoneName, m_iPrepareTimeSeconds);
+		}
+		else
+		{
+			m_eZoneState = EAFMZoneState.ACTIVE;
+			m_fZoneStartTime = now;
+			m_fZoneEndTime = now.PlusSeconds(m_iDefenseTimeSeconds);
+			m_fLastSpawnTime = now.PlusSeconds(-m_iWaveIntervalSeconds); // Spawn immediately
+			PrintFormat("AFM_DiDZoneComponent %1: Entering ACTIVE state for %2 seconds",
+			 m_sZoneName, m_iDefenseTimeSeconds);
+		}
+	}
+	
+	void DeactivateZone()
+	{
+		m_eZoneState = EAFMZoneState.INACTIVE;
+		RemoveSpawnedAI();
+		PrintFormat("AFM_DiDZoneComponent %1: Deactivated", m_sZoneName);
 	}
 	
 	void ForceEndPrepareStage()
@@ -507,5 +522,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 	{
 		ChimeraWorld world = GetGame().GetWorld();
 		return world.GetServerTimestamp();
+	}
+	
+	protected int GetZoneAILimit()
+	{
+		return m_iMaxAICount;
 	}
 }
