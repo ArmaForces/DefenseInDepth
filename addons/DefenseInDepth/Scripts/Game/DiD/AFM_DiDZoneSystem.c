@@ -37,6 +37,7 @@ class AFM_DiDZoneSystem: GameSystem
 	{
 		outInfo
 			.SetAbstract(false)
+			.SetUnique(true)
 			.SetLocation(ESystemLocation.Server)
 			.AddPoint(ESystemPoint.FixedFrame);
 	}
@@ -106,7 +107,7 @@ class AFM_DiDZoneSystem: GameSystem
 		if (m_aZones.Contains(m_iStartingZoneIndex))
 		{
 			m_ActiveZone = m_aZones[m_iStartingZoneIndex];
-			m_ActiveZone.ActivateZone(true);
+			m_ActiveZone.ActivateZone();
 			
 			if (m_OnZoneChanged)
 				m_OnZoneChanged.Invoke(m_iStartingZoneIndex);
@@ -227,7 +228,7 @@ class AFM_DiDZoneSystem: GameSystem
 		// Activate next zone in prepare phase
 		if (m_ActiveZone)
 		{
-			m_ActiveZone.ActivateZone(true);
+			m_ActiveZone.ActivateZone();
 			
 			if (m_OnZoneChanged)
 				m_OnZoneChanged.Invoke();

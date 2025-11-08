@@ -8,7 +8,6 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
     m_iZoneIndex 3
     m_iPrepareTimeSeconds 10
     m_iDefenseTimeSeconds 42
-    m_iWaveIntervalSeconds 13
    }
   }
   coords 1550.1 39 2807.664
@@ -312,8 +311,6 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
     m_iZoneIndex 2
     m_iPrepareTimeSeconds 10
     m_iDefenseTimeSeconds 25
-    m_iWaveIntervalSeconds 15
-    m_iSpawnCountPerWave 2
    }
   }
   coords 1388.161 39 2774.808
@@ -616,8 +613,6 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
     m_sZoneName "DidZone 1"
     m_iPrepareTimeSeconds 35
     m_iDefenseTimeSeconds 60
-    m_iWaveIntervalSeconds 10
-    m_iSpawnCountPerWave 1
    }
   }
   coords 1250.854 39 2730.854
@@ -894,23 +889,28 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
      }
     }
    }
-   $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+   AFM_DiDInfantrySpawnerComponent : "{A93E8199BD60FD8A}Prefabs/Spawners/AFM_DidInfantrySpawner.et" {
+    coords 506.703 0 155.559
     {
-     coords 79.918 0.076 -4.516
-     angles 0 -28.126 0
+     $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+      {
+       coords -426.785 0.076 -160.075
+       angles 0 -28.126 0
+      }
+      {
+       coords -436.505 0.165 -111.483
+      }
+     }
+     SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
+      coords -395.281 -0 -102.756
+     }
+     SCR_SearchAndDestroyWaypoint : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
+      coords -371.681 -0.001 -126.702
+     }
     }
-    {
-     coords 70.197 0.165 44.076
-    }
-   }
-   SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
-    coords 111.421 0 52.803
    }
    AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
     coords 473.05 0 122.264
-   }
-   SCR_SearchAndDestroyWaypoint : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
-    coords 135.022 -0.001 28.857
    }
   }
  }

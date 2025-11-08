@@ -17,9 +17,6 @@ class AFM_DiDZoneComponentClass: ScriptComponentClass
 //------------------------------------------------------------------------------------------------
 class AFM_DiDZoneComponent: ScriptComponent
 {
-	[Attribute("", UIWidgets.Auto, desc: "AI Group prefabs", category: "DiD")]
-	protected ref array<ResourceName> m_aAIGroupPrefabs;
-	
 	[Attribute("DidZone", UIWidgets.Auto, desc: "Zone name", category: "DiD")]
 	protected string m_sZoneName;
 	
@@ -27,35 +24,26 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected bool m_bStopTimerOnRedforSuperiority;
 	
 	[Attribute("1", UIWidgets.EditBox, "Zone index (1 to N), 1 is played first, N is the last zone", category: "DiD")]
-	int m_iZoneIndex;
+	protected int m_iZoneIndex;
 	
 	[Attribute("300", UIWidgets.EditBox, "Time in seconds to prepare", category: "DiD")]
-	int m_iPrepareTimeSeconds;
+	protected int m_iPrepareTimeSeconds;
 	
 	[Attribute("600", UIWidgets.EditBox, "Time in seconds to defend zone", category: "DiD")]
-	int m_iDefenseTimeSeconds;
+	protected int m_iDefenseTimeSeconds;
 	
-	[Attribute("90", UIWidgets.EditBox, "Base time between AI spawns", category: "DiD")]
-	int m_iWaveIntervalSeconds;
-	
-	[Attribute("5", UIWidgets.EditBox, "Base AI spawn count", category: "DiD")]
-	int m_iSpawnCountPerWave;
-	
-	[Attribute("50", UIWidgets.EditBox, "Max AI group count", category: "DiD")]
-	int m_iMaxAICount;
+	[Attribute("50", UIWidgets.EditBox, "Max number of AI groups", category: "DiD")]
+	protected int m_iMaxAICount;
 	
 	protected PolylineShapeEntity m_PolylineEntity;
 	protected AFM_PlayerSpawnPointEntity m_PlayerSpawnPoint;
-	protected ref array<SCR_AIWaypoint> m_aAIWaypoints= {};
-	protected ref array<AFM_SpawnPointEntity> m_aSpawnPoints = {};
+	protected ref array<AFM_DiDSpawnerComponent> m_aSpawners = {};
 		
 	// Zone state management
 	protected EAFMZoneState m_eZoneState = EAFMZoneState.INACTIVE;
 	protected WorldTimestamp m_fZoneStartTime;
 	protected WorldTimestamp m_fZoneEndTime;
-	protected WorldTimestamp m_fLastSpawnTime;
 	protected int m_iRemainingTimeSeconds;
-	protected ref array<AIGroup> m_aSpawnedAIGroups = {};
 	
 	// Faction configuration
 	protected SCR_Faction m_RedforFaction;
@@ -87,16 +75,13 @@ class AFM_DiDZoneComponent: ScriptComponent
 				case PolylineShapeEntity:
 					m_PolylineEntity = PolylineShapeEntity.Cast(e);
 					break;
-				case AFM_SpawnPointEntity:
-					m_aSpawnPoints.Insert(AFM_SpawnPointEntity.Cast(e));
-					break;
-				case SCR_DefendWaypoint:
-				case SCR_SearchAndDestroyWaypoint:
-				case SCR_AIWaypoint:
-					m_aAIWaypoints.Insert(SCR_AIWaypoint.Cast(e));
-					break;
 				case AFM_PlayerSpawnPointEntity:
 					m_PlayerSpawnPoint = AFM_PlayerSpawnPointEntity.Cast(e);
+					break;
+				case AFM_DiDMechanizedSpawnerComponent:
+				case AFM_DiDInfantrySpawnerComponent:
+					AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(e);
+					m_aSpawners.Insert(spawner);
 					break;
 				default:
 					PrintFormat("AFM_DiDZoneComponent %1: Unknown type %2", m_sZoneName, e.Type().ToString());
@@ -106,12 +91,16 @@ class AFM_DiDZoneComponent: ScriptComponent
 		
 		if (!m_PolylineEntity)
 			PrintFormat("AFM_DiDZoneComponent %1: Missing polyline component, zone wont work properly!", m_sZoneName, level:LogLevel.ERROR);
-		if (m_aAIWaypoints.Count() == 0)
-			PrintFormat("AFM_DiDZoneComponent %1: Missing AI Waypoints, zone wont work properly!", m_sZoneName, level:LogLevel.ERROR);
-		if (m_aSpawnPoints.Count() == 0)
-			PrintFormat("AFM_DiDZoneComponent %1: Missing AI Spawnpoints, zone wont work properly!", m_sZoneName, level:LogLevel.ERROR);
 		if (!m_PlayerSpawnPoint)
 			PrintFormat("AFM_DiDZoneComponent %1: Missing player spawnpoint, zone wont work properly!", m_sZoneName, level:LogLevel.ERROR);
+		if (m_aSpawners.Count() == 0)
+			PrintFormat("AFM_DiDZoneComponent %1: No spawner components found, AI will not spawn!", m_sZoneName, level:LogLevel.WARNING);
+		
+		// Initialize spawners
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			spawner.Prepare(this);
+		}
 		
 		if (!AFM_DiDZoneSystem.GetInstance().RegisterZone(this))
 			PrintFormat("AFM_DiDZoneComponent %1: Failed to register zone!", m_sZoneName, LogLevel.ERROR);
@@ -206,93 +195,14 @@ class AFM_DiDZoneComponent: ScriptComponent
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	protected void SpawnAI(ResourceName groupPrefab)
-	{
-		if (m_aSpawnPoints.Count() == 0)
-		{
-			PrintFormat("AFM_DiDZoneComponent %1: No spawn points available", m_sZoneName, LogLevel.WARNING);
-			return;
-		}
-		
-		if (m_aAIWaypoints.Count() == 0)
-		{
-			PrintFormat("AFM_DiDZoneComponent %1: No waypoints available", m_sZoneName, LogLevel.WARNING);
-			return;
-		}
-		
-		if (GetActiveAICount() > m_iMaxAICount)
-		{
-			PrintFormat("AFM_DiDZoneComponent %1: AI Group limit reached, skipping AI spawn", m_sZoneName, LogLevel.WARNING);
-			return;
-		}
-		
-		AFM_SpawnPointEntity spawnPoint = m_aSpawnPoints.GetRandomElement();
-		SCR_AIWaypoint waypoint = m_aAIWaypoints.GetRandomElement();
-		
-		PrintFormat("AFM_DiDZoneComponent %1: Spawning AI group %2", m_sZoneName, groupPrefab, level: LogLevel.DEBUG);
-		
-		EntitySpawnParams spawnParams = new EntitySpawnParams();
-		vector mat[4];
-		spawnPoint.GetWorldTransform(mat);
-		spawnParams.Transform = mat;
-		
-		IEntity entity = GetGame().SpawnEntityPrefab(Resource.Load(groupPrefab), GetGame().GetWorld(), spawnParams);
-		if (!entity)
-		{
-			PrintFormat("AFM_DiDZoneComponent %1: Failed to spawn entity", m_sZoneName, LogLevel.ERROR);
-			return;
-		}
-		
-		AIGroup aigroup = AIGroup.Cast(entity);
-		if (!aigroup)
-		{
-			PrintFormat("AFM_DiDZoneComponent %1: Spawned entity is not an AIGroup",
-				 m_sZoneName, LogLevel.ERROR);
-			return;
-		}
-		
-		aigroup.AddWaypoint(waypoint);
-		m_aSpawnedAIGroups.Insert(aigroup);
-		GetGame().GetCallqueue().CallLater(DisableAIUnconsciousness, 500, false, aigroup);
-	}
-	
+	//! Cleanup all spawned AI through spawner components
 	//------------------------------------------------------------------------------------------------
-	protected void DisableAIUnconsciousness(AIGroup group)
+	protected void Cleanup()
 	{
-		array<AIAgent> agents = {};
-		group.GetAgents(agents);
-		
-		foreach(AIAgent agent: agents)
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
 		{
-			IEntity agentEntity = agent.GetControlledEntity();
-			SCR_CharacterDamageManagerComponent damageMgr = SCR_CharacterDamageManagerComponent.Cast(
-				agentEntity.FindComponent(SCR_CharacterDamageManagerComponent
-			));
-			if (!damageMgr)
-				continue;
-			damageMgr.SetPermitUnconsciousness(false, true);
-		}
-	}
-	
-	protected void RemoveSpawnedAI()
-	{
-		foreach(AIGroup group: m_aSpawnedAIGroups)
-		{
-			if (!group)
-				continue;
-		
-			array<AIAgent> agents = {};
-			group.GetAgents(agents);
-			
-			foreach(AIAgent agent: agents)
-			{
-				if (!agent)
-					continue;
-				IEntity ent = agent.GetControlledEntity();
-				if (!ent)
-					continue;
-				SCR_EntityHelper.DeleteEntityAndChildren(ent);
-			}
+			if (spawner)
+				spawner.Cleanup();
 		}
 	}
 	
@@ -332,15 +242,18 @@ class AFM_DiDZoneComponent: ScriptComponent
 		 m_sZoneName, m_iRemainingTimeSeconds);
 	}
 	
-	protected int GetActiveAICount()
+	//------------------------------------------------------------------------------------------------
+	//! Get total active AI count across all spawners
+	//------------------------------------------------------------------------------------------------
+	int GetActiveAICount()
 	{
-		int cnt = 0;
-		foreach(AIGroup group: m_aSpawnedAIGroups)
+		int totalCount = 0;
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
 		{
-			if (group)
-				cnt++;
+			if (spawner)
+				totalCount += spawner.GetActiveAICount();
 		}
-		return cnt;
+		return totalCount;
 	}
 	
 	protected EAFMZoneState HandlePrepareLogic()
@@ -353,7 +266,6 @@ class AFM_DiDZoneComponent: ScriptComponent
 			WorldTimestamp now = GetCurrentTimestamp();
 			m_fZoneStartTime = now;
 			m_fZoneEndTime = now.PlusSeconds(m_iDefenseTimeSeconds);
-			m_fLastSpawnTime = now.PlusSeconds(-m_iWaveIntervalSeconds); // Spawn immediately
 			PrintFormat("AFM_DiDZoneComponent %1: PREPARE -> ACTIVE", m_sZoneName);	
 		}
 		
@@ -364,7 +276,6 @@ class AFM_DiDZoneComponent: ScriptComponent
 	{
 		int defenderCount = GetDefenderCount();
 		int attackerCount = GetAICountInsideZone();
-		WorldTimestamp now = GetCurrentTimestamp();
 		
 		if (defenderCount == 0)
 		{
@@ -391,18 +302,11 @@ class AFM_DiDZoneComponent: ScriptComponent
 			}
 		}
 		
-		//TODO: Move me to dedicated spawner component
-		int timeSinceLastSpawn = Math.AbsInt(now.DiffSeconds(m_fLastSpawnTime));
-		if (timeSinceLastSpawn >= m_iWaveIntervalSeconds)
+		// Delegate spawning to spawner components
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
 		{
-			m_fLastSpawnTime = now;
-			int spawnCount = s_AIRandomGenerator.RandInt(1, m_iZoneIndex + 1) * m_iSpawnCountPerWave;
-			
-			for (int i = 0; i < spawnCount; i++)
-			{
-				if (m_aAIGroupPrefabs && m_aAIGroupPrefabs.Count() > 0)
-					SpawnAI(m_aAIGroupPrefabs.GetRandomElement());
-			}
+			if (spawner)
+				spawner.Process();
 		}
 		
 		return m_eZoneState;
@@ -456,33 +360,20 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return m_eZoneState == EAFMZoneState.FINISHED_HELD || m_eZoneState == EAFMZoneState.FINISHED_FAILED;
 	}
 	
-	void ActivateZone(bool isPreparePhase)
+	void ActivateZone()
 	{
 		WorldTimestamp now = GetCurrentTimestamp();
-		
-		if (isPreparePhase)
-		{
-			m_eZoneState = EAFMZoneState.PREPARE;
-			m_fZoneStartTime = now;
-			m_fZoneEndTime = now.PlusSeconds(m_iPrepareTimeSeconds);
-			PrintFormat("AFM_DiDZoneComponent %1: Entering PREPARE state for %2 seconds",
-			 m_sZoneName, m_iPrepareTimeSeconds);
-		}
-		else
-		{
-			m_eZoneState = EAFMZoneState.ACTIVE;
-			m_fZoneStartTime = now;
-			m_fZoneEndTime = now.PlusSeconds(m_iDefenseTimeSeconds);
-			m_fLastSpawnTime = now.PlusSeconds(-m_iWaveIntervalSeconds); // Spawn immediately
-			PrintFormat("AFM_DiDZoneComponent %1: Entering ACTIVE state for %2 seconds",
-			 m_sZoneName, m_iDefenseTimeSeconds);
-		}
+		m_eZoneState = EAFMZoneState.PREPARE;
+		m_fZoneStartTime = now;
+		m_fZoneEndTime = now.PlusSeconds(m_iPrepareTimeSeconds);
+		PrintFormat("AFM_DiDZoneComponent %1: Entering PREPARE state for %2 seconds",
+		 m_sZoneName, m_iPrepareTimeSeconds);
 	}
 	
 	void DeactivateZone()
 	{
 		m_eZoneState = EAFMZoneState.INACTIVE;
-		RemoveSpawnedAI();
+		Cleanup();
 		PrintFormat("AFM_DiDZoneComponent %1: Deactivated", m_sZoneName);
 	}
 	
