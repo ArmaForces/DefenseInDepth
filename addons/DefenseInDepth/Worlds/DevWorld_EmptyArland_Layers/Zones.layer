@@ -894,13 +894,23 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
     angles 0 -19.938 0
     m_iWaveIntervalSeconds 15
     {
-     AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
-      coords 15.133 0 36.462
-      angles 0 100.57 0
+     $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+      {
+       coords 15.133 0 36.462
+       angles 0 100.57 0
+      }
+      {
+       coords 15.682 -0 -5.735
+       angles 0 98.032 0
+      }
      }
      SCR_SearchAndDestroyWaypoint : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
       coords 112.283 0.337 7.245
       angles 0 19.938 0
+     }
+     SCR_SuppressWaypoint : "{ED8277F35B46B4AB}Prefabs/AI/Waypoints/DiD_AIWaypoint_Suppress.t.et" {
+      coords 171.073 0.001 -9.226
+      angles 0 -24.057 0
      }
     }
    }

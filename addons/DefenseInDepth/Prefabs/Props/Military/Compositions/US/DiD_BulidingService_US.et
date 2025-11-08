@@ -4,6 +4,9 @@ GenericEntity : "{7649AC4689618998}Prefabs/Props/Military/Compositions/US/Buildi
   SCR_CampaignBuildingProviderComponent "{5EBCED04D0321687}" {
    m_bAnyFactionCanUse 1
    m_iRank RENEGADE
+   m_aAvailableTraits {
+    TRAIT_FORTIFICATION THEME_MILITARY
+   }
   }
   ActionsManagerComponent "{5CB66A0F7D87DD32}" {
    additionalActions {

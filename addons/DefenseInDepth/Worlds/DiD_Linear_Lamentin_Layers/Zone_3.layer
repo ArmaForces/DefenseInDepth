@@ -13,23 +13,11 @@ GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_Bu
 AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
  components {
   AFM_DiDZoneComponent "{66B900F8E01E1100}" {
-   m_aAIGroupPrefabs +{
-    "{E382595E188AF8A1}Prefabs/Groups/OPFOR/KLMK/Group_USSR_Team_GL_KLMK.et"
-    "{1A5F0D93609DA5DA}Prefabs/Groups/OPFOR/Group_USSR_ManeuverGroup.et"
-    "{10E7872ECBF80AC5}Prefabs/Groups/OPFOR/Naval_Infantry/Group_USSR_MachineGunTeam_NI.et"
-    "{CA4790822E4ECE29}Prefabs/Groups/OPFOR/Naval_Infantry/Group_USSR_Team_LAT_NI.et"
-    "{26099EE31B5CC43A}Prefabs/Groups/OPFOR/Naval_Infantry/Group_USSR_FireGroup_NI.et"
-    "{7318E9EFF22D1116}Prefabs/Groups/OPFOR/Naval_Infantry/Group_USSR_Team_GL_NI.et"
-    "{A665FE0F7C136660}Prefabs/Groups/OPFOR/Naval_Infantry/Group_USSR_Team_AT_NI.et"
-    "{129039549B0B82FF}Prefabs/Groups/OPFOR/KLMK/Group_USSR_Team_AT_KLMK.et"
-   }
    m_sZoneName "Harbour"
    m_bStopTimerOnRedforSuperiority 0
    m_iZoneIndex 3
    m_iPrepareTimeSeconds 900
    m_iDefenseTimeSeconds 300
-   m_iWaveIntervalSeconds 100
-   m_iSpawnCountPerWave 6
   }
  }
  coords 1022.905 2.684 6026.365
@@ -813,54 +801,63 @@ AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
     }
    }
   }
-  $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+  AFM_DiDInfantrySpawnerComponent : "{A93E8199BD60FD8A}Prefabs/Spawners/AFM_DidInfantrySpawner.et" {
+   coords 31.668 0.138 16.239
+   m_iWaveIntervalSeconds 100
+   m_iSpawnCountPerWave 8
+   m_iMaxAICount 120
+   m_fZoneLevelMultiplier 2
    {
-    coords -87.031 -1.715 -59.845
-   }
-   {
-    coords -52.747 -1.715 -106.896
-   }
-   {
-    coords 101.318 2.63 -175.144
-   }
-   {
-    coords 200.609 32.953 -67.626
-   }
-   {
-    coords 215.331 31.565 7.666
-   }
-   {
-    coords 197.24 27.181 126.438
-   }
-   {
-    coords 103.7 29.623 385.246
-   }
-  }
-  $grp SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
-   {
-    coords 42.942 0.035 10.863
-   }
-   {
-    coords 79.852 0.128 76.61
-   }
-   {
-    coords -95.9 1.804 20.883
+    $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     {
+      coords -118.699 -1.853 -76.084
+     }
+     {
+      coords -84.415 -1.853 -123.135
+     }
+     {
+      coords 69.65 2.492 -191.383
+     }
+     {
+      coords 168.941 32.815 -83.865
+     }
+     {
+      coords 183.663 31.427 -8.573
+     }
+     {
+      coords 165.572 27.043 110.199
+     }
+     {
+      coords 72.032 29.485 369.007
+     }
+    }
+    $grp SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
+     {
+      coords 11.274 -0.103 -5.376
+     }
+     {
+      coords 48.184 -0.01 60.371
+     }
+     {
+      coords -127.568 1.666 4.644
+     }
+    }
+    $grp SCR_SearchAndDestroyWaypoint : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
+     {
+      coords 4.06 -0.014 131.038
+      CompletionRadius 50
+     }
+     {
+      coords -182.381 0.241 47.279
+     }
+     {
+      coords -47.05 0.022 -10.665
+     }
+    }
    }
   }
   AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
-   coords 75.566 0.128 65.796
-  }
-  $grp SCR_SearchAndDestroyWaypoint : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
-   {
-    coords 35.728 0.124 147.277
-    CompletionRadius 50
-   }
-   {
-    coords -150.713 0.379 63.518
-   }
-   {
-    coords -15.382 0.16 5.574
-   }
+   coords 43.555 0.259 -4.312
   }
  }
 }
