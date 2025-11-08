@@ -881,6 +881,25 @@ AFM_DiDZoneEntity zone1 {
   AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
    coords 78.478 6.073 20.088
   }
+  AFM_DiDMortarSpawnerComponent : "{F040102F1843F7C1}Prefabs/Spawners/AFM_MortarSpawner.et" {
+   coords 0.283 0.067 -0.146
+   {
+    $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     zone_1_sp_12 {
+      coords 467.702 47.617 -160.056
+      angles 0 -76.831 0
+     }
+     zone_1_sp_13 {
+      coords 665.916 73.77 -190.245
+      angles 0 -58.187 0
+     }
+     zone_1_sp_14 {
+      coords 545.68 1.535 162.778
+      angles 0 -159.344 0
+     }
+    }
+   }
+  }
  }
 }
 GenericEntity : "{45C675ED3CFBBEC5}Prefabs/Props/Military/Compositions/US/ArsenalBox_US.et" {

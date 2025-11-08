@@ -263,4 +263,11 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		
 		return GetGame().SpawnEntityPrefab(Resource.Load(prefab), GetGame().GetWorld(), spawnParams);
 	}
+	
+	//------------------------------------------------------------------------------------------------
+	protected WorldTimestamp GetCurrentTimestamp()
+	{
+		ChimeraWorld world = GetGame().GetWorld();
+		return world.GetServerTimestamp();
+	}
 }

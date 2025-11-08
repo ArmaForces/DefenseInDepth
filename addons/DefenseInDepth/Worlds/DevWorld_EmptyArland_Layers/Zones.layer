@@ -892,7 +892,6 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    AFM_DiDMechanizedSpawnerComponent : "{8E7842A8534F4260}Prefabs/Spawners/AFM_MechanizedSpawner.et" {
     coords 54.911 0 -2.801
     angles 0 -19.938 0
-    m_iWaveIntervalSeconds 15
     {
      $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
       {
@@ -900,7 +899,7 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
        angles 0 100.57 0
       }
       {
-       coords 15.682 -0 -5.735
+       coords 15.682 0 -5.735
        angles 0 98.032 0
       }
      }
@@ -936,6 +935,16 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    }
    AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
     coords 473.05 0 122.264
+   }
+   AFM_DiDMortarSpawnerComponent : "{F040102F1843F7C1}Prefabs/Spawners/AFM_MortarSpawner.et" {
+    coords -15.041 0 5.242
+    angles 0 79.337 0
+    {
+     AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+      coords 3.044 0 3.19
+      angles 0 7.042 0
+     }
+    }
    }
   }
  }

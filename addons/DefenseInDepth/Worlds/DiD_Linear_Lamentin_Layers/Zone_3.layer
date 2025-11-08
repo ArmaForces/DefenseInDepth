@@ -859,5 +859,24 @@ AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
   AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
    coords 43.555 0.259 -4.312
   }
+  AFM_DiDMortarSpawnerComponent : "{F040102F1843F7C1}Prefabs/Spawners/AFM_MortarSpawner.et" {
+   coords 227.774 30.794 32.813
+   {
+    $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     zone_1_sp_18 {
+      coords 3.791 0.801 -2.298
+      angles 0 -76.831 0
+     }
+     zone_1_sp_19 {
+      coords 0.213 2.772 -70.186
+      angles 0 -76.831 0
+     }
+     zone_1_sp_20 {
+      coords -24.508 -3.894 78.018
+      angles 0 -76.831 0
+     }
+    }
+   }
+  }
  }
 }

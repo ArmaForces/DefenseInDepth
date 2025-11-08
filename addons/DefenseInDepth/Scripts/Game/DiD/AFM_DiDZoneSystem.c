@@ -127,6 +127,7 @@ class AFM_DiDZoneSystem: GameSystem
 	
 	protected void ProcessZone()
 	{
+		WorldTimestamp tStart = GetCurrentTimestamp();
 		if (!m_ActiveZone)
 		{	
 			PrintFormat("AFM_DiDZoneSystem: Invalid active zone!", level:LogLevel.ERROR);
@@ -176,6 +177,10 @@ class AFM_DiDZoneSystem: GameSystem
 			if (m_OnZoneUpdate)
 				m_OnZoneUpdate.Invoke();
 		}
+		WorldTimestamp tEnd = GetCurrentTimestamp();
+		float diff = tEnd.DiffMilliseconds(tStart);
+		if (diff > 0)
+			PrintFormat("AFM_DiDZoneSystem: ProcessZone took %1 ms", tEnd.DiffMilliseconds(tStart), level: LogLevel.WARNING);
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -295,10 +300,7 @@ class AFM_DiDZoneSystem: GameSystem
 	WorldTimestamp GetZoneTimeoutTimestamp()
 	{
 		if (!m_ActiveZone)
-		{
-			ChimeraWorld world = GetGame().GetWorld();
-			return world.GetServerTimestamp();
-		}
+			return GetCurrentTimestamp();
 		
 		return m_ActiveZone.GetZoneEndTime();
 	}
@@ -309,6 +311,12 @@ class AFM_DiDZoneSystem: GameSystem
 			return;
 		
 		m_ActiveZone.ForceEndPrepareStage();
+	}
+	
+	WorldTimestamp GetCurrentTimestamp()
+	{
+		ChimeraWorld world = GetGame().GetWorld();
+		return world.GetServerTimestamp();
 	}
 	
 	

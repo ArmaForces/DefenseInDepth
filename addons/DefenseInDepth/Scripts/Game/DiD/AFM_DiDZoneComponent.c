@@ -80,6 +80,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 					break;
 				case AFM_DiDMechanizedSpawnerComponent:
 				case AFM_DiDInfantrySpawnerComponent:
+				case AFM_DiDMortarSpawnerComponent:
 					AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(e);
 					m_aSpawners.Insert(spawner);
 					break;
@@ -241,21 +242,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 		PrintFormat("AFM_DiDZoneComponent %1: Zone UNFROZEN, resuming with %2 seconds",
 		 m_sZoneName, m_iRemainingTimeSeconds);
 	}
-	
-	//------------------------------------------------------------------------------------------------
-	//! Get total active AI count across all spawners
-	//------------------------------------------------------------------------------------------------
-	int GetActiveAICount()
-	{
-		int totalCount = 0;
-		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
-		{
-			if (spawner)
-				totalCount += spawner.GetActiveAICount();
-		}
-		return totalCount;
-	}
-	
+
 	protected EAFMZoneState HandlePrepareLogic()
 	{
 		// Check if preparation time is over
@@ -399,6 +386,35 @@ class AFM_DiDZoneComponent: ScriptComponent
 	AFM_PlayerSpawnPointEntity GetPlayerSpawnPoint()
 	{
 		return m_PlayerSpawnPoint;
+	}
+	
+	PolylineShapeEntity GetPolylineEntity()
+	{
+		return m_PolylineEntity;
+	}
+	
+	SCR_Faction GetDefenderFaction()
+	{
+		return m_BluforFaction;
+	}
+	
+	SCR_Faction GetAttackerFaction()
+	{
+		return m_RedforFaction;
+	}
+		
+	//------------------------------------------------------------------------------------------------
+	//! Get total active AI count across all spawners
+	//------------------------------------------------------------------------------------------------
+	int GetActiveAICount()
+	{
+		int totalCount = 0;
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			if (spawner)
+				totalCount += spawner.GetActiveAICount();
+		}
+		return totalCount;
 	}
 	
 	protected bool IsZoneTimeExpired()
