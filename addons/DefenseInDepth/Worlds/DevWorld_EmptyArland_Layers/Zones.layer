@@ -612,7 +612,7 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    AFM_DiDZoneComponent "{66B900F8E01E1100}" {
     m_sZoneName "DidZone 1"
     m_iPrepareTimeSeconds 35
-    m_iDefenseTimeSeconds 60
+    m_iDefenseTimeSeconds 120
    }
   }
   coords 1250.854 39 2730.854
@@ -889,6 +889,21 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
      }
     }
    }
+   AFM_DiDMechanizedSpawnerComponent : "{8E7842A8534F4260}Prefabs/Spawners/AFM_MechanizedSpawner.et" {
+    coords 54.911 0 -2.801
+    angles 0 -19.938 0
+    m_iWaveIntervalSeconds 15
+    {
+     AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+      coords 15.133 0 36.462
+      angles 0 100.57 0
+     }
+     SCR_SearchAndDestroyWaypoint : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
+      coords 112.283 0.337 7.245
+      angles 0 19.938 0
+     }
+    }
+   }
    AFM_DiDInfantrySpawnerComponent : "{A93E8199BD60FD8A}Prefabs/Spawners/AFM_DidInfantrySpawner.et" {
     coords 506.703 0 155.559
     {
@@ -902,7 +917,7 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
       }
      }
      SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
-      coords -395.281 -0 -102.756
+      coords -395.281 0 -102.756
      }
      SCR_SearchAndDestroyWaypoint : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
       coords -371.681 -0.001 -126.702

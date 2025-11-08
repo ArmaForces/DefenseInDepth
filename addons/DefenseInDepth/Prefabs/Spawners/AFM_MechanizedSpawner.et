@@ -1,0 +1,17 @@
+AFM_DiDMechanizedSpawnerComponent {
+ ID "66D0B44954988439"
+ components {
+  Hierarchy "{66D0B44940AA204A}" {
+  }
+  SCR_EditableEntityVisibilityChildComponent "{66D0B44973A93763}" {
+  }
+ }
+ coords 1315.057 21.378 2725.348
+ m_crewConfig AFM_CrewConfig "{66D0B4496F765437}" {
+  m_sDriverPrefab "{9FFEF10757E742EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Crew.et"
+  m_sGunnerPrefab "{9FFEF10757E742EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Crew.et"
+ }
+ m_aVehiclePrefabs {
+  "{0B4DEA8078B78A9B}Prefabs/Vehicles/Wheeled/UAZ469/UAZ469_PKM.et" "{254289B9C09904AB}Prefabs/Vehicles/Wheeled/BRDM2/BRDM2.et"
+ }
+}
