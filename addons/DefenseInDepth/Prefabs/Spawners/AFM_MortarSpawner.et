@@ -15,8 +15,9 @@ AFM_DiDMortarSpawnerComponent {
  }
  m_MortarPrefab "{D0AAD73A3B0B0087}Prefabs/Compositions/DiD_MortarComposition_USSR.et"
  m_iFireMissionUpdateInterval 60
- m_iMonteCarloSamples 100
+ m_iMonteCarloSamples 250
  m_fSampleRadius 10
  m_fMinTargetDistance 50
  m_fMaxTargetDistance 1200
+ m_bDebugVisualization 0
 }
