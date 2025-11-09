@@ -1,0 +1,23 @@
+AFM_DiDMortarSpawnerComponent {
+ ID "66D101C79DBFC385"
+ components {
+  SCR_EditableEntityVisibilityChildComponent "{66D101C7955098D9}" {
+  }
+  Hierarchy "{66D101C7EDFCA36C}" {
+  }
+ }
+ coords 1285.674 39 2736.982
+ m_crewConfig AFM_CrewConfig "{66D101C787BC4F19}" {
+  m_sDriverPrefab ""
+  m_sGunnerPrefab "{EBFB363AC7A5FCE6}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Engineer.et"
+  m_bSpawnDriver 0
+  m_bNoTurretDismount 0
+ }
+ m_MortarPrefab "{D0AAD73A3B0B0087}Prefabs/Compositions/DiD_MortarComposition_USSR.et"
+ m_iFireMissionUpdateInterval 60
+ m_iMonteCarloSamples 250
+ m_fSampleRadius 10
+ m_fMinTargetDistance 50
+ m_fMaxTargetDistance 1200
+ m_bDebugVisualization 0
+}

@@ -3,6 +3,20 @@ GameProject {
  GUID "66AAF4C2037310FC"
  TITLE "DefenseInDepth"
  Dependencies {
-  "0315131312150202" "58D0FB3206B6F859"
+  "58D0FB3206B6F859" "5EAF2B0473DB5A99"
+ }
+ Configurations {
+  GameProjectConfig PC {
+  }
+  GameProjectConfig XBOX_ONE {
+  }
+  GameProjectConfig XBOX_SERIES {
+  }
+  GameProjectConfig PS4 {
+  }
+  GameProjectConfig PS5 {
+  }
+  GameProjectConfig HEADLESS {
+  }
  }
 }

@@ -1,0 +1,25 @@
+SCR_AIWorld : "{672531FAC0834C06}Prefabs/AI/SCR_AIWorld_Cain.et" {
+ components {
+  NavmeshWorldComponent "{5584F30E67F617AD}" {
+   NavmeshSettings NavmeshWorld "{50FC63BEBE3973C5}" {
+    NavmeshFilesConfig BaseNavmeshFilesConfig "{60B8A297F9E52831}" {
+     NavmeshFile "{ACBE49C3E71A9E65}worlds/GameMaster/Navmeshes/GM_Cain.nmn"
+    }
+   }
+  }
+  NavmeshWorldComponent "{5584F30EEFEE1223}" {
+   NavmeshSettings ChimeraNavmeshWorld "{50FC63BEBE3973C5}" {
+    NavmeshFilesConfig BaseNavmeshFilesConfig "{60B8A297F3B4EE8A}" {
+     NavmeshFile "{27D8B11BF4E78009}worlds/GameMaster/Navmeshes/GM_Cain_vehicles.nmn"
+    }
+   }
+  }
+ }
+ coords 6867.593 435.688 6795.257
+}
+AFM_GameModeDiD AFM_GameMode_DiD1 : "{E508D7FF014D49F1}Prefabs/MP/Modes/AFM_GameMode_DiD.et" {
+ coords 6869.083 435.687 6793.928
+}
+MusicManager : "{A867D3EE4A35D38F}Prefabs/Sounds/Music/MusicManager_Campaign_Kolguyev.et" {
+ coords 6870.663 435.687 6794.249
+}

@@ -1,0 +1,13 @@
+AFM_DiDZoneEntity {
+ ID "66B900FA58431D4A"
+ components {
+  AFM_DiDZoneComponent "{66B900F8E01E1100}" {
+   m_aAIGroupPrefabs {
+    "{26099EE31B5CC43A}Prefabs/Groups/OPFOR/Naval_Infantry/Group_USSR_FireGroup_NI.et" "{43C7A28EEB660FF8}Prefabs/Groups/OPFOR/Group_USSR_Team_GL.et"
+   }
+  }
+  Hierarchy "{66C71AE7DD987A37}" {
+  }
+ }
+ coords 1433.546 50.97 5870.503
+}

@@ -69,7 +69,7 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 		if (!m_bPeriodicRefresh)
 			return;
 		
-		if (m_Campaign.GetCurrentZone() < 0)
+		if (!m_Campaign.ShowUI())
 		{
 			Show(false);
 			return;
@@ -87,8 +87,8 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 	//------------------------------------------------------------------------------------------------
 	protected void UpdateHUDValues()
 	{
-		int redforScore = m_Campaign.GetRedforScore();
-		int bluforScore = m_Campaign.GetBluforScore();
+		int redforScore = m_Campaign.GetAttackersRemaining();
+		int bluforScore = m_Campaign.GetDefendersRemaining();
 		int gameOverScore = m_Campaign.GetCurrentZone();
 		
 		bool isGameRunning = m_Campaign.IsGameRunning();
@@ -104,12 +104,15 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 		
 		if (isGameRunning)
 		{
-			WorldTimestamp victoryTimestamp = m_Campaign.GetVictoryTimestamp();
-			float victoryCountdown = victoryTimestamp.DiffMilliseconds(serverTimestamp);	
-			victoryCountdown = Math.Max(0, Math.Ceil(victoryCountdown / 1000));
-			string shownTime = SCR_FormatHelper.GetTimeFormatting(victoryCountdown, ETimeFormatParam.DAYS | ETimeFormatParam.HOURS, ETimeFormatParam.DAYS | ETimeFormatParam.HOURS | ETimeFormatParam.MINUTES);
+			WorldTimestamp timeoutTimestamp = m_Campaign.GetTimeoutTimestamp();
+			float timeoutCountdown = timeoutTimestamp.DiffMilliseconds(serverTimestamp);	
+			timeoutCountdown = Math.Max(0, Math.Ceil(timeoutCountdown / 1000));
+			string shownTime = SCR_FormatHelper.GetTimeFormatting(timeoutCountdown, ETimeFormatParam.DAYS | ETimeFormatParam.HOURS, ETimeFormatParam.DAYS | ETimeFormatParam.HOURS | ETimeFormatParam.MINUTES);
 			
-			m_wCountdown.SetText(shownTime);	
+			//TODO: Extract this to gamemode (GetTimeoutTimestamp?)
+			if (isTimerRunning) //update text only when timer is not frozen
+				m_wCountdown.SetText(shownTime);	
+			
 			m_wCountdownOverlay.SetVisible(true);
 			if (isWarmup)
 				m_wCountdown.SetColor(Color.FromInt(Color.GREEN));
@@ -129,19 +132,22 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 			m_wLeftScore.SetColor(Color.FromInt(Color.WHITE));
 			m_wWinScore.SetColor(Color.FromInt(Color.WHITE));
 			SCR_PopUpNotification.GetInstance().Offset(false);
+			
+			m_wLeftFlag.SetVisible(true);
+			m_wRightFlag.SetVisible(true);
+			m_wLeftScore.SetVisible(true);
+			m_wRightScore.SetVisible(true);
+			m_wWinScore.SetVisible(true);
 		}
-		else 
+		else
 		{
-			m_bPeriodicRefresh = true;
-			WorldTimestamp gamestartTimestamp = m_Campaign.GetGameStartTimestamp();
-			float startCountdown = gamestartTimestamp.DiffMilliseconds(serverTimestamp);	
-			startCountdown = Math.Max(0, Math.Ceil(startCountdown / 1000));
-			string shownTime = SCR_FormatHelper.GetTimeFormatting(startCountdown, ETimeFormatParam.DAYS | ETimeFormatParam.HOURS, ETimeFormatParam.DAYS | ETimeFormatParam.HOURS | ETimeFormatParam.MINUTES);
-			
-			
-			m_wCountdown.SetText(shownTime);
-			SCR_PopUpNotification.GetInstance().Offset(true);
-			m_wCountdownOverlay.SetVisible(true);
+			m_wCountdownOverlay.SetVisible(false);
+			m_wLeftFlag.SetVisible(false);
+			m_wRightFlag.SetVisible(false);
+			m_wLeftScore.SetVisible(false);
+			m_wRightScore.SetVisible(false);
+			m_wWinScore.SetVisible(false);
+			m_wFlavour.SetVisible(false);
 		}
 	}
 	
@@ -152,6 +158,12 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 		
 		if (!m_wRoot || !m_bInitDone)
 			return;
+		
+		if (!m_Campaign || !m_Campaign.ShowUI())
+		{
+			HideHUD();
+			return;
+		}
 		
 		GetGame().GetCallqueue().Remove(HideHUD);
 		

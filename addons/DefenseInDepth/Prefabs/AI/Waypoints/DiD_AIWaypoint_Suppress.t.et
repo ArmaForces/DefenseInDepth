@@ -1,0 +1,7 @@
+SCR_SuppressWaypoint : "{ED8277F35B46B4AA}Prefabs/AI/Waypoints/AIWaypoint_Suppress.et" {
+ ID "663CBEF736DEBDE0"
+ components {
+  Hierarchy "{66D0B4730849500B}" {
+  }
+ }
+}
