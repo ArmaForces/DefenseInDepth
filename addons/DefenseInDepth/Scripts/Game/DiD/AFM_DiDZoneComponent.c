@@ -2,11 +2,14 @@
 enum EAFMZoneState
 {
 	INACTIVE,			// Zone is not yet active
-	PREPARE,				// Zone is in preparation phase (warmup)
-	ACTIVE,				// Zone is active and being defended
+	PREPARE,			// Zone is in preparation phase (warmup)
+	ACTIVE,				// Zone is active and being defended (or wave is active)
 	FROZEN,				// Zone timer is frozen (too many attackers)
-	FINISHED_HELD,		// Zone successfully defended by defenders
-	FINISHED_FAILED		// Zone lost - all defenders eliminated
+	FINISHED_HELD,		// Zone successfully defended by defenders (or all waves completed)
+	FINISHED_FAILED,	// Zone lost - all defenders eliminated
+	
+	// Wave zone specific states
+	WAVE_COMPLETE		// Wave cleared, preparing for next wave
 }
 
 //------------------------------------------------------------------------------------------------
@@ -23,6 +26,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	[Attribute("1", UIWidgets.Auto, desc: "Stop the timer when redfor presence is higher than blufor?", category: "DiD")]
 	protected bool m_bStopTimerOnRedforSuperiority;
 	
+	[Attribute("1", UIWidgets.Auto, desc: "Stop the AI spawners when redfor presence is higher than blufor?", category: "DiD")]
+	protected bool m_bStopSpawnersOnRedforSuperiority;
+	
 	[Attribute("1", UIWidgets.EditBox, "Zone index (1 to N), 1 is played first, N is the last zone", category: "DiD")]
 	protected int m_iZoneIndex;
 	
@@ -38,6 +44,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected PolylineShapeEntity m_PolylineEntity;
 	protected AFM_PlayerSpawnPointEntity m_PlayerSpawnPoint;
 	protected ref array<AFM_DiDSpawnerComponent> m_aSpawners = {};
+	protected SCR_ResourceComponent m_SupplyCache;
 		
 	// Zone state management
 	protected EAFMZoneState m_eZoneState = EAFMZoneState.INACTIVE;
@@ -81,8 +88,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 				case AFM_DiDMechanizedSpawnerComponent:
 				case AFM_DiDInfantrySpawnerComponent:
 				case AFM_DiDMortarSpawnerComponent:
+				case AFM_DiDWaveSpawnerComponent:
 					AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(e);
 					m_aSpawners.Insert(spawner);
+					break;
+				case AFM_SupplyCacheEntity:
+					m_SupplyCache = SCR_ResourceComponent.Cast(e.FindComponent(SCR_ResourceComponent));
 					break;
 				default:
 					PrintFormat("AFM_DiDZoneComponent %1: Unknown type %2", m_sZoneName, e.Type().ToString());
@@ -401,6 +412,21 @@ class AFM_DiDZoneComponent: ScriptComponent
 	SCR_Faction GetAttackerFaction()
 	{
 		return m_RedforFaction;
+	}
+	
+	int GetBluforScore()
+	{
+		return GetDefenderCount();
+	}
+	
+	int GetRedforScore()
+	{
+		return GetAICountInsideZone();
+	}
+	
+	int GetZoneDisplayNumber()
+	{
+		return GetZoneIndex();
 	}
 		
 	//------------------------------------------------------------------------------------------------

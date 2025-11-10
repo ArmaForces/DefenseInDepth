@@ -1,0 +1,11 @@
+AFM_DiDZoneEntity {
+ ID "66D337660F04D033"
+ components {
+  AFM_DiDWaveZoneComponent "{66D337660F04D04C}" {
+   m_sZoneName "WaveZone1"
+  }
+  Hierarchy "{66D337660F04D042}" {
+  }
+ }
+ coords 1433.546 50.97 5870.503
+}

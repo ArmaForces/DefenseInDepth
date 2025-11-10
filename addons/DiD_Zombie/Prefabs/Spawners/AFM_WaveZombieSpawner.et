@@ -1,0 +1,11 @@
+AFM_DiDWaveSpawnerComponent : "{BB97778C7E0DE77D}Prefabs/Spawners/AFM_WaveInantrySpawner.et" {
+ ID "66D337669346C4EE"
+ m_aAIGroupPrefabs {
+  "{58251EDC277CE499}622120A5448725E3/Prefabs/Groups/Group_Zombies_USSR.et" "{BE9B93D322B48CB4}622120A5448725E3/Prefabs/Groups/Group_Zombies_FIA.et" "{C030EC844FA147C0}622120A5448725E3/Prefabs/Groups/Group_Zombies_US.et" "{67E76BA71804B965}622120A5448725E3/Prefabs/Groups/Group_Zombies_CIV.et"
+ }
+ m_iWaveIntervalSeconds 30
+ m_iSpawnCountPerWave 1
+ m_fZoneLevelMultiplier 1.25
+ m_bUseTickets 1
+ m_iMaxTickets 25
+}

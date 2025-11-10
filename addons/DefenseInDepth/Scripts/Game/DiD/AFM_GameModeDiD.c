@@ -154,8 +154,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		m_iCurrentZone = m_ZoneSystem.GetCurrentZoneIndex();
 		m_bIsWarmup = m_ZoneSystem.IsWarmup();
 		m_bIsTimerRunning = m_ZoneSystem.IsTimerRunning();
-		m_iAttackersRemaining = m_ZoneSystem.GetAICountInCurrentZone();
-		m_iDefendersRemaining = m_ZoneSystem.GetDefenderCount();
+		m_iAttackersRemaining = m_ZoneSystem.GetRedforScore();
+		m_iDefendersRemaining = m_ZoneSystem.GetBluforScore();
 		m_fTimeoutTimestamp = m_ZoneSystem.GetZoneTimeoutTimestamp();
 	}
 

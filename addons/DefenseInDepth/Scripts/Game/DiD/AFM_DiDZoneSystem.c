@@ -148,16 +148,17 @@ class AFM_DiDZoneSystem: GameSystem
 			OnZoneStateChanged(zoneIndex, previousState, currentState);
 		}
 		
+		// Handle zone completion states (both regular zones and wave zones use FINISHED_HELD)
 		if (currentState == EAFMZoneState.FINISHED_HELD)
 		{
-			PrintFormat("AFM_DiDZoneSystem: Zone %1 defense time expired - defenders held!", zoneIndex);
+			PrintFormat("AFM_DiDZoneSystem: Zone %1 completed - defenders held!", zoneIndex);
 			if (m_OnZoneHeld)
 				m_OnZoneHeld.Invoke();
 			StopZoneSystem();
 			return;
 		}
 		
-		// Check if zone defense time expired (defenders win this zone)
+		// Handle zone failure (all defenders eliminated)
 		if (currentState == EAFMZoneState.FINISHED_FAILED)
 		{
 			PrintFormat("AFM_DiDZoneSystem: All defenders eliminated in zone %1", zoneIndex);
@@ -202,6 +203,15 @@ class AFM_DiDZoneSystem: GameSystem
 			if (m_OnZoneUpdate)
 				m_OnZoneUpdate.Invoke();
 		}
+		
+		// Notify when wave completes (for wave zones)
+		if (newState == EAFMZoneState.WAVE_COMPLETE)
+		{
+			if (m_OnZoneUpdate)
+				m_OnZoneUpdate.Invoke();
+			if (m_OnZoneChanged)
+				m_OnZoneChanged.Invoke();
+		}
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -243,6 +253,20 @@ class AFM_DiDZoneSystem: GameSystem
 	//------------------------------------------------------------------------------------------------
 	// Public API / Getters
 	//------------------------------------------------------------------------------------------------
+	int GetBluforScore()
+	{
+		if (!m_ActiveZone)
+			return -1;
+		return m_ActiveZone.GetBluforScore();
+	}
+	
+	int GetRedforScore()
+	{
+		if (!m_ActiveZone)
+			return -1;
+		return m_ActiveZone.GetRedforScore();
+	}
+	
 	
 	int GetAICountInCurrentZone()
 	{
@@ -270,9 +294,10 @@ class AFM_DiDZoneSystem: GameSystem
 	
 	int GetCurrentZoneIndex()
 	{
-		if (m_ActiveZone)
-			return m_ActiveZone.GetZoneIndex();
-		return -1;
+		if (!m_ActiveZone)
+			return -1;
+		
+		return m_ActiveZone.GetZoneDisplayNumber();
 	}
 	
 	int GetMaxZoneIndex()
@@ -286,7 +311,11 @@ class AFM_DiDZoneSystem: GameSystem
 			return false;
 		
 		EAFMZoneState state = m_ActiveZone.GetZoneState();
-		return (state == EAFMZoneState.ACTIVE || state == EAFMZoneState.PREPARE);
+		return (
+			state == EAFMZoneState.ACTIVE ||
+		 	state == EAFMZoneState.PREPARE || 
+		    state == EAFMZoneState.WAVE_COMPLETE
+		);
 	}
 	
 	bool IsWarmup()

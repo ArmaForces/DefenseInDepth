@@ -1,0 +1,11 @@
+AFM_DiDWaveSpawnerComponent {
+ ID "66D337669346C4EE"
+ components {
+  Hierarchy "{66D33766EB21E15E}" {
+  }
+ }
+ coords 3281.599 270.145 6877.863
+ m_aAIGroupPrefabs {
+  "{1A5F0D93609DA5DA}Prefabs/Groups/OPFOR/Group_USSR_ManeuverGroup.et" "{A2F75E45C66B1C0A}Prefabs/Groups/OPFOR/Group_USSR_MachineGunTeam.et" "{43C7A28EEB660FF8}Prefabs/Groups/OPFOR/Group_USSR_Team_GL.et" "{96BAB56E6558788E}Prefabs/Groups/OPFOR/Group_USSR_Team_AT.et"
+ }
+}

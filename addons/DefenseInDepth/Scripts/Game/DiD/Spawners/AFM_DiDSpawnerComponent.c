@@ -24,11 +24,18 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	[Attribute("1.0", UIWidgets.EditBox, "Spawn count multiplier per zone level (e.g., zone 2 = 2x spawn count)", category: "DiD Spawner")]
 	protected float m_fZoneLevelMultiplier;
 	
+	[Attribute("0", UIWidgets.CheckBox, "Use ticket system (limits total spawns)", category: "DiD Spawner")]
+	protected bool m_bUseTickets;
+	
+	[Attribute("0", UIWidgets.EditBox, "Max tickets for spawning (0 = unlimited, only used if tickets enabled)", category: "DiD Spawner")]
+	protected int m_iMaxTickets;
+	
 	protected AFM_DiDZoneComponent m_Zone;
 	protected ref array<AFM_SpawnPointEntity> m_aSpawnPoints = {};
 	protected ref array<SCR_AIWaypoint> m_aAIWaypoints = {};
 	protected ref array<AIGroup> m_aSpawnedAIGroups = {};
 	protected WorldTimestamp m_fLastSpawnTime;
+	protected int m_iRemainingTickets;
 	
 	//------------------------------------------------------------------------------------------------
 	// Prepare method - called by owner zone component on start
@@ -36,6 +43,14 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	void Prepare(AFM_DiDZoneComponent owner)
 	{
 		m_Zone = owner;
+		
+		// Initialize tickets if enabled
+		if (m_bUseTickets)
+		{
+			m_iRemainingTickets = m_iMaxTickets;
+			PrintFormat("AFM_DiDSpawnerComponent: Tickets enabled with %1 tickets", m_iMaxTickets, LogLevel.DEBUG);
+		}
+		
 		// Find spawn points and waypoints in children
 		IEntity child = GetChildren();
 		while (child)
@@ -82,6 +97,10 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		if (state != EAFMZoneState.ACTIVE && state != EAFMZoneState.FROZEN)
 			return;
 		
+		// If using tickets, check if there are tickets available
+		if (m_bUseTickets && m_iRemainingTickets <= 0)
+			return;
+		
 		ChimeraWorld world = GetGame().GetWorld();
 		WorldTimestamp now = world.GetServerTimestamp();
 		
@@ -101,6 +120,31 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		RemoveSpawnedAI();
 	}
 	
+	int GetWaveInterval()
+	{
+		return m_iWaveIntervalSeconds;
+	}
+	
+	void SetWaveInterval(int interval)
+	{
+		m_iWaveIntervalSeconds = interval;
+	}
+	
+	int GetSpawnCount()
+	{
+		return m_iSpawnCountPerWave;
+	}
+	
+	void SetSpawnCount(int count)
+	{
+		m_iSpawnCountPerWave = count;
+	}
+	
+	WorldTimestamp GetNextSpawnTime()
+	{
+		return m_fLastSpawnTime.PlusSeconds(m_iWaveIntervalSeconds);
+	}
+	
 	//------------------------------------------------------------------------------------------------
 	//! Calculate how many AI groups to spawn this wave
 	//! Override this for custom spawn count logic
@@ -112,10 +156,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		
 		int zoneIndex = m_Zone.GetZoneIndex();
 		float multiplier = 1.0 + ((zoneIndex - 1) * m_fZoneLevelMultiplier);
-		int baseCount = Math.Ceil(m_iSpawnCountPerWave * multiplier);
-		
-		// Add some randomization
-		return s_AIRandomGenerator.RandInt(Math.Max(1, baseCount - 1), baseCount + 1);
+		return Math.Ceil(m_iSpawnCountPerWave * multiplier);
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -173,6 +214,13 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	//------------------------------------------------------------------------------------------------
 	protected void SpawnSingleGroup()
 	{
+		// Try to consume ticket if using ticket system
+		if (m_bUseTickets && GetRemainingTickets() <= 0)
+		{
+			PrintFormat("AFM_DiDSpawnerComponent: No tickets remaining, cannot spawn", LogLevel.DEBUG);
+			return;
+		}
+		
 		ResourceName groupPrefab = m_aAIGroupPrefabs.GetRandomElement();
 		AFM_SpawnPointEntity spawnPoint = m_aSpawnPoints.GetRandomElement();
 		SCR_AIWaypoint waypoint = m_aAIWaypoints.GetRandomElement();
@@ -251,6 +299,9 @@ class AFM_DiDSpawnerComponent: GenericEntity
 				continue;
 			damageMgr.SetPermitUnconsciousness(false, true);
 		}
+		
+		//TODO: Fix me - workaround for late group init
+		ConsumeTickets(agents.Count());
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -269,5 +320,32 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	{
 		ChimeraWorld world = GetGame().GetWorld();
 		return world.GetServerTimestamp();
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	// Public API for ticket management
+	//------------------------------------------------------------------------------------------------
+	
+	//! Consume one ticket, returns false if no tickets available
+	void ConsumeTickets(int ticketCount)
+	{
+		if (!m_bUseTickets || m_iRemainingTickets <= 0)
+			return;
+		
+		m_iRemainingTickets = m_iRemainingTickets - ticketCount;
+		PrintFormat("AFM_DiDSpawnerComponent: Ticket consumed, %1 remaining", m_iRemainingTickets, LogLevel.DEBUG);
+	}
+	
+	//! Get remaining tickets
+	int GetRemainingTickets()
+	{
+		return m_iRemainingTickets;
+	}
+	
+	//! Set remaining tickets (called by zone when starting waves)
+	void SetRemainingTickets(int tickets)
+	{
+		m_iRemainingTickets = tickets;
+		PrintFormat("AFM_DiDSpawnerComponent: Tickets set to %1", tickets, LogLevel.DEBUG);
 	}
 }
