@@ -34,7 +34,7 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 	
 	
 	// Wave-specific state
-	protected int m_iCurrentWave = 0;
+	protected int m_iCurrentWave = 1;
 
 	
 	//------------------------------------------------------------------------------------------------
@@ -51,7 +51,6 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 	//------------------------------------------------------------------------------------------------
 	override void ActivateZone()
 	{
-		m_iCurrentWave = 0;
 		StartWave(1);
 	}
 	
@@ -129,7 +128,7 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 		// Process spawners (they will consume tickets)
 		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
 		{
-			if (spawner)
+			if (spawner && spawner.IsActive())
 				spawner.Process();
 		}
 		
@@ -177,7 +176,8 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 		// Initialize tickets for spawners that use them
 		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
 		{
-			spawner.SetRemainingTickets(ticketCount);
+			if (spawner.IsActive())
+				spawner.SetRemainingTickets(ticketCount);
 		}
 		
 		// Set up preparation timer
@@ -226,7 +226,7 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 		
 		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
 		{
-			if (!spawner)
+			if (!spawner || !spawner.IsActive())
 				continue;
 			
 			// Decrease spawn interval (faster spawns)
@@ -284,7 +284,7 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 		int tickets = 0;
 		foreach(AFM_DiDSpawnerComponent spawner: m_aSpawners)
 		{
-			if (spawner)
+			if (spawner && spawner.IsActive())
 				tickets = tickets + spawner.GetRemainingTickets();
 		}
 		
@@ -311,7 +311,7 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 		foreach(AFM_DiDSpawnerComponent spawner: m_aSpawners)
 		{
 			WorldTimestamp spawnTimestamp = spawner.GetNextSpawnTime();
-			if (t.Greater(spawnTimestamp))
+			if (spawner.IsActive() && t.Greater(spawnTimestamp))
 				t = spawnTimestamp;
 		}
 		return t;

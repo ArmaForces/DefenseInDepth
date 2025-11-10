@@ -348,4 +348,9 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		m_iRemainingTickets = tickets;
 		PrintFormat("AFM_DiDSpawnerComponent: Tickets set to %1", tickets, LogLevel.DEBUG);
 	}
+	
+	bool IsActive()
+	{
+		return true;
+	}
 }

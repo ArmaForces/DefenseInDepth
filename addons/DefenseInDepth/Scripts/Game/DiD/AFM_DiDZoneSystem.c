@@ -8,9 +8,6 @@ class AFM_DiDZoneSystem: GameSystem
 	protected const float m_fCheckInterval = 1.0;
 	protected float m_fCheckTimer = 0;
 	
-	protected int m_iAttackersInActiveZone = 0;
-	protected int m_iDefendersRemaining = 0;
-	
 	// Callbacks
 	protected ref ScriptInvoker m_OnZoneChanged;
 	protected ref ScriptInvoker m_OnZoneUpdate;
@@ -166,18 +163,9 @@ class AFM_DiDZoneSystem: GameSystem
 			return;
 		}
 		
-		int attackersCount = m_ActiveZone.GetAICountInsideZone();
-		int defendersCount = m_ActiveZone.GetDefenderCount();
-		bool sendUpdate = (attackersCount != m_iAttackersInActiveZone || defendersCount != m_iDefendersRemaining);
-		m_iAttackersInActiveZone = attackersCount;
-		m_iDefendersRemaining = defendersCount;
+		if (m_OnZoneUpdate)
+			m_OnZoneUpdate.Invoke();
 		
-		
-		if (sendUpdate)
-		{
-			if (m_OnZoneUpdate)
-				m_OnZoneUpdate.Invoke();
-		}
 		WorldTimestamp tEnd = GetCurrentTimestamp();
 		float diff = tEnd.DiffMilliseconds(tStart);
 		if (diff > 0)

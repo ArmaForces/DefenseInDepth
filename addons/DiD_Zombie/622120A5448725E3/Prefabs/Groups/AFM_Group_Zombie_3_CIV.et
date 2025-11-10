@@ -1,0 +1,7 @@
+Bacon_622120A5448725E3_InfectedGroup : "{7F0A9B21A0E5E439}622120A5448725E3/Prefabs/Groups/AFM_Group_Zombies_Base.et" {
+ ID "62651601183F5AEE"
+ coords 3342.115 268.069 6871.105
+ m_aUnitPrefabSlots {
+  "{1228A830F9454F4B}622120A5448725E3/Prefabs/Characters/Zombie_CIV.et" "{1228A830F9454F4B}622120A5448725E3/Prefabs/Characters/Zombie_CIV.et" "{1228A830F9454F4B}622120A5448725E3/Prefabs/Characters/Zombie_CIV.et"
+ }
+}

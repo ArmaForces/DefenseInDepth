@@ -1,0 +1,17 @@
+MetaFileClass {
+ Name "{50A5C3375BB97C31}Missions/DiD_Zombie_Wave_Hamertin_Cain.conf"
+ Configurations {
+  CONFResourceClass PC {
+  }
+  CONFResourceClass XBOX_ONE : PC {
+  }
+  CONFResourceClass XBOX_SERIES : PC {
+  }
+  CONFResourceClass PS4 : PC {
+  }
+  CONFResourceClass PS5 : PC {
+  }
+  CONFResourceClass HEADLESS : PC {
+  }
+ }
+}

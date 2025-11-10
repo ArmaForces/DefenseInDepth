@@ -39,6 +39,10 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
   }
   PS_VoNRoomsManager "{66AAF4E352EDE107}" {
   }
+  SCR_ArsenalManagerComponent "{6120A34EB1E9BBEF}" {
+   m_sMilitarySupplyAllocationConfigHolder "{BA6B6E7E2ED427D6}Configs/Campaign/CampaignMilitarySupplyAllocationConfig.conf"
+   m_bUseMilitarySupplyAllocation 1
+  }
   SCR_CampaignBuildingManagerComponent "{66AAF4E352EDE10D}" {
    m_sFreeRoamBuildingClientTrigger "{5E191CEAF4B95816}Prefabs/MP/FreeRoamBuildingClientTrigger.et"
    m_BudgetType CAMPAIGN
@@ -78,6 +82,9 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
   SCR_RestoreEditorModesComponent "{66AAF4E352EDE120}" {
   }
   SCR_TimeAndWeatherHandlerComponent "{66AAF4E352EDE128}" {
+   m_bFogOverride 1
+   m_fFogAmount 0.266
+   m_fFogHeightDensity 0.399
   }
   SCR_VotingManagerComponent "{5650BB6B6089393A}" {
    Enabled 0
@@ -85,21 +92,39 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
   SCR_ReconnectComponent "{5A02809D5E8ABE42}" {
    Enabled 0
   }
+  SCR_DebriefingScreenComponent "{66D4FDB5D75C3ED7}" {
+   m_BaseLayout SCR_DebriefingScreenUnevenFourTiles "{66D4FDB5DFFB6018}" {
+    m_BottomLeftTile SCR_DebriefingScreenStatisticsContent "{66D4FDB5C12FA245}" {
+     m_aStatistics {
+      SCR_DebriefingScreenStatisticDeaths "{66D4FDB5CB683323}" {
+      }
+      SCR_DebriefingScreenStatisticDistanceWalked "{66D4FDB5C921EAE2}" {
+      }
+      SCR_DebriefingScreenStatisticKills "{66D4FDB5C8335868}" {
+      }
+      SCR_DebriefingScreenStatisticShotsFired "{66D4FDB5CF5308D3}" {
+      }
+     }
+    }
+   }
+  }
+  SCR_XPHandlerComponent "{66D34C57D4D10ACA}" {
+  }
  }
  coords 0 0 0
  PlayerControllerPrefab "{4E5DAC62A374950F}Prefabs/Characters/Core/DefaultPlayerControllerMP_Coop.et"
  m_bAutoPlayerRespawn 0
  m_bAllowFactionChange 0
  m_aDisabledResourceTypes {
-  SUPPLIES
  }
  m_bTeamSwitch 1
  m_bPublicCommandBriefing 1
  m_bRemoveRedundantUnits 1
  m_iFreezeTime 0
- m_bDisableGarbageSystem 1
+ m_bDisableGarbageSystem 0
  m_bDisableArmaVision 0
  m_bHolsterWeapon 0
+ m_sAttackerFactionKey "BACON_622120A5448725E3_FACTION"
  {
   SCR_FactionManager "5EA8C932C68D400F" : "{4A188E44289B9A50}Prefabs/MP/Managers/Factions/FactionManager_Editor.et" {
    ID "66AAF4E352ED3209"

@@ -23,19 +23,18 @@ PerceptionManager PerceptionManager2 : "{028DAEAD63E056BE}Prefabs/World/Game/Per
 AFM_GameModeDiD AFM_GameMode_DiD1 : "{E508D7FF014D49F1}Prefabs/MP/Modes/AFM_GameMode_DiD.et" {
  components {
   SCR_ArsenalManagerComponent "{6120A34EB1E9BBEF}" {
-   m_sMilitarySupplyAllocationConfigHolder "{BA6B6E7E2ED427D6}Configs/Campaign/CampaignMilitarySupplyAllocationConfig.conf"
-   m_bUseMilitarySupplyAllocation 1
+   m_bRankLockedItems 1
   }
   SCR_TimeAndWeatherHandlerComponent "{66AAF4E352EDE128}" {
-   m_bFogOverride 1
-   m_fFogAmount 0.266
-   m_fFogHeightDensity 0.399
-  }
-  SCR_XPHandlerComponent "{66D34C57D4D10ACA}" {
+   m_aStartingWeatherAndTime {
+    SCR_TimeAndWeatherState "{66D4FDA868A2140D}" {
+     m_sWeatherPresetName "Overcast"
+    }
+   }
+   m_bAllowHeaderSettings 1
+   m_fFogAmount 0.637
+   m_fFogHeightDensity 0.975
   }
  }
  coords 3276.907 268.739 6874.282
- m_aDisabledResourceTypes {
- }
- m_sAttackerFactionKey "BACON_622120A5448725E3_FACTION"
 }

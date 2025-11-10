@@ -1,0 +1,17 @@
+MetaFileClass {
+ Name "{B7E583CEE3ABD223}622120A5448725E3/Prefabs/Groups/AFM_Group_5_CIV_LIGHT.et"
+ Configurations {
+  EntityTemplateResourceClass PC {
+  }
+  EntityTemplateResourceClass XBOX_ONE : PC {
+  }
+  EntityTemplateResourceClass XBOX_SERIES : PC {
+  }
+  EntityTemplateResourceClass PS4 : PC {
+  }
+  EntityTemplateResourceClass PS5 : PC {
+  }
+  EntityTemplateResourceClass HEADLESS : PC {
+  }
+ }
+}

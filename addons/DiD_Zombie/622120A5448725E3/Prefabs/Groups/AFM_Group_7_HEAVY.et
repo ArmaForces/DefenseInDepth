@@ -1,0 +1,7 @@
+Bacon_622120A5448725E3_InfectedGroup : "{1D1B37E9A0027EAD}622120A5448725E3/Prefabs/Groups/AFM_Group_Zombie_3_CIV.et" {
+ ID "A1B2C3D4E5F60007"
+ coords 3339.906 267.889 6866.542
+ m_aUnitPrefabSlots {
+  "{DFC792E39288F720}622120A5448725E3/Prefabs/Characters/Zombie_Heavy_base.et" "{DFC792E39288F720}622120A5448725E3/Prefabs/Characters/Zombie_Heavy_base.et" "{38FECDEBBDBDCF89}622120A5448725E3/Prefabs/Characters/Zombie_Military_ALL.et" "{38FECDEBBDBDCF89}622120A5448725E3/Prefabs/Characters/Zombie_Military_ALL.et" "{F6F86A2C8E6C9FCD}622120A5448725E3/Prefabs/Characters/Zombie_CIV_Exploder.et" "{F6F86A2C8E6C9FCD}622120A5448725E3/Prefabs/Characters/Zombie_CIV_Exploder.et" "{CB545044C3F57A9A}622120A5448725E3/Prefabs/Characters/Zombie_FIA.et"
+ }
+}
