@@ -6,60 +6,59 @@ class AFM_GameModeDiD: PS_GameModeCoop
 {
 	[Attribute("US", UIWidgets.EditBox, "Defenders faction key", category: "DiD")]
 	protected FactionKey m_sDefenderFactionKey;
-	
+
 	[Attribute("USSR", UIWidgets.EditBox, "Attackers faction key", category: "DiD")]
-	protected FactionKey m_sAttackerFactionKey;	
-	
+	protected FactionKey m_sAttackerFactionKey;
+
 	protected SCR_FactionManager m_FactionManager;
 	protected AFM_DiDZoneSystem m_ZoneSystem;
 	protected ref ScriptInvoker m_OnMatchSituationChanged;
-	
+
 	protected bool m_bShowUI = false;
 
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected bool m_bIsGameRunning = false;
-	
+
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected bool m_bIsWarmup = false;
-	
+
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected bool m_bIsTimerRunning = false;
-	
+
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected WorldTimestamp m_fTimeoutTimestamp;
-	
+
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected int m_iDefendersRemaining = 0;
-	
+
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected int m_iAttackersRemaining = 0;
-	
+
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected int m_iCurrentZone = 0;
-	
+
 	//------------------------------------------------------------------------------------------------
 	ScriptInvoker GetOnMatchSituationChanged()
 	{
 		if (!m_OnMatchSituationChanged)
 			m_OnMatchSituationChanged = new ScriptInvoker();
-
 		return m_OnMatchSituationChanged;
 	}
-	
+
 	void OnMatchSituationChanged()
 	{
 		if (m_OnMatchSituationChanged)
 			m_OnMatchSituationChanged.Invoke();
 	}
-	
+
 	void ForceEndPrepareStage()
 	{
 		if (m_ZoneSystem)
 			m_ZoneSystem.ForceEndPrepareStage();
-		else //no zone system - assume we are a proxy
+		else
 			Rpc(RPC_DoForceEndPrepareStage);
 	}
-	
+
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	void RPC_DoForceEndPrepareStage()
 	{
@@ -67,21 +66,18 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			return;
 		m_ZoneSystem.ForceEndPrepareStage();
 	}
-	
+
 	override void EOnInit(IEntity owner)
 	{
 		super.EOnInit(owner);
-		
+
 		if (SCR_Global.IsEditMode())
 			return;
-		
+
 		m_FactionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
 		if (!m_FactionManager)
-		{
 			Print("Faction manager component is missing!", LogLevel.ERROR);
-		}
-		
-		
+
 		m_ZoneSystem = AFM_DiDZoneSystem.GetInstance();
 		if (!m_ZoneSystem)
 		{
@@ -93,39 +89,37 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			m_ZoneSystem.GetOnZoneUpdate().Insert(OnZoneUpdate);
 			m_ZoneSystem.GetOnAllZonesCompleted().Insert(OnAllZonesCompleted);
 			m_ZoneSystem.GetOnZoneHeld().Insert(OnZoneHeld);
+			m_ZoneSystem.GetOnZoneRepelled().Insert(OnZoneRepelled);
 			m_ZoneSystem.GetOnZoneFailed().Insert(OnZoneFailed);
 			m_ZoneSystem.GetOnWaveCompleted().Insert(OnWaveCompleted);
 		}
 	}
-	
-	
+
 	override void OnGameStateChanged()
 	{
 		super.OnGameStateChanged();
-		
+
 		SCR_EGameModeState state = GetState();
 		if (state != SCR_EGameModeState.GAME)
 			return;
-		
-		ChimeraWorld world = GetGame().GetWorld();
+
 		m_bIsGameRunning = true;
 		m_bShowUI = true;
-		
+
 		if (m_ZoneSystem)
 			m_ZoneSystem.StartZoneSystem();
-		
+
 		OnMatchSituationChanged();
 		Replication.BumpMe();
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	// Zone system callbacks
 	//------------------------------------------------------------------------------------------------
-	
+
 	protected void OnZoneChanged()
 	{
 		UpdateLocalGameState();
-		// Respawn dead players when zone changes
 		GetGame().GetCallqueue().CallLater(RespawnAllSpectators, 1000 * 5);
 
 		RPC_DoProgressToNextZone(m_iCurrentZone);
@@ -133,38 +127,46 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		OnMatchSituationChanged();
 		Replication.BumpMe();
 	}
-	
+
 	protected void OnZoneUpdate()
 	{
 		UpdateLocalGameState();
 		OnMatchSituationChanged();
 		Replication.BumpMe();
 	}
-	
+
 	protected void OnAllZonesCompleted()
 	{
 		GameEndAttackersWin();
 	}
-	
+
 	protected void OnZoneHeld()
 	{
 		GameEndDefendersWin();
 	}
-	
-	//! Called when all defenders in a zone are eliminated - fires before zone progression
+
+	//! Attacker budget exhausted and zone cleared — defenders repelled the assault
+	protected void OnZoneRepelled()
+	{
+		RPC_DoZoneRepelled();
+		Rpc(RPC_DoZoneRepelled);
+		GameEndDefendersWin();
+	}
+
+	//! All defenders eliminated — zone failed, progressing to next
 	protected void OnZoneFailed(int zoneIndex)
 	{
 		RPC_DoZoneFailed(zoneIndex);
 		Rpc(RPC_DoZoneFailed, zoneIndex);
 	}
-	
-	//! Called when a wave zone wave is cleared
+
+	//! Wave zone wave cleared
 	protected void OnWaveCompleted(int currentWave, int totalWaves)
 	{
 		RPC_DoWaveCompleted(currentWave, totalWaves);
 		Rpc(RPC_DoWaveCompleted, currentWave, totalWaves);
 	}
-	
+
 	protected void UpdateLocalGameState()
 	{
 		m_iCurrentZone = m_ZoneSystem.GetCurrentZoneIndex();
@@ -175,14 +177,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		m_fTimeoutTimestamp = m_ZoneSystem.GetZoneTimeoutTimestamp();
 	}
 
-	
 	protected void RespawnAllSpectators()
 	{
 		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
 		array<PS_PlayableContainer> playableContainers = playableManager.GetPlayablesSorted();
 		AFM_PlayerSpawnPointEntity currentSpawnPoint = m_ZoneSystem.GetCurrentZonePlayerSpawnPoint();
-		
-		
+
 		foreach (PS_PlayableContainer container : playableContainers)
 		{
 			PS_PlayableComponent pcomp = container.GetPlayableComponent();
@@ -197,7 +197,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			}
 		}
 	}
-	
+
 	protected void RespawnPlayer(int playerId, PS_PlayableComponent playableComponent, AFM_PlayerSpawnPointEntity sp)
 	{
 		if (playableComponent)
@@ -206,10 +206,10 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			if (prefabToSpawn != "")
 			{
 				PS_RespawnData respawnData = new PS_RespawnData(playableComponent, prefabToSpawn);
-				
+
 				if (sp)
 					respawnData.m_aSpawnTransform[3] = sp.GetOrigin();
-				
+
 				Respawn(playerId, respawnData);
 				return;
 			}
@@ -217,8 +217,24 @@ class AFM_GameModeDiD: PS_GameModeCoop
 
 		SwitchToInitialEntity(playerId);
 	}
-	
-	//! Broadcast: zone failure - shown before zone progression hint
+
+	//------------------------------------------------------------------------------------------------
+	// Broadcast RPCs
+	//------------------------------------------------------------------------------------------------
+
+	//! Defenders repelled the assault (budget exhausted + zone cleared)
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoZoneRepelled()
+	{
+		SCR_HintManagerComponent.GetInstance().ShowCustom(
+			"Enemy assault repelled! All attackers eliminated!",
+			"",
+			12,
+			false
+		);
+	}
+
+	//! Zone failed — all defenders eliminated
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
 	protected void RPC_DoZoneFailed(int zoneIndex)
 	{
@@ -229,8 +245,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			false
 		);
 	}
-	
-	//! Broadcast: next zone is now active
+
+	//! New zone is now active
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
 	protected void RPC_DoProgressToNextZone(int newZoneIndex)
 	{
@@ -241,8 +257,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			false
 		);
 	}
-	
-	//! Broadcast: wave cleared in a wave zone
+
+	//! Wave zone wave cleared
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
 	protected void RPC_DoWaveCompleted(int currentWave, int totalWaves)
 	{
@@ -251,21 +267,23 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			msg = string.Format("All %1 waves defeated! Hold position!", totalWaves);
 		else
 			msg = string.Format("Wave %1/%2 defeated! Prepare for the next wave!", currentWave, totalWaves);
-		
+
 		SCR_HintManagerComponent.GetInstance().ShowCustom(msg, "", 10, false);
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
-	// Server side method to end game with winningFactionKey faction victory
+	// Game end
+	//------------------------------------------------------------------------------------------------
+
 	protected void GameEnd(FactionKey winningFactionKey)
 	{
 		Faction faction = m_FactionManager.GetFactionByKey(winningFactionKey);
 		int factionId = m_FactionManager.GetFactionIndex(faction);
-		SCR_GameModeEndData endData = SCR_GameModeEndData.CreateSimple(EGameOverTypes.ENDREASON_SCORELIMIT, winnerFactionId:factionId);
+		SCR_GameModeEndData endData = SCR_GameModeEndData.CreateSimple(EGameOverTypes.ENDREASON_SCORELIMIT, winnerFactionId: factionId);
 		EndGameMode(endData);
 		m_bIsGameRunning = false;
 	}
-	
+
 	protected void GameEndDefendersWin()
 	{
 		Print("Defenders win!");
@@ -277,61 +295,58 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		Print("Attackers win!");
 		GameEnd(m_sAttackerFactionKey);
 	}
-	
-	
+
 	//------------------------------------------------------------------------------------------------
 	// Public getters
 	//------------------------------------------------------------------------------------------------
-	
+
 	int GetAttackersRemaining()
 	{
 		return m_iAttackersRemaining;
 	}
-	
+
 	int GetDefendersRemaining()
 	{
 		return m_iDefendersRemaining;
 	}
-	
+
 	int GetCurrentZone()
 	{
 		return m_iCurrentZone;
 	}
-	
+
 	bool IsGameRunning()
 	{
 		return m_bIsGameRunning;
 	}
-	
+
 	bool IsTimerRunning()
 	{
 		return m_bIsTimerRunning;
 	}
-	
+
 	bool IsWarmup()
 	{
 		return m_bIsWarmup;
 	}
-	
+
 	bool ShowUI()
 	{
 		return m_bShowUI;
 	}
-	
+
 	WorldTimestamp GetTimeoutTimestamp()
 	{
 		return m_fTimeoutTimestamp;
 	}
-	
+
 	SCR_Faction GetBluforFaction()
 	{
 		return SCR_Faction.Cast(m_FactionManager.GetFactionByKey(m_sDefenderFactionKey));
 	}
-	
+
 	SCR_Faction GetRedforFaction()
 	{
 		return SCR_Faction.Cast(m_FactionManager.GetFactionByKey(m_sAttackerFactionKey));
 	}
-	
-	
 }

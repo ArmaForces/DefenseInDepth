@@ -6,6 +6,9 @@ PS_ManualMarker : "{5CDEA09445852F9D}PrefabsEditable/Markers/SupportStationMarke
  coords 1290.432 37.499 6020.635
  angles 0 0 0
 }
+SCR_AIWaypointArtillerySupport : "{6ED320498A60081C}PrefabsEditable/Auto/AI/Waypoints/E_AIWaypoint_ArtillerySupport.et" {
+ coords 1600.019 61.38 5885.906
+}
 GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
  coords 1289.929 37.453 6018.585
  angles 0 -18.07 0
