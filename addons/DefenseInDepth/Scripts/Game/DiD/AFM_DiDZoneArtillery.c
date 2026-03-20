@@ -93,6 +93,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 	protected AFM_ArtillerySpawnPointEntity m_pLastSpawnPoint;
 
 	protected bool m_bMortarActive;
+	protected bool m_bInitialSpawnPending;
 	protected int m_iRespawnCount;
 	protected int m_iMissionsThisLife;
 
@@ -138,9 +139,9 @@ class AFM_DiDZoneArtillery: GenericEntity
 			return;
 		}
 
-		// Initial spawn is free (no budget cost)
-		SpawnMortarTeam(m_aSpawnPoints.GetRandomElement());
-		PrintFormat("AFM_DiDZoneArtillery: Initialized with %1 spawn points", m_aSpawnPoints.Count());
+		// Mortar spawns when the zone activates, not at init time (see TriggerInitialSpawn)
+		m_bInitialSpawnPending = true;
+		PrintFormat("AFM_DiDZoneArtillery: Initialized with %1 spawn points — mortar pending zone activation", m_aSpawnPoints.Count());
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -167,6 +168,27 @@ class AFM_DiDZoneArtillery: GenericEntity
 	bool IsMortarActive()
 	{
 		return m_bMortarActive && m_pSpawnedMortar != null;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns true when the mortar has not yet been spawned for this zone activation.
+	bool IsInitialSpawnPending()
+	{
+		return m_bInitialSpawnPending;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Spawn the mortar for the first time. Called by the director on the first active process tick.
+	//! The initial spawn is free — no budget is consumed.
+	void TriggerInitialSpawn()
+	{
+		m_bInitialSpawnPending = false;
+
+		if (m_aSpawnPoints.IsEmpty())
+			return;
+
+		SpawnMortarTeam(m_aSpawnPoints.GetRandomElement());
+		PrintFormat("AFM_DiDZoneArtillery: Initial mortar spawn triggered by zone activation");
 	}
 
 	//------------------------------------------------------------------------------------------------

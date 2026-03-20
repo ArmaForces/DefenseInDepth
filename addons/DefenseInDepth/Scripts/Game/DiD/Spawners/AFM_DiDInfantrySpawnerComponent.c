@@ -89,7 +89,9 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 		if (timeSinceLastSpawn >= adjustedInterval)
 		{
 			m_fLastSpawnTime = now;
-			SpawnWave();
+			
+			// TODO: Figure out wave size
+			SpawnWave(3);
 		}
 	}
 

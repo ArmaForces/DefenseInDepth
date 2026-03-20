@@ -818,7 +818,7 @@ AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
   }
   AFM_DiDAttackerDirector : "{C88B368A8AC21F4E}Prefabs/MP/AFM_DiDAttackerDirector_Default.et" {
    coords 0.059 0.004 0.021
-   m_fAggression 0.8
+   m_fAggression 1
    {
     AFM_DiDZoneArtillery : "{2D68BCDEA841A4BC}Prefabs/MP/AFM_DiDZoneArtilleryPrefab.et" {
      coords 202.996 26.889 110.521
@@ -828,52 +828,42 @@ AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
      m_iWaveIntervalSeconds 100
      m_iSpawnCountPerWave 8
      m_iMaxAICount 120
-     m_fZoneLevelMultiplier 2
      {
       $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
        {
-        coords -118.699 -1.853 -76.084
+        coords 101.875 30.957 271.137
        }
        {
-        coords -84.415 -1.853 -123.135
+        coords -35.529 -0.992 210.137
        }
        {
-        coords 69.65 2.492 -191.383
+        coords -94.037 -1.808 -138.928
        }
        {
-        coords 168.941 32.815 -83.865
+        coords 15.318 -1.792 -239.935
        }
        {
-        coords 183.663 31.427 -8.573
+        coords 68.021 2.435 -190.582
        }
        {
-        coords 165.572 27.043 110.199
+        coords 236.012 35.172 -116.827
        }
        {
-        coords 72.032 29.485 369.007
+        coords 222.634 34.665 -99.265
+       }
+       {
+        coords 177.201 33.056 -41.697
        }
       }
       $grp SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
        {
-        coords 11.274 -0.103 -5.376
+        coords 17.523 -0.102 -9.372
        }
        {
-        coords 48.184 -0.01 60.371
+        coords -62.809 -0.649 -23.476
        }
        {
-        coords -127.568 1.666 4.644
-       }
-      }
-      $grp SCR_SearchAndDestroyWaypoint : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
-       {
-        coords 4.06 -0.014 131.038
-        CompletionRadius 50
-       }
-       {
-        coords -182.381 0.241 47.279
-       }
-       {
-        coords -47.05 0.022 -10.665
+        coords 43.226 -0.009 60.985
        }
       }
      }

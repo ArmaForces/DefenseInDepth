@@ -100,6 +100,10 @@ class AFM_DiDAttackerDirector: GenericEntity
 		if (!m_bInitialized || !m_pZone)
 			return;
 
+		// First active tick: spawn the mortar now that this zone is actually running
+		if (m_pArtillery && m_pArtillery.IsInitialSpawnPending())
+			m_pArtillery.TriggerInitialSpawn();
+
 		// Artillery alive check runs every second for responsive destruction detection
 		if (m_pArtillery)
 			m_pArtillery.CheckMortarAlive();
@@ -192,14 +196,14 @@ class AFM_DiDAttackerDirector: GenericEntity
 				int groupCount = ComputeGroupCount(chosen, state);
 				PrintFormat("AFM_DiDAttackerDirector: Triggering %1 x%2 groups (score=%3, cost=%4pts, phase=%5)",
 					chosen.m_Spawner.Type().ToString(), groupCount, chosen.m_fScore, chosen.m_iCost,
-					state.m_ePhase, level: LogLevel.DEBUG);
+					state.m_ePhase, level: LogLevel.NORMAL);
 				chosen.m_Spawner.TriggerSpawn(now, groupCount);
 			}
 		}
 		else
 		{
 			PrintFormat("AFM_DiDAttackerDirector: No viable spawner candidates (phase=%1, budget=%2%%)",
-				state.m_ePhase, state.m_fBudgetRatio * 100, level: LogLevel.DEBUG);
+				state.m_ePhase, state.m_fBudgetRatio * 100, level: LogLevel.WARNING);
 		}
 
 		// --- Artillery evaluation (independent of spawner selection) ---
