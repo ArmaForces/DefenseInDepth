@@ -219,8 +219,32 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	}
 
 	//------------------------------------------------------------------------------------------------
+	// Artillery notifications
+	//------------------------------------------------------------------------------------------------
+
+	//! Called by AFM_DiDZoneArtillery on server when the mortar is destroyed.
+	//! Broadcasts a hint to all defenders. No location is revealed.
+	void NotifyMortarDestroyed()
+	{
+		RPC_DoMortarDestroyed();
+		Rpc(RPC_DoMortarDestroyed);
+	}
+
+	//------------------------------------------------------------------------------------------------
 	// Broadcast RPCs
 	//------------------------------------------------------------------------------------------------
+
+	//! Enemy mortar destroyed — defenders notified, no position information given
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoMortarDestroyed()
+	{
+		SCR_HintManagerComponent.GetInstance().ShowCustom(
+			"Enemy mortar destroyed!",
+			"",
+			8,
+			false
+		);
+	}
 
 	//! Defenders repelled the assault (budget exhausted + zone cleared)
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]

@@ -54,6 +54,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected ref array<AFM_DiDSpawnerComponent> m_aSpawners = {};
 	// Director mode: central coordinator that owns its own spawner children
 	protected AFM_DiDAttackerDirector m_Director;
+	// Phase 3: artillery spawn positions on the zone entity (passed to director → artillery)
+	protected ref array<AFM_ArtillerySpawnPointEntity> m_aArtillerySpawnPoints = {};
 	protected SCR_ResourceComponent m_SupplyCache;
 
 	// Cached 2D polyline points for zone boundary checks (world-space X/Z pairs)
@@ -91,6 +93,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 		if (!e)
 			PrintFormat("AFM_DiDZoneComponent %1: No children found!", m_sZoneName, level: LogLevel.ERROR);
 
+		// First pass: collect all children.
+		// Director init is deferred until after all AFM_ArtillerySpawnPointEntity children are found.
 		while (e)
 		{
 			switch (e.Type())
@@ -101,10 +105,14 @@ class AFM_DiDZoneComponent: ScriptComponent
 				case AFM_PlayerSpawnPointEntity:
 					m_PlayerSpawnPoint = AFM_PlayerSpawnPointEntity.Cast(e);
 					break;
+				// Phase 3: mortar spawn position markers — collected here, forwarded to director
+				case AFM_ArtillerySpawnPointEntity:
+					m_aArtillerySpawnPoints.Insert(AFM_ArtillerySpawnPointEntity.Cast(e));
+					break;
 				// Director mode: central spawner coordinator — owns its own spawner children
 				case AFM_DiDAttackerDirector:
 					m_Director = AFM_DiDAttackerDirector.Cast(e);
-					m_Director.Init(this);
+					// Init deferred below — artillery spawn points must be collected first
 					break;
 				// Legacy mode: spawners are direct children of the zone
 				case AFM_DiDMechanizedSpawnerComponent:
@@ -121,6 +129,14 @@ class AFM_DiDZoneComponent: ScriptComponent
 					PrintFormat("AFM_DiDZoneComponent %1: Unknown type %2", m_sZoneName, e.Type().ToString());
 			}
 			e = e.GetSibling();
+		}
+
+		// Init director now that all artillery spawn points have been collected
+		if (m_Director)
+		{
+			m_Director.Init(this);
+			if (m_aArtillerySpawnPoints.Count() > 0)
+				PrintFormat("AFM_DiDZoneComponent %1: %2 artillery spawn point(s) registered", m_sZoneName, m_aArtillerySpawnPoints.Count());
 		}
 
 		if (!m_PolylineEntity)
@@ -543,6 +559,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 	int GetTotalDefenseSeconds()
 	{
 		return m_iDefenseTimeSeconds;
+	}
+
+	//! Artillery spawn points collected from zone children — forwarded to director on Init()
+	array<AFM_ArtillerySpawnPointEntity> GetArtillerySpawnPoints()
+	{
+		return m_aArtillerySpawnPoints;
 	}
 
 	//------------------------------------------------------------------------------------------------

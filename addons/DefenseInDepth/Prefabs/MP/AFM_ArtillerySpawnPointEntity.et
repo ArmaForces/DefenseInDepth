@@ -1,0 +1,11 @@
+AFM_ArtillerySpawnPointEntity {
+ ID "68E8977F8944C994"
+ components {
+  MeshObject "{68E8977FA3BC91BC}" {
+   Object "{16D18A4925ADB872}system/wbdata/MaterialEditor/MaterialSphere.xob"
+  }
+  Hierarchy "{68E8977FB8D3EE43}" {
+  }
+ }
+ coords 1595.344 62.209 5842.046
+}

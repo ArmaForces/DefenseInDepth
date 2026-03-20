@@ -12,7 +12,10 @@
       "mcp__enfusion-mcp__wb_stop",
       "mcp__enfusion-mcp__wb_cleanup",
       "mcp__enfusion-mcp__game_browse",
-      "mcp__enfusion-mcp__asset_search"
+      "mcp__enfusion-mcp__asset_search",
+      "mcp__enfusion-mcp__wiki_search",
+      "mcp__enfusion-mcp__game_read",
+      "mcp__enfusion-mcp__wb_reload"
     ]
   }
 }

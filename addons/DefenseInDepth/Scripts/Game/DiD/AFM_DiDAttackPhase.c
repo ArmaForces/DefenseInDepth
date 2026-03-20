@@ -10,7 +10,7 @@ enum EAFMAttackPhase
 
 //------------------------------------------------------------------------------------------------
 //! Snapshot of battlefield conditions built by AFM_DiDAttackerDirector each decision cycle.
-//! Passed read-only to AFM_DiDSpawnerComponent.ScoreRequest() for spawner self-scoring.
+//! Passed read-only to AFM_DiDSpawnerComponent.ScoreRequest() and AFM_DiDZoneArtillery scoring.
 class AFM_DiDBattlefieldState
 {
 	int m_iDefenderCount;		//! Alive defenders (blufor)
@@ -18,6 +18,7 @@ class AFM_DiDBattlefieldState
 	int m_iTotalActiveAI;		//! Total AI tracked by all spawners (includes outside zone)
 	float m_fBudgetRatio;		//! Remaining budget / total (1.0 when no budget system is active)
 	float m_fTimeRatio;			//! Remaining time / total defense time (1.0 = just started, 0.0 = expired)
+	float m_fDefenderDensity;	//! Alive defender count as a float — used by artillery to decide HE missions
 	EAFMAttackPhase m_ePhase;	//! Attack phase derived from budget ratio
-	bool m_bIsNight;			//! True during low-visibility conditions — reserved for Phase 3 artillery
+	bool m_bIsNight;			//! True during low-visibility conditions — pending day/night API verification
 }

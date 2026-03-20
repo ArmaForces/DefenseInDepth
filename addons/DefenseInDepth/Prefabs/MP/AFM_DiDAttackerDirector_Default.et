@@ -1,4 +1,8 @@
 AFM_DiDAttackerDirector {
  ID "68E743D4FAF810B0"
+ components {
+  Hierarchy "{68E8977847AE5892}" {
+  }
+ }
  coords 1614.726 60.796 5902.434
 }
