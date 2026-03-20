@@ -1,6 +1,11 @@
 //------------------------------------------------------------------------------------------------
 //! Base class for AI spawner components
 //! Derive from this to create different spawning strategies (infantry, mechanized, fire support, etc.)
+//!
+//! Two operation modes:
+//!  - Legacy: zone calls Process() every second; spawner manages its own timing.
+//!  - Director: AFM_DiDAttackerDirector calls ScoreRequest() + TriggerSpawn();
+//!              spawner's own Process() is never called.
 //------------------------------------------------------------------------------------------------
 class AFM_DiDSpawnerComponentClass: GenericEntityClass
 {
@@ -41,7 +46,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	protected int m_iRemainingTickets;
 
 	//------------------------------------------------------------------------------------------------
-	// Prepare method - called by owner zone component on start
+	// Prepare method - called by owner zone component (or director) on start
 	//------------------------------------------------------------------------------------------------
 	void Prepare(AFM_DiDZoneComponent owner)
 	{
@@ -86,7 +91,8 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	// Main process method - called periodically by the owner zone component
+	// Legacy mode: called directly by the zone every second.
+	// Not called when a director is present — use ScoreRequest()/TriggerSpawn() instead.
 	//------------------------------------------------------------------------------------------------
 	void Process()
 	{
@@ -109,6 +115,45 @@ class AFM_DiDSpawnerComponent: GenericEntity
 			m_fLastSpawnTime = now;
 			SpawnWave();
 		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	// Director mode: score how desirable a spawn is right now given the battlefield state.
+	// Return <= 0 to opt out this cycle (zone saturated, wrong phase, etc.)
+	// Base implementation always returns 1.0 — override in subclasses for intelligent scoring.
+	//------------------------------------------------------------------------------------------------
+	float ScoreRequest(AFM_DiDBattlefieldState state)
+	{
+		// Base: always willing to spawn at neutral priority
+		return 1.0;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	// Director mode: spawn immediately and reset the cooldown timer.
+	// Called by AFM_DiDAttackerDirector after scoring and budget checks pass.
+	//------------------------------------------------------------------------------------------------
+	void TriggerSpawn(WorldTimestamp now)
+	{
+		m_fLastSpawnTime = now;
+		SpawnWave();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	// Director mode: returns true when enough time has elapsed since the last spawn.
+	// The director filters out spawners that return false before calling ScoreRequest().
+	//------------------------------------------------------------------------------------------------
+	bool CanSpawnNow(WorldTimestamp now)
+	{
+		int timeSinceLastSpawn = Math.AbsInt(now.DiffSeconds(m_fLastSpawnTime));
+		return timeSinceLastSpawn >= m_iWaveIntervalSeconds;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	// Returns the budget cost per spawned unit — used by the director for budget affordability checks.
+	//------------------------------------------------------------------------------------------------
+	int GetPointCostPerUnit()
+	{
+		return m_iPointCostPerUnit;
 	}
 
 	//------------------------------------------------------------------------------------------------

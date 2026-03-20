@@ -50,7 +50,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 
 	protected PolylineShapeEntity m_PolylineEntity;
 	protected AFM_PlayerSpawnPointEntity m_PlayerSpawnPoint;
+	// Legacy: spawners are direct children of the zone (used when no director is present)
 	protected ref array<AFM_DiDSpawnerComponent> m_aSpawners = {};
+	// Director mode: central coordinator that owns its own spawner children
+	protected AFM_DiDAttackerDirector m_Director;
 	protected SCR_ResourceComponent m_SupplyCache;
 
 	// Cached 2D polyline points for zone boundary checks (world-space X/Z pairs)
@@ -98,6 +101,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 				case AFM_PlayerSpawnPointEntity:
 					m_PlayerSpawnPoint = AFM_PlayerSpawnPointEntity.Cast(e);
 					break;
+				// Director mode: central spawner coordinator — owns its own spawner children
+				case AFM_DiDAttackerDirector:
+					m_Director = AFM_DiDAttackerDirector.Cast(e);
+					m_Director.Init(this);
+					break;
+				// Legacy mode: spawners are direct children of the zone
 				case AFM_DiDMechanizedSpawnerComponent:
 				case AFM_DiDInfantrySpawnerComponent:
 				case AFM_DiDMortarSpawnerComponent:
@@ -118,13 +127,16 @@ class AFM_DiDZoneComponent: ScriptComponent
 			PrintFormat("AFM_DiDZoneComponent %1: Missing polyline component, zone wont work properly!", m_sZoneName, level: LogLevel.ERROR);
 		if (!m_PlayerSpawnPoint)
 			PrintFormat("AFM_DiDZoneComponent %1: Missing player spawnpoint, zone wont work properly!", m_sZoneName, level: LogLevel.ERROR);
-		if (m_aSpawners.Count() == 0)
+
+		// In director mode the director owns the spawners — no direct spawners on zone is expected
+		bool hasSpawners = m_Director || m_aSpawners.Count() > 0;
+		if (!hasSpawners)
 			PrintFormat("AFM_DiDZoneComponent %1: No spawner components found, AI will not spawn!", m_sZoneName, level: LogLevel.WARNING);
 
-		// Initialize spawners
-		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		// Legacy mode: initialize spawners directly
+		foreach (AFM_DiDSpawnerComponent s : m_aSpawners)
 		{
-			spawner.Prepare(this);
+			s.Prepare(this);
 		}
 
 		if (!AFM_DiDZoneSystem.GetInstance().RegisterZone(this))
@@ -132,6 +144,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 		else
 			PrintFormat("AFM_DiDZoneComponent %1: Zone registered", m_sZoneName);
 
+		if (m_Director)
+			PrintFormat("AFM_DiDZoneComponent %1: Director mode active", m_sZoneName);
+		else
+			PrintFormat("AFM_DiDZoneComponent %1: Legacy spawner mode active (%2 spawners)", m_sZoneName, m_aSpawners.Count());
 
 		AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
 		if (!gamemode)
@@ -223,10 +239,16 @@ class AFM_DiDZoneComponent: ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Cleanup all spawned AI through spawner components
+	//! Cleanup all spawned AI through director or direct spawner components
 	//------------------------------------------------------------------------------------------------
 	protected void Cleanup()
 	{
+		if (m_Director)
+		{
+			m_Director.Cleanup();
+			return;
+		}
+
 		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
 		{
 			if (spawner)
@@ -329,11 +351,19 @@ class AFM_DiDZoneComponent: ScriptComponent
 			}
 		}
 
-		// Delegate spawning to spawner components
-		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		// Director mode: central decision cycle
+		// Legacy mode: each spawner manages its own timing
+		if (m_Director)
 		{
-			if (spawner)
-				spawner.Process();
+			m_Director.Process();
+		}
+		else
+		{
+			foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+			{
+				if (spawner)
+					spawner.Process();
+			}
 		}
 
 		return m_eZoneState;
@@ -471,10 +501,13 @@ class AFM_DiDZoneComponent: ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Get total active AI count across all spawners
+	//! Get total active AI count across director or all direct spawners
 	//------------------------------------------------------------------------------------------------
 	int GetActiveAICount()
 	{
+		if (m_Director)
+			return m_Director.GetActiveAICount();
+
 		int totalCount = 0;
 		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
 		{
@@ -504,6 +537,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 	float GetBudgetRolloverFraction()
 	{
 		return m_fBudgetRolloverFraction;
+	}
+
+	//! Total defense time in seconds — used by director for time ratio calculation
+	int GetTotalDefenseSeconds()
+	{
+		return m_iDefenseTimeSeconds;
 	}
 
 	//------------------------------------------------------------------------------------------------

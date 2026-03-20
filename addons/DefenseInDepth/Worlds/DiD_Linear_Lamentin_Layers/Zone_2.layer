@@ -20,6 +20,7 @@ AFM_DiDZoneEntity zone2 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    m_iZoneIndex 2
    m_iPrepareTimeSeconds 600
    m_iDefenseTimeSeconds 450
+   m_iPointsBudget 160
   }
  }
  coords 1303.501 38.211 5952.463

@@ -1,5 +1,6 @@
 //------------------------------------------------------------------------------------------------
-//! Mechanized spawner - spawns vehicle groups with different timing and logic
+//! Mechanized spawner — spawns vehicle groups with crew.
+//! Supports both legacy (self-ticking Process) and director (ScoreRequest/TriggerSpawn) modes.
 //------------------------------------------------------------------------------------------------
 class AFM_DiDMechanizedSpawnerComponentClass: AFM_DiDSpawnerComponentClass
 {
@@ -37,6 +38,46 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 
 		PrintFormat("AFM_DiDMechanizedSpawnerComponent: Mechanized spawner initialized with %1s interval",
 			m_iWaveIntervalSeconds, LogLevel.DEBUG);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Director mode: score how desirable a mechanized push is right now.
+	//!
+	//! Scoring logic:
+	//!   Base = 0.1 (armor is a special-occasion option, not the default)
+	//!   +2.0  if phase == FINAL                        (commit remaining budget)
+	//!   +1.0  if budget ratio > 0.6                   (still have plenty — escalate)
+	//!   +1.5  if defenders > 5                        (many defenders = armor-favourable)
+	//!   -0.1  if m_bRequireMinAI and threshold not met (precondition not satisfied)
+	//!
+	//! The director respects CanSpawnNow() so the mechanized cooldown (wave interval ×
+	//! m_fDelayMultiplier) is already enforced before ScoreRequest is called.
+	//------------------------------------------------------------------------------------------------
+	override float ScoreRequest(AFM_DiDBattlefieldState state)
+	{
+		// In PROBE phase armor is off the table — attacker is still scouting
+		if (state.m_ePhase == EAFMAttackPhase.PROBE)
+			return 0;
+
+		float score = 0.1;
+
+		// Final phase: commit whatever is left, armor is a force multiplier
+		if (state.m_ePhase == EAFMAttackPhase.FINAL)
+			score += 2.0;
+
+		// Plenty of budget remaining — escalate with armor
+		if (state.m_fBudgetRatio > 0.6)
+			score += 1.0;
+
+		// More defenders = more value from a vehicle push
+		if (state.m_iDefenderCount > 5)
+			score += 1.5;
+
+		// Precondition check: require minimum infantry in zone
+		if (m_bRequireMinAI && state.m_iTotalActiveAI < m_iMinAIThreshold)
+			score -= 0.1;
+
+		return score;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -99,7 +140,7 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! m_iPointCostPerUnit represents cost per whole vehicle group (vehicle + crew)
+	//! m_iPointCostPerUnit represents cost per whole vehicle group (vehicle + crew).
 	//------------------------------------------------------------------------------------------------
 	override protected void SpawnSingleGroup()
 	{

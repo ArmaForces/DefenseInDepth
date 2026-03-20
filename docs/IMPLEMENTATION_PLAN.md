@@ -7,162 +7,79 @@ Each phase builds on the previous but does not break it.
 
 ---
 
-## Phase 1 — Attacker Budget System
+## Phase 1 — Attacker Budget System ✅ COMPLETE
 
 **Goal:** Replace infinite AI spawning with a per-zone points budget.
 Each spawn costs points. Zone ends via budget exhaustion + AI cleared,
 not just timer expiry or defender death.
 
-### New files
-| File | Purpose |
+### Files created/modified
+| File | Status |
 |---|---|
-| `Scripts/Game/DiD/AFM_DiDAttackerBudget.c` | Budget state: total, remaining, reservation logic |
+| `Scripts/Game/DiD/AFM_DiDAttackerBudget.c` | NEW — budget state class |
+| `Scripts/Game/DiD/AFM_DiDZoneComponent.c` | MODIFIED — `FINISHED_REPELLED` state, budget attributes, rollover API |
+| `Scripts/Game/DiD/Spawners/AFM_DiDSpawnerComponent.c` | MODIFIED — `m_iPointCostPerUnit`, `CanSpendBudget()`, budget consumption |
+| `Scripts/Game/DiD/Spawners/AFM_DiDMechanizedSpawnerComponent.c` | MODIFIED — immediate budget consume per vehicle |
+| `Scripts/Game/DiD/AFM_DiDZoneSystem.c` | MODIFIED — `m_OnZoneRepelled`, budget rollover in `ProgressToNextZone()` |
+| `Scripts/Game/DiD/AFM_GameModeDiD.c` | MODIFIED — `OnZoneRepelled` handler, `RPC_DoZoneRepelled` hint |
 
-### Modified files
-| File | Change |
-|---|---|
-| `AFM_DiDZoneComponent.c` | Add `m_iPointsBudget` attribute; hold `AFM_DiDAttackerBudget` instance; add `FINISHED_REPELLED` state (budget + AI = 0) |
-| `AFM_DiDSpawnerComponent.c` | Add `m_iPointCostPerUnit` attribute; call `zone.ReserveBudget(cost)` before spawning, confirm/release after |
-| `AFM_DiDZoneSystem.c` | Handle `FINISHED_REPELLED` → invoke `m_OnZoneHeld` (defenders win) |
-| `AFM_GameModeDiD.c` | Add `RPC_DoZoneRepelled()` hint: "Enemy assault repelled!" |
-| `AFM_ScoreInfoDisplay.c` | For regular zones: right score shows remaining budget instead of AI count in zone |
-
-### Budget reservation contract
-```
-// Before spawn
-bool reserved = zone.GetBudget().Reserve(cost);
-if (!reserved) return;  // can't afford, skip spawn
-
-// After successful spawn (in DisableAIUnconsciousness callback)
-zone.GetBudget().Confirm(cost);
-
-// After failed spawn
-zone.GetBudget().Release(cost);
-```
-
-### Key attributes (AFM_DiDZoneComponent)
-```
-[Attribute("120", UIWidgets.EditBox, "Attacker points budget for this zone", category: "DiD Budget")]
-int m_iPointsBudget;
-
-[Attribute("0.5", UIWidgets.EditBox, "Fraction of remaining budget rolled over to next zone on failure (0-1)", category: "DiD Budget")]
-float m_fBudgetRolloverFraction;
-```
-
-### Key attributes (AFM_DiDSpawnerComponent)
-```
-[Attribute("1", UIWidgets.EditBox, "Budget points consumed per spawned unit", category: "DiD Budget")]
-int m_iPointCostPerUnit;
-```
-
-### Budget rollover
-`AFM_DiDZoneSystem.ProgressToNextZone()` reads `remainingBudget * rolloverFraction`
-and passes it to `nextZone.GetBudget().AddBonus(rollover)` before activating.
-
-### Tuning baseline
-| Zone type | Base budget | Rationale |
-|---|---|---|
-| Infantry-only | 80–100 pts | ~20 squads of 4 @ 1pt/soldier |
-| Mixed infantry + armor | 120–150 pts | infantry + 2–3 vehicles |
-| Wave zone | Per-wave ticket (existing) | unchanged |
+### Key attributes (tunable in editor)
+- `AFM_DiDZoneComponent.m_iPointsBudget` — 0 disables system; 80–150 typical
+- `AFM_DiDZoneComponent.m_fBudgetRolloverFraction` — 0.5 default
+- `AFM_DiDSpawnerComponent.m_iPointCostPerUnit` — 1 pt/soldier, higher for vehicles
 
 ---
 
-## Phase 2 — Attacker Director
+## Phase 2 — Attacker Director ✅ COMPLETE
 
 **Goal:** Replace autonomous per-spawner ticking with a central decision-maker
 that coordinates all spawners, tracks attack phases, and spends budget intelligently.
 
-### New files
+### Files created
 | File | Purpose |
 |---|---|
-| `Scripts/Game/DiD/AFM_DiDAttackerDirector.c` | Director entity: decision loop, phase tracking, spawner coordination |
-| `Scripts/Game/DiD/AFM_DiDAttackPhase.c` | Enum + phase transition logic |
+| `Scripts/Game/DiD/AFM_DiDAttackPhase.c` | `EAFMAttackPhase` enum (PROBE/ASSAULT/FINAL) + `AFM_DiDBattlefieldState` class |
 | `Scripts/Game/DiD/AFM_DiDSpawnRequest.c` | Scored spawn candidate (spawner ref + score + cost) |
+| `Scripts/Game/DiD/AFM_DiDAttackerDirector.c` | Director GenericEntity: 25s decision cycle, weighted random spawner selection |
 
-### Modified files
+### Files modified
 | File | Change |
 |---|---|
-| `AFM_DiDZoneComponent.c` | `LateInit()` finds director child; `HandleActiveZoneLogic()` calls `director.Process()` instead of iterating spawners directly |
-| `AFM_DiDSpawnerComponent.c` | Remove self-ticking `Process()`; add `ScoreRequest(AFM_DiDBattlefieldState state) → float` and `TriggerSpawn()` |
-| `AFM_DiDInfantrySpawnerComponent.c` | Implement `ScoreRequest()` |
-| `AFM_DiDMechanizedSpawnerComponent.c` | Implement `ScoreRequest()` |
+| `Scripts/Game/DiD/AFM_DiDZoneComponent.c` | Detects `AFM_DiDAttackerDirector` child in `LateInit()`; delegates `Process()`/`Cleanup()`/`GetActiveAICount()` to director; added `GetTotalDefenseSeconds()` getter |
+| `Scripts/Game/DiD/Spawners/AFM_DiDSpawnerComponent.c` | Added `ScoreRequest()` (base: 1.0), `TriggerSpawn()`, `CanSpawnNow()`, `GetPointCostPerUnit()` |
+| `Scripts/Game/DiD/Spawners/AFM_DiDInfantrySpawnerComponent.c` | `ScoreRequest()` override — boosts when outnumbered/FINAL phase, penalises when saturated |
+| `Scripts/Game/DiD/Spawners/AFM_DiDMechanizedSpawnerComponent.c` | `ScoreRequest()` override — off during PROBE, boosted in FINAL/high budget/many defenders |
 
-### Director hierarchy in world
+### Architecture
 ```
 AFM_DiDZoneEntity
 ├── PolylineShapeEntity
 ├── AFM_PlayerSpawnPointEntity
-└── AFM_DiDAttackerDirector          ← new GenericEntity child
+└── AFM_DiDAttackerDirector          ← GenericEntity child (director mode)
     ├── AFM_DiDInfantrySpawnerComponent
     └── AFM_DiDMechanizedSpawnerComponent
 ```
-Director owns spawners as children. Zone's `LateInit()` finds the director by type,
-director finds its own spawner children.
 
-### Attack phases (budget-driven, not time-driven)
-```
-enum EAFMAttackPhase
-{
-    PROBE,    // budget > 75% — infantry only, test defender positions
-    ASSAULT,  // 75% → 25% — all options active, peak pressure
-    FINAL     // budget < 25% — score bonus to all options, spend aggressively
-}
-```
+Director mode is opt-in — zones without an `AFM_DiDAttackerDirector` child continue
+to use the legacy per-spawner `Process()` path unchanged.
 
-### Decision cycle
-```
-every 25 seconds:
-  1. Snapshot battlefield state (defenderCount, aiInZone, budgetRatio, timeRatio, phase)
-  2. foreach spawner: score = spawner.ScoreRequest(state)
-  3. filter: score > 0, budget covers cost, spawner off cooldown
-  4. weighted random pick from top 3 candidates (scores as weights)
-  5. reserve budget, call spawner.TriggerSpawn()
-  6. start spawner cooldown
-```
+### Decision cycle (every 25s)
+1. Snapshot: defender count, AI in zone, budget ratio, time ratio → derive phase
+2. Each spawner: `ScoreRequest(state)` → float
+3. Filter: score > 0, spawner off cooldown (`CanSpawnNow`), budget covers cost
+4. Weighted random pick from top 3 by score
+5. `TriggerSpawn(now)` on winner
 
-### Battlefield state snapshot (passed to all ScoreRequest calls)
-```
-class AFM_DiDBattlefieldState
-{
-    int m_iDefenderCount;
-    int m_iAICountInZone;
-    float m_fBudgetRatio;       // remaining / total
-    float m_fTimeRatio;         // timeRemaining / totalTime
-    float m_fDefenderDensity;   // defenders per 100m² (zone centroid sample)
-    EAFMAttackPhase m_ePhase;
-    bool m_bIsNight;
-}
-```
+### Attack phases (budget-driven)
+| Phase | Budget remaining | Behavior |
+|---|---|---|
+| PROBE | > 75% | Infantry only (mechanized scores 0) |
+| ASSAULT | 75%–25% | All options active |
+| FINAL | < 25% | Mechanized gets +2.0 bonus, infantry +0.5 |
 
-### Per-spawner ScoreRequest logic
-
-**Infantry:**
-```
-baseScore = 1.0
-+1.5  if aiInZone < defenderCount * 0.5   // outnumbered, need bodies
-+0.5  if phase == FINAL
--2.0  if aiInZone > maxAICount * 0.8      // zone saturated
--0.5  if budgetRatio < 0.15               // budget critical
-```
-
-**Mechanized:**
-```
-baseScore = 0.1
-+2.0  if phase == FINAL
-+1.0  if budgetRatio > 0.6
-+1.5  if defenderDensity is high (static defense)
--9.0  if on cooldown (min 3 min between armored pushes)
-```
-
-### Director attributes
-```
-[Attribute("25", UIWidgets.EditBox, "Decision cycle interval (seconds)", category: "DiD Director")]
-int m_iDecisionIntervalSeconds;
-
-[Attribute("0.75", UIWidgets.EditBox, "Aggression (0=conservative, 1=reckless)", category: "DiD Director")]
-float m_fAggression;   // multiplies scores of expensive options
-```
+### Key attributes (tunable in editor)
+- `AFM_DiDAttackerDirector.m_iDecisionIntervalSeconds` — 25s default
+- `AFM_DiDAttackerDirector.m_fAggression` — 0.75 default (scales score of expensive options)
 
 ---
 
@@ -256,34 +173,6 @@ SCR_EAIArtilleryAmmoType SelectRoundType(AFM_DiDBattlefieldState state)
 }
 ```
 
-### Smoke targeting (attack axis)
-```cpp
-vector GetSmokeTargetPosition()
-{
-    vector spawnPos = m_pLastUsedSpawnPoint.GetOrigin();
-    vector zoneEdge = FindNearestZoneBoundaryPoint(spawnPos);
-    // lay smoke 60% along the approach, covering the gap between attacker and zone
-    return spawnPos + (zoneEdge - spawnPos) * 0.6;
-}
-```
-
-### Respawn point selection (avoids last position)
-```cpp
-AFM_ArtillerySpawnPointEntity GetNextSpawnPoint()
-{
-    if (m_aSpawnPoints.Count() == 1)
-        return m_aSpawnPoints[0];
-
-    array<AFM_ArtillerySpawnPointEntity> candidates = {};
-    foreach (AFM_ArtillerySpawnPointEntity sp : m_aSpawnPoints)
-    {
-        if (sp != m_pLastUsedSpawnPoint)
-            candidates.Insert(sp);
-    }
-    return candidates.GetRandomElement();
-}
-```
-
 ### Respawn cost escalation
 ```cpp
 int GetRespawnCost()
@@ -304,7 +193,6 @@ int GetRespawnCost()
 | Mortar fires mission | Yes (impacts) | Internal |
 | Mortar destroyed | **Yes** — hint | Internal |
 | Mortar respawns | **No** | Internal |
-| Budget exhausted, no respawn | **No** | Internal |
 
 ---
 
@@ -334,23 +222,6 @@ class AFM_DiDAttackSequence
 }
 ```
 
-### Smoke + armor sequence scoring
-```cpp
-float ScoreSmokeArmorSequence(AFM_DiDBattlefieldState state)
-{
-    // requires: smoke not on cooldown, armor not on cooldown,
-    //           budget covers both, phase is ASSAULT or FINAL
-    if (!CanAffordSequence(smokeCost + armorCost)) return -1;
-    if (IsOnCooldown(SMOKE) || IsOnCooldown(MECHANIZED)) return -1;
-    if (state.m_ePhase == EAFMAttackPhase.PROBE) return -1;
-
-    float score = 2.0;
-    score += state.m_fDefenderDensity * 1.5;  // static defense = armor-friendly
-    score += (state.m_ePhase == EAFMAttackPhase.FINAL) ? 1.5 : 0;
-    return score;
-}
-```
-
 Sequences compete with individual options in the same decision cycle.
 If the sequence scores highest, both actions are reserved and the director
 begins executing step 1, then waits `m_fDelaySeconds` before step 2.
@@ -377,8 +248,8 @@ Prevents 3-player sessions from facing 20-player-designed pressure.
 ## Dependencies
 
 ```
-Phase 1 (Budget)
-    └── Phase 2 (Director)
+Phase 1 (Budget) ✅
+    └── Phase 2 (Director) ✅
             ├── Phase 3 (Artillery)
             └── Phase 4 (Sequences)
 ```
