@@ -93,6 +93,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			m_ZoneSystem.GetOnZoneUpdate().Insert(OnZoneUpdate);
 			m_ZoneSystem.GetOnAllZonesCompleted().Insert(OnAllZonesCompleted);
 			m_ZoneSystem.GetOnZoneHeld().Insert(OnZoneHeld);
+			m_ZoneSystem.GetOnZoneFailed().Insert(OnZoneFailed);
+			m_ZoneSystem.GetOnWaveCompleted().Insert(OnWaveCompleted);
 		}
 	}
 	
@@ -126,8 +128,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		// Respawn dead players when zone changes
 		GetGame().GetCallqueue().CallLater(RespawnAllSpectators, 1000 * 5);
 
-		RPC_DoProgressToNextZone();
-		Rpc(RPC_DoProgressToNextZone);
+		RPC_DoProgressToNextZone(m_iCurrentZone);
+		Rpc(RPC_DoProgressToNextZone, m_iCurrentZone);
 		OnMatchSituationChanged();
 		Replication.BumpMe();
 	}
@@ -147,6 +149,20 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	protected void OnZoneHeld()
 	{
 		GameEndDefendersWin();
+	}
+	
+	//! Called when all defenders in a zone are eliminated - fires before zone progression
+	protected void OnZoneFailed(int zoneIndex)
+	{
+		RPC_DoZoneFailed(zoneIndex);
+		Rpc(RPC_DoZoneFailed, zoneIndex);
+	}
+	
+	//! Called when a wave zone wave is cleared
+	protected void OnWaveCompleted(int currentWave, int totalWaves)
+	{
+		RPC_DoWaveCompleted(currentWave, totalWaves);
+		Rpc(RPC_DoWaveCompleted, currentWave, totalWaves);
 	}
 	
 	protected void UpdateLocalGameState()
@@ -202,11 +218,41 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		SwitchToInitialEntity(playerId);
 	}
 	
+	//! Broadcast: zone failure - shown before zone progression hint
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
-	protected void RPC_DoProgressToNextZone()
+	protected void RPC_DoZoneFailed(int zoneIndex)
 	{
-		SCR_HintManagerComponent.GetInstance().ShowCustom("Zone progressing", "", 10, false);
+		SCR_HintManagerComponent.GetInstance().ShowCustom(
+			string.Format("Zone %1 lost! Falling back...", zoneIndex),
+			"",
+			6,
+			false
+		);
+	}
+	
+	//! Broadcast: next zone is now active
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoProgressToNextZone(int newZoneIndex)
+	{
+		SCR_HintManagerComponent.GetInstance().ShowCustom(
+			string.Format("Moving to zone %1. Prepare your defenses!", newZoneIndex),
+			"",
+			10,
+			false
+		);
+	}
+	
+	//! Broadcast: wave cleared in a wave zone
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoWaveCompleted(int currentWave, int totalWaves)
+	{
+		string msg;
+		if (currentWave >= totalWaves)
+			msg = string.Format("All %1 waves defeated! Hold position!", totalWaves);
+		else
+			msg = string.Format("Wave %1/%2 defeated! Prepare for the next wave!", currentWave, totalWaves);
 		
+		SCR_HintManagerComponent.GetInstance().ShowCustom(msg, "", 10, false);
 	}
 	
 	//------------------------------------------------------------------------------------------------

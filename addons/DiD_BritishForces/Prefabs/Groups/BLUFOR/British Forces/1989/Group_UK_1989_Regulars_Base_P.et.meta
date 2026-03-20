@@ -1,0 +1,17 @@
+MetaFileClass {
+ Name "{29CF5491F7B0A716}Prefabs/Groups/BLUFOR/British Forces/1989/Group_UK_1989_Regulars_Base_P.et"
+ Configurations {
+  EntityTemplateResourceClass PC {
+  }
+  EntityTemplateResourceClass XBOX_ONE : PC {
+  }
+  EntityTemplateResourceClass XBOX_SERIES : PC {
+  }
+  EntityTemplateResourceClass PS4 : PC {
+  }
+  EntityTemplateResourceClass PS5 : PC {
+  }
+  EntityTemplateResourceClass HEADLESS : PC {
+  }
+ }
+}

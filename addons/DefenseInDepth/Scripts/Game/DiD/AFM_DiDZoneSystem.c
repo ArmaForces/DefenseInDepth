@@ -13,6 +13,8 @@ class AFM_DiDZoneSystem: GameSystem
 	protected ref ScriptInvoker m_OnZoneUpdate;
 	protected ref ScriptInvoker m_OnAllZonesCompleted;
 	protected ref ScriptInvoker m_OnZoneHeld;
+	protected ref ScriptInvoker m_OnZoneFailed;		// Invoked with (int zoneIndex) when defenders are eliminated
+	protected ref ScriptInvoker m_OnWaveCompleted;	// Invoked with (int wave, int totalWaves) when a wave is cleared
 	
 	// Game mode reference
 	protected AFM_GameModeDiD m_GameMode;
@@ -155,10 +157,12 @@ class AFM_DiDZoneSystem: GameSystem
 			return;
 		}
 		
-		// Handle zone failure (all defenders eliminated)
+		// Handle zone failure (all defenders eliminated) - fire event with old index before progressing
 		if (currentState == EAFMZoneState.FINISHED_FAILED)
 		{
 			PrintFormat("AFM_DiDZoneSystem: All defenders eliminated in zone %1", zoneIndex);
+			if (m_OnZoneFailed)
+				m_OnZoneFailed.Invoke(zoneIndex);
 			ProgressToNextZone();
 			return;
 		}
@@ -168,8 +172,8 @@ class AFM_DiDZoneSystem: GameSystem
 		
 		WorldTimestamp tEnd = GetCurrentTimestamp();
 		float diff = tEnd.DiffMilliseconds(tStart);
-		if (diff > 0)
-			PrintFormat("AFM_DiDZoneSystem: ProcessZone took %1 ms", tEnd.DiffMilliseconds(tStart), level: LogLevel.WARNING);
+		if (diff > 5)
+			PrintFormat("AFM_DiDZoneSystem: ProcessZone took %1 ms", diff, level: LogLevel.WARNING);
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -200,6 +204,14 @@ class AFM_DiDZoneSystem: GameSystem
 			if (m_OnZoneChanged)
 				m_OnZoneChanged.Invoke();
 		}
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Called by AFM_DiDWaveZoneComponent when a wave is cleared
+	void NotifyWaveCompleted(int currentWave, int totalWaves)
+	{
+		if (m_OnWaveCompleted)
+			m_OnWaveCompleted.Invoke(currentWave, totalWaves);
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -379,5 +391,23 @@ class AFM_DiDZoneSystem: GameSystem
 			m_OnZoneHeld = new ScriptInvoker();
 		
 		return m_OnZoneHeld;
+	}
+	
+	//! Fired with (int zoneIndex) when all defenders in a zone are eliminated
+	ScriptInvoker GetOnZoneFailed()
+	{
+		if (!m_OnZoneFailed)
+			m_OnZoneFailed = new ScriptInvoker();
+		
+		return m_OnZoneFailed;
+	}
+	
+	//! Fired with (int currentWave, int totalWaves) when a wave zone wave is cleared
+	ScriptInvoker GetOnWaveCompleted()
+	{
+		if (!m_OnWaveCompleted)
+			m_OnWaveCompleted = new ScriptInvoker();
+		
+		return m_OnWaveCompleted;
 	}
 }

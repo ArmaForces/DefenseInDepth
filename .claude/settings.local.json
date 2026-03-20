@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__enfusion-mcp__project_read",
+      "mcp__enfusion-mcp__project_browse",
+      "mcp__enfusion-mcp__api_search",
+      "mcp__enfusion-mcp__project_write",
+      "mcp__enfusion-mcp__mod_validate",
+      "mcp__enfusion-mcp__wb_launch",
+      "mcp__enfusion-mcp__wb_connect",
+      "mcp__enfusion-mcp__wb_play",
+      "mcp__enfusion-mcp__wb_stop",
+      "mcp__enfusion-mcp__wb_cleanup"
+    ]
+  }
+}

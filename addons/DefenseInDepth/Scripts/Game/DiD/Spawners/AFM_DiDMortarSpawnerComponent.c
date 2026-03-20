@@ -88,6 +88,9 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		SCR_EntityHelper.DeleteEntityAndChildren(m_SpawnedMortar);
 		
 		m_mFireMissions.Clear();
+		
+		// Release debug shape references so they are garbage collected
+		m_aDebugShapes.Clear();
 	}
 	
 	//------------------------------------------------------------------------------------------------

@@ -146,10 +146,14 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	//! Handle wave complete state (transition between waves)
+	//! Handle wave complete state (transition between waves) - waits for transition timer
 	//------------------------------------------------------------------------------------------------
 	protected EAFMZoneState HandleWaveCompleteState()
 	{
+		// Wait for the inter-wave transition timer before starting the next wave
+		if (!GetCurrentTimestamp().GreaterEqual(m_fZoneEndTime))
+			return m_eZoneState;
+		
 		if (m_iCurrentWave >= m_iTotalWaves)
 		{
 			m_eZoneState = EAFMZoneState.FINISHED_HELD;
@@ -193,7 +197,7 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	//! Complete current wave and prepare for next
+	//! Complete current wave and start transition timer
 	//------------------------------------------------------------------------------------------------
 	protected void CompleteWave()
 	{
@@ -206,6 +210,11 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 		PrintFormat("AFM_DiDWaveZoneComponent %1: Wave %2 COMPLETE!", m_sZoneName, m_iCurrentWave);
 		
 		AwardSupplyRewards();
+		
+		// Broadcast wave completion to all players
+		AFM_DiDZoneSystem zoneSystem = AFM_DiDZoneSystem.GetInstance();
+		if (zoneSystem)
+			zoneSystem.NotifyWaveCompleted(m_iCurrentWave, m_iTotalWaves);
 	}
 	
 	//------------------------------------------------------------------------------------------------

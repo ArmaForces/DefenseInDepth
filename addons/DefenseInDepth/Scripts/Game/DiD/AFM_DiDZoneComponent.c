@@ -45,6 +45,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected AFM_PlayerSpawnPointEntity m_PlayerSpawnPoint;
 	protected ref array<AFM_DiDSpawnerComponent> m_aSpawners = {};
 	protected SCR_ResourceComponent m_SupplyCache;
+	
+	// Cached 2D polyline points for zone boundary checks (world-space X/Z pairs)
+	protected ref array<float> m_aZonePolylinePoints2D = null;
 		
 	// Zone state management
 	protected EAFMZoneState m_eZoneState = EAFMZoneState.INACTIVE;
@@ -164,16 +167,18 @@ class AFM_DiDZoneComponent: ScriptComponent
 		if (!m_PolylineEntity)
 			return -1;
 		
-		vector zonePos = m_PolylineEntity.GetOrigin();
-		
-		array<vector> zonePolylinePoints3d = {};
-		m_PolylineEntity.GetPointsPositions(zonePolylinePoints3d);
-		
-		array<float> zonePolylinePoints2d = {};
-		foreach(vector p: zonePolylinePoints3d)
+		// Build 2D polygon cache once - polyline shape does not move at runtime
+		if (!m_aZonePolylinePoints2D)
 		{
-			zonePolylinePoints2d.Insert(p[0] + zonePos[0]);
-			zonePolylinePoints2d.Insert(p[2] + zonePos[2]);
+			m_aZonePolylinePoints2D = new array<float>();
+			vector zonePos = m_PolylineEntity.GetOrigin();
+			array<vector> points3d = {};
+			m_PolylineEntity.GetPointsPositions(points3d);
+			foreach (vector p : points3d)
+			{
+				m_aZonePolylinePoints2D.Insert(p[0] + zonePos[0]);
+				m_aZonePolylinePoints2D.Insert(p[2] + zonePos[2]);
+			}
 		}
 		
 		array<AIAgent> agents = {};
@@ -196,7 +201,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 				continue;
 			
 			vector pos = character.GetOrigin();
-			if (Math2D.IsPointInPolygon(zonePolylinePoints2d, pos[0], pos[2]))
+			if (Math2D.IsPointInPolygon(m_aZonePolylinePoints2D, pos[0], pos[2]))
 				count++;
 			totalAgentCount++;
 		}
