@@ -26,8 +26,8 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	[Attribute("50", UIWidgets.EditBox, "Max AI group count", category: "DiD Spawner")]
 	protected int m_iMaxAICount;
 
-	[Attribute("1.0", UIWidgets.EditBox, "Spawn count multiplier per zone level (e.g., zone 2 = 2x spawn count)", category: "DiD Spawner")]
-	protected float m_fZoneLevelMultiplier;
+	[Attribute("1", UIWidgets.EditBox, "Random variance applied to spawn count per wave (actual = base ± variance)", category: "DiD Spawner")]
+	protected int m_iSpawnCountVariance;
 
 	[Attribute("0", UIWidgets.CheckBox, "Use ticket system (limits total spawns)", category: "DiD Spawner")]
 	protected bool m_bUseTickets;
@@ -113,7 +113,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		if (timeSinceLastSpawn >= m_iWaveIntervalSeconds)
 		{
 			m_fLastSpawnTime = now;
-			SpawnWave();
+			SpawnWave(GetSpawnCountForWave());
 		}
 	}
 
@@ -130,12 +130,12 @@ class AFM_DiDSpawnerComponent: GenericEntity
 
 	//------------------------------------------------------------------------------------------------
 	// Director mode: spawn immediately and reset the cooldown timer.
-	// Called by AFM_DiDAttackerDirector after scoring and budget checks pass.
+	// count is computed by AFM_DiDAttackerDirector.ComputeGroupCount() from the battlefield state.
 	//------------------------------------------------------------------------------------------------
-	void TriggerSpawn(WorldTimestamp now)
+	void TriggerSpawn(WorldTimestamp now, int count)
 	{
 		m_fLastSpawnTime = now;
-		SpawnWave();
+		SpawnWave(count);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -177,6 +177,11 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		return m_iSpawnCountPerWave;
 	}
 
+	int GetSpawnCountVariance()
+	{
+		return m_iSpawnCountVariance;
+	}
+
 	void SetSpawnCount(int count)
 	{
 		m_iSpawnCountPerWave = count;
@@ -190,12 +195,12 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	//------------------------------------------------------------------------------------------------
 	protected int GetSpawnCountForWave()
 	{
-		if (!m_Zone)
+		if (m_iSpawnCountVariance <= 0)
 			return m_iSpawnCountPerWave;
 
-		int zoneIndex = m_Zone.GetZoneIndex();
-		float multiplier = 1.0 + ((zoneIndex - 1) * m_fZoneLevelMultiplier);
-		return Math.Ceil(m_iSpawnCountPerWave * multiplier);
+		int lo = Math.Max(1, m_iSpawnCountPerWave - m_iSpawnCountVariance);
+		int hi = m_iSpawnCountPerWave + m_iSpawnCountVariance;
+		return s_AIRandomGenerator.RandInt(lo, hi);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -227,7 +232,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void SpawnWave()
+	protected void SpawnWave(int count)
 	{
 		if (m_aSpawnPoints.Count() == 0 || m_aAIWaypoints.Count() == 0)
 			return;
@@ -251,10 +256,9 @@ class AFM_DiDSpawnerComponent: GenericEntity
 			return;
 		}
 
-		int spawnCount = GetSpawnCountForWave();
-		PrintFormat("AFM_DiDSpawnerComponent: Spawning wave with %1 groups", spawnCount, LogLevel.DEBUG);
+		PrintFormat("AFM_DiDSpawnerComponent: Spawning wave with %1 groups", count, LogLevel.DEBUG);
 
-		for (int i = 0; i < spawnCount; i++)
+		for (int i = 0; i < count; i++)
 		{
 			if (m_Zone.GetActiveAICount() >= m_iMaxAICount)
 				break;
@@ -401,5 +405,11 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	bool IsActive()
 	{
 		return true;
+	}
+
+	//! Returns true if this spawner uses the ticket system.
+	bool IsTicketBased()
+	{
+		return m_bUseTickets;
 	}
 }

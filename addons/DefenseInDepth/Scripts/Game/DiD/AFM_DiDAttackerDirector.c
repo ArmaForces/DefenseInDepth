@@ -131,6 +131,16 @@ class AFM_DiDAttackerDirector: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Returns whether all spawners exhausted their tickets
+	bool AreTicketsExhausted()
+	{
+		if (!m_pZone)
+			return true;
+		AFM_DiDAttackerBudget budget = m_pZone.GetBudget();
+		return budget.IsExhausted();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! Cleans up all AI spawned by this director's spawners and the mortar.
 	void Cleanup()
 	{
@@ -179,10 +189,11 @@ class AFM_DiDAttackerDirector: GenericEntity
 			ref AFM_DiDSpawnRequest chosen = WeightedRandomPick(candidates);
 			if (chosen)
 			{
-				PrintFormat("AFM_DiDAttackerDirector: Triggering %1 (score=%2, cost=%3pts, phase=%4)",
-					chosen.m_Spawner.Type().ToString(), chosen.m_fScore, chosen.m_iCost,
+				int groupCount = ComputeGroupCount(chosen, state);
+				PrintFormat("AFM_DiDAttackerDirector: Triggering %1 x%2 groups (score=%3, cost=%4pts, phase=%5)",
+					chosen.m_Spawner.Type().ToString(), groupCount, chosen.m_fScore, chosen.m_iCost,
 					state.m_ePhase, level: LogLevel.DEBUG);
-				chosen.m_Spawner.TriggerSpawn(now);
+				chosen.m_Spawner.TriggerSpawn(now, groupCount);
 			}
 		}
 		else
@@ -216,6 +227,25 @@ class AFM_DiDAttackerDirector: GenericEntity
 				}
 			}
 		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Decide how many groups to spawn for the chosen request.
+	//! Reads base count and variance from the spawner; battlefield state can adjust the result.
+	protected int ComputeGroupCount(AFM_DiDSpawnRequest chosen, AFM_DiDBattlefieldState state)
+	{
+		int base = chosen.m_Spawner.GetSpawnCount();
+		int variance = chosen.m_Spawner.GetSpawnCountVariance();
+
+		int lo = Math.Max(1, base - variance);
+		int hi = base + variance;
+		int count = s_AIRandomGenerator.RandInt(lo, hi);
+
+		// Final phase: send one extra group to commit remaining budget aggressively
+		if (state.m_ePhase == EAFMAttackPhase.FINAL)
+			count++;
+
+		return count;
 	}
 
 	//------------------------------------------------------------------------------------------------

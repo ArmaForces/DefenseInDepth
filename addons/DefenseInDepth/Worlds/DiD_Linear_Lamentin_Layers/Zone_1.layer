@@ -842,6 +842,7 @@ AFM_DiDZoneEntity zone1 {
   }
   AFM_DiDAttackerDirector : "{C88B368A8AC21F4E}Prefabs/MP/AFM_DiDAttackerDirector_Default.et" {
    coords -112.033 -11.168 33.665
+   m_fAggression 0.5
    {
     AFM_DiDZoneArtillery : "{2D68BCDEA841A4BC}Prefabs/MP/AFM_DiDZoneArtilleryPrefab.et" {
      coords 293.021 22.279 -55.39

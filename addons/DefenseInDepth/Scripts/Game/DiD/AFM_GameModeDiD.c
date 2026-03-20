@@ -142,7 +142,15 @@ class AFM_GameModeDiD: PS_GameModeCoop
 
 	protected void OnZoneHeld()
 	{
+		RPC_DoZoneHeld();
+		Rpc(RPC_DoZoneHeld);
 		GameEndDefendersWin();
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoZoneHeld()
+	{
+		SCR_ChatComponent.RadioProtocolMessage("Sector secured. Enemy assault has failed. Outstanding work, all units.");
 	}
 
 	//! Attacker budget exhausted and zone cleared — defenders repelled the assault
@@ -219,11 +227,45 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	}
 
 	//------------------------------------------------------------------------------------------------
-	// Artillery notifications
+	// Commander radio notifications — called on server, broadcast to all clients
 	//------------------------------------------------------------------------------------------------
 
+	//! Called when zone transitions from PREPARE to ACTIVE (defend phase starts).
+	void NotifyZoneActive(int zoneIndex)
+	{
+		RPC_DoZoneActive(zoneIndex);
+		Rpc(RPC_DoZoneActive, zoneIndex);
+	}
+
+	//! Called by director when attack phase changes to ASSAULT or FINAL.
+	void NotifyPhaseChanged(EAFMAttackPhase phase)
+	{
+		RPC_DoPhaseChanged(phase);
+		Rpc(RPC_DoPhaseChanged, phase);
+	}
+
+	//! Called by director when a combined-arms smoke sequence starts (step 1 fired).
+	void NotifySmokeLaunched(bool isArmorPush)
+	{
+		RPC_DoSmokeLaunched(isArmorPush);
+		Rpc(RPC_DoSmokeLaunched, isArmorPush);
+	}
+
+	//! Called by zone when all ticket-based spawners run out of tickets.
+	void NotifyTicketsExhausted()
+	{
+		RPC_DoTicketsExhausted();
+		Rpc(RPC_DoTicketsExhausted);
+	}
+
+	//! Called by artillery when an HE fire mission is triggered.
+	void NotifyMortarFiring()
+	{
+		RPC_DoMortarFiring();
+		Rpc(RPC_DoMortarFiring);
+	}
+
 	//! Called by AFM_DiDZoneArtillery on server when the mortar is destroyed.
-	//! Broadcasts a hint to all defenders. No location is revealed.
 	void NotifyMortarDestroyed()
 	{
 		RPC_DoMortarDestroyed();
@@ -234,52 +276,70 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	// Broadcast RPCs
 	//------------------------------------------------------------------------------------------------
 
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoZoneActive(int zoneIndex)
+	{
+		SCR_ChatComponent.RadioProtocolMessage(
+			string.Format("Command to all units: sector %1 is now active. Enemy is advancing — hold your positions.", zoneIndex)
+		);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoPhaseChanged(EAFMAttackPhase phase)
+	{
+		if (phase == EAFMAttackPhase.ASSAULT)
+			SCR_ChatComponent.RadioProtocolMessage("Attention: enemy has committed their main force. Expect heavy contact.");
+		else if (phase == EAFMAttackPhase.FINAL)
+			SCR_ChatComponent.RadioProtocolMessage("All units: enemy is expending their last reserves. This is their final push — do not break.");
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoSmokeLaunched(bool isArmorPush)
+	{
+		if (isArmorPush)
+			SCR_ChatComponent.RadioProtocolMessage("SMOKE SCREEN downrange! Enemy armor moving up — AT teams stand by!");
+		else
+			SCR_ChatComponent.RadioProtocolMessage("SMOKE SCREEN downrange! Enemy infantry assault through smoke — brace for contact!");
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoTicketsExhausted()
+	{
+		SCR_ChatComponent.RadioProtocolMessage("Intel: enemy reserves are depleted. No further reinforcements inbound.");
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoMortarFiring()
+	{
+		SCR_ChatComponent.RadioProtocolMessage("INCOMING! Enemy fire support is active. Seek cover and locate the source!");
+	}
+
 	//! Enemy mortar destroyed — defenders notified, no position information given
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
 	protected void RPC_DoMortarDestroyed()
 	{
-		SCR_HintManagerComponent.GetInstance().ShowCustom(
-			"Enemy mortar destroyed!",
-			"",
-			8,
-			false
-		);
+		SCR_ChatComponent.RadioProtocolMessage("Enemy fire support eliminated. Well done.");
 	}
 
 	//! Defenders repelled the assault (budget exhausted + zone cleared)
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
 	protected void RPC_DoZoneRepelled()
 	{
-		SCR_HintManagerComponent.GetInstance().ShowCustom(
-			"Enemy assault repelled! All attackers eliminated!",
-			"",
-			12,
-			false
-		);
+		SCR_ChatComponent.RadioProtocolMessage("Enemy force annihilated. The assault has been broken. Hold position.");
 	}
 
 	//! Zone failed — all defenders eliminated
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
 	protected void RPC_DoZoneFailed(int zoneIndex)
 	{
-		SCR_HintManagerComponent.GetInstance().ShowCustom(
-			string.Format("Zone %1 lost! Falling back...", zoneIndex),
-			"",
-			6,
-			false
-		);
+		SCR_ChatComponent.RadioProtocolMessage("Position overrun. All units fall back and regroup at the next position.");
 	}
 
 	//! New zone is now active
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
 	protected void RPC_DoProgressToNextZone(int newZoneIndex)
 	{
-		SCR_HintManagerComponent.GetInstance().ShowCustom(
-			string.Format("Moving to zone %1. Prepare your defenses!", newZoneIndex),
-			"",
-			10,
-			false
-		);
+		SCR_ChatComponent.RadioProtocolMessage(string.Format("Moving to zone %1. Prepare your defenses!", newZoneIndex));
 	}
 
 	//! Wave zone wave cleared

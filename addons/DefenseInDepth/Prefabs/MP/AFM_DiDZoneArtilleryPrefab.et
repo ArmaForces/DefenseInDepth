@@ -5,7 +5,7 @@ AFM_DiDZoneArtillery {
   }
  }
  coords 1603.758 62.301 5838.798
- m_sMortarPrefab "{D0AAD73A3B0B0087}Prefabs/Compositions/DiD_MortarComposition_USSR.et"
+ m_sMortarPrefab "{7C420F3570791EF7}Prefabs/Compositions/DiD_MortarComposition_US.et.et"
  m_CrewConfig AFM_CrewConfig "{68E8977FD9DC91CF}" {
   m_sGunnerPrefab "{EBFB363AC7A5FCE6}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Engineer.et"
   m_bSpawnDriver 0

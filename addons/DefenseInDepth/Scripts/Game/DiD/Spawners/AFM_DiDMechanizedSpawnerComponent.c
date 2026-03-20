@@ -81,7 +81,7 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	override protected void SpawnWave()
+	override protected void SpawnWave(int count)
 	{
 		if (m_bRequireMinAI)
 		{
@@ -101,10 +101,9 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 			return;
 		}
 
-		int spawnCount = GetSpawnCountForWave();
-		PrintFormat("AFM_DiDMechanizedSpawnerComponent: Spawning %1 vehicle(s)", spawnCount, LogLevel.DEBUG);
+		PrintFormat("AFM_DiDMechanizedSpawnerComponent: Spawning %1 vehicle(s)", count, LogLevel.DEBUG);
 
-		for (int i = 0; i < spawnCount; i++)
+		for (int i = 0; i < count; i++)
 		{
 			if (m_Zone.GetActiveAICount() >= m_iMaxAICount)
 				break;
@@ -123,20 +122,6 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 				continue;
 			SCR_EntityHelper.DeleteEntityAndChildren(entity);
 		}
-	}
-
-	//------------------------------------------------------------------------------------------------
-	override protected int GetSpawnCountForWave()
-	{
-		if (!m_Zone)
-			return 1;
-
-		int zoneIndex = m_Zone.GetZoneIndex();
-
-		if (m_bCoordinatedSpawn && zoneIndex >= 3)
-			return s_AIRandomGenerator.RandInt(2, 3);
-
-		return 1;
 	}
 
 	//------------------------------------------------------------------------------------------------

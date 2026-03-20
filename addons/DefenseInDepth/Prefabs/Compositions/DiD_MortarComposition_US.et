@@ -1,0 +1,10 @@
+Turret : "{8094D99689ABE241}Prefabs/Weapons/Mortars/M252/Mortar_M252.et" {
+ ID "5CF87D15B3D0A976"
+ coords 1511.126 59.987 5799.793
+ {
+  GenericEntity : "{E1FD1ACDA98123AE}Prefabs/Props/Military/Arsenal/AmmoBoxes/US/AmmoBoxArsenal_Mortar_US.et" {
+   ID "68E9081877B677E6"
+   coords -1.405 0 -1.168
+  }
+ }
+}

@@ -20,5 +20,5 @@ class AFM_DiDBattlefieldState
 	float m_fTimeRatio;			//! Remaining time / total defense time (1.0 = just started, 0.0 = expired)
 	float m_fDefenderDensity;	//! Alive defender count as a float — used by artillery to decide HE missions
 	EAFMAttackPhase m_ePhase;	//! Attack phase derived from budget ratio
-	bool m_bIsNight;			//! True during low-visibility conditions — pending day/night API verification
+	bool m_bIsNight;			//! True when TimeAndWeatherManagerEntity.IsSunSet() returns true
 }

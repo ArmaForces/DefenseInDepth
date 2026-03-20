@@ -48,6 +48,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	[Attribute("0.5", UIWidgets.EditBox, "Fraction of remaining budget rolled over to next zone on failure (0.0-1.0)", category: "DiD Budget")]
 	protected float m_fBudgetRolloverFraction;
 
+	[Attribute("3.0", UIWidgets.EditBox, "Time multiplier when all tickets exhausted (e.g. 3.0 = 3x faster). Only applies when spawners use the ticket system.", category: "DiD")]
+	protected float m_fTicketExhaustTimeMultiplier;
+
 	protected PolylineShapeEntity m_PolylineEntity;
 	protected AFM_PlayerSpawnPointEntity m_PlayerSpawnPoint;
 	// Legacy: spawners are direct children of the zone (used when no director is present)
@@ -69,6 +72,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 
 	// Budget — null if m_iPointsBudget == 0 (system disabled)
 	protected ref AFM_DiDAttackerBudget m_Budget;
+
+	protected bool m_bTicketsExhaustedNotified = false;	//! Prevents repeated notifications once tickets run out
 
 	// Faction configuration
 	protected SCR_Faction m_RedforFaction;
@@ -325,6 +330,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 			m_fZoneStartTime = now;
 			m_fZoneEndTime = now.PlusSeconds(m_iDefenseTimeSeconds);
 			PrintFormat("AFM_DiDZoneComponent %1: PREPARE -> ACTIVE", m_sZoneName);
+
+			AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
+			if (gamemode)
+				gamemode.NotifyZoneActive(m_iZoneIndex);
 		}
 
 		return m_eZoneState;
@@ -382,6 +391,31 @@ class AFM_DiDZoneComponent: ScriptComponent
 			}
 		}
 
+		// Ticket exhaustion: notify once then accelerate zone timer
+		if (!m_bTicketsExhaustedNotified && AreAllSpawnerTicketsExhausted())
+		{
+			m_bTicketsExhaustedNotified = true;
+			AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
+			if (gamemode)
+				gamemode.NotifyTicketsExhausted();
+		}
+
+		// Ticket exhaustion: accelerate zone timer when no more AI can spawn from ticket pools.
+		// Multiplier ramps linearly from 1x (full time remaining) to m_fTicketExhaustTimeMultiplier (at end).
+		if (m_eZoneState == EAFMZoneState.ACTIVE
+			&& m_fTicketExhaustTimeMultiplier > 1.0
+			&& AreAllSpawnerTicketsExhausted())
+		{
+			float secondsRemaining = Math.Max(0, m_fZoneEndTime.DiffSeconds(GetCurrentTimestamp()));
+			float timeRatio = Math.Clamp(secondsRemaining / m_iDefenseTimeSeconds, 0.0, 1.0);
+			// timeRatio 1.0 = full time left → scaledMultiplier = 1x (no acceleration)
+			// timeRatio 0.0 = at deadline    → scaledMultiplier = m_fTicketExhaustTimeMultiplier
+			float scaledMultiplier = 1.0 + (m_fTicketExhaustTimeMultiplier - 1.0) * (1.0 - timeRatio);
+			int extraSeconds = Math.Ceil(scaledMultiplier - 1.0);
+			if (extraSeconds > 0)
+				m_fZoneEndTime = m_fZoneEndTime.PlusSeconds(-extraSeconds);
+		}
+
 		return m_eZoneState;
 	}
 
@@ -437,6 +471,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 
 	void ActivateZone()
 	{
+		m_bTicketsExhaustedNotified = false;
+
 		// Initialize budget if configured
 		if (m_iPointsBudget > 0)
 		{
@@ -585,5 +621,27 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected int GetZoneAILimit()
 	{
 		return m_iMaxAICount;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns true when every ticket-based spawner in this zone has used all its tickets.
+	//! Returns false if no ticket-based spawners exist (no acceleration in that case).
+	protected bool AreAllSpawnerTicketsExhausted()
+	{
+		// Director mode: delegate to director
+		if (m_Director)
+			return m_Director.AreTicketsExhausted();
+
+		// Legacy mode: iterate direct spawner children
+		bool hasTicketSpawners = false;
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			if (!spawner || !spawner.IsTicketBased())
+				continue;
+			hasTicketSpawners = true;
+			if (spawner.GetRemainingTickets() > 0)
+				return false;
+		}
+		return hasTicketSpawners;
 	}
 }

@@ -802,80 +802,80 @@ AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
     }
    }
   }
-  AFM_DiDInfantrySpawnerComponent : "{A93E8199BD60FD8A}Prefabs/Spawners/AFM_DidInfantrySpawner.et" {
-   coords 31.668 0.138 16.239
-   m_iWaveIntervalSeconds 100
-   m_iSpawnCountPerWave 8
-   m_iMaxAICount 120
-   m_fZoneLevelMultiplier 2
+  $grp AFM_ArtillerySpawnPointEntity : "{1933061551525F98}Prefabs/MP/AFM_ArtillerySpawnPointEntity.et" {
    {
-    $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
-     {
-      coords -118.699 -1.853 -76.084
-     }
-     {
-      coords -84.415 -1.853 -123.135
-     }
-     {
-      coords 69.65 2.492 -191.383
-     }
-     {
-      coords 168.941 32.815 -83.865
-     }
-     {
-      coords 183.663 31.427 -8.573
-     }
-     {
-      coords 165.572 27.043 110.199
-     }
-     {
-      coords 72.032 29.485 369.007
-     }
-    }
-    $grp SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
-     {
-      coords 11.274 -0.103 -5.376
-     }
-     {
-      coords 48.184 -0.01 60.371
-     }
-     {
-      coords -127.568 1.666 4.644
-     }
-    }
-    $grp SCR_SearchAndDestroyWaypoint : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
-     {
-      coords 4.06 -0.014 131.038
-      CompletionRadius 50
-     }
-     {
-      coords -182.381 0.241 47.279
-     }
-     {
-      coords -47.05 0.022 -10.665
-     }
-    }
+    coords 227.323 33.555 -37.018
+   }
+   {
+    coords 231.572 31.625 29.575
+   }
+   {
+    coords 202.94 26.884 110.01
    }
   }
   AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
    coords 43.555 0.259 -4.312
   }
-  AFM_DiDMortarSpawnerComponent : "{F040102F1843F7C1}Prefabs/Spawners/AFM_MortarSpawner.et" {
-   coords 227.774 30.794 32.813
-   m_iFireMissionUpdateInterval 30
+  AFM_DiDAttackerDirector : "{C88B368A8AC21F4E}Prefabs/MP/AFM_DiDAttackerDirector_Default.et" {
+   coords 0.059 0.004 0.021
+   m_fAggression 0.8
    {
-    $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
-     zone_1_sp_18 {
-      coords 3.791 0.801 -2.298
-      angles 0 -76.831 0
-     }
-     zone_1_sp_19 {
-      coords 0.213 2.772 -70.186
-      angles 0 -76.831 0
-     }
-     zone_1_sp_20 {
-      coords -24.508 -3.894 78.018
-      angles 0 -76.831 0
+    AFM_DiDZoneArtillery : "{2D68BCDEA841A4BC}Prefabs/MP/AFM_DiDZoneArtilleryPrefab.et" {
+     coords 202.996 26.889 110.521
+    }
+    AFM_DiDInfantrySpawnerComponent : "{A93E8199BD60FD8A}Prefabs/Spawners/AFM_DidInfantrySpawner.et" {
+     coords 31.609 0.134 16.218
+     m_iWaveIntervalSeconds 100
+     m_iSpawnCountPerWave 8
+     m_iMaxAICount 120
+     m_fZoneLevelMultiplier 2
+     {
+      $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+       {
+        coords -118.699 -1.853 -76.084
+       }
+       {
+        coords -84.415 -1.853 -123.135
+       }
+       {
+        coords 69.65 2.492 -191.383
+       }
+       {
+        coords 168.941 32.815 -83.865
+       }
+       {
+        coords 183.663 31.427 -8.573
+       }
+       {
+        coords 165.572 27.043 110.199
+       }
+       {
+        coords 72.032 29.485 369.007
+       }
+      }
+      $grp SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
+       {
+        coords 11.274 -0.103 -5.376
+       }
+       {
+        coords 48.184 -0.01 60.371
+       }
+       {
+        coords -127.568 1.666 4.644
+       }
+      }
+      $grp SCR_SearchAndDestroyWaypoint : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
+       {
+        coords 4.06 -0.014 131.038
+        CompletionRadius 50
+       }
+       {
+        coords -182.381 0.241 47.279
+       }
+       {
+        coords -47.05 0.022 -10.665
+       }
+      }
      }
     }
    }

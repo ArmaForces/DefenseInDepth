@@ -5,7 +5,7 @@
 enum EAFMRoundType
 {
 	HIGH_EXPLOSIVE,		//! Costs budget; Monte Carlo targeting of defender clusters
-	SMOKE,				//! Low cost; targets zone centroid to disrupt defenders
+	SMOKE,				//! Low cost; perpendicular smoke screen between player blob and mortar
 	ILLUMINATION,		//! Night only; targets zone centroid (night detection pending API)
 	PRACTICE			//! Free harass; 1 round at best available position
 }
@@ -15,6 +15,9 @@ enum EAFMRoundType
 //!
 //! Manages the mortar lifecycle: free initial spawn → director-triggered fire missions →
 //! destruction detection → optional budget-paid respawn (max 2 times, escalating cost).
+//!
+//! Smoke missions use perpendicular screen targeting: rounds fall in a line perpendicular
+//! to the mortar→player axis, positioned 25–50m in front of the player blob.
 //!
 //! Hierarchy in world editor:
 //!   AFM_DiDZoneEntity
@@ -71,13 +74,22 @@ class AFM_DiDZoneArtillery: GenericEntity
 	[Attribute("50", UIWidgets.EditBox, "Sample radius (meters) around each MC point for defender counting", category: "DiD Artillery")]
 	protected float m_fSampleRadius;
 
+	[Attribute("25", UIWidgets.EditBox, "Smoke screen: minimum distance (m) from player blob to screen center", category: "DiD Artillery Smoke")]
+	protected float m_fSmokeMinDistance;
+
+	[Attribute("50", UIWidgets.EditBox, "Smoke screen: maximum distance (m) from player blob to screen center", category: "DiD Artillery Smoke")]
+	protected float m_fSmokeMaxDistance;
+
+	[Attribute("20", UIWidgets.EditBox, "Smoke screen: perpendicular spread (m) to each side of center", category: "DiD Artillery Smoke")]
+	protected float m_fSmokeScreenSpread;
+
 	// Runtime state
 	protected AFM_DiDZoneComponent m_pZone;
 	protected ref array<AFM_ArtillerySpawnPointEntity> m_aSpawnPoints = {};
 
 	protected IEntity m_pSpawnedMortar;
 	protected AIGroup m_pMortarCrew;
-	protected SCR_AIWaypointArtillerySupport m_pCurrentWaypoint;
+	protected ref array<SCR_AIWaypointArtillerySupport> m_aActiveWaypoints = {};
 	protected AFM_ArtillerySpawnPointEntity m_pLastSpawnPoint;
 
 	protected bool m_bMortarActive;
@@ -261,23 +273,74 @@ class AFM_DiDZoneArtillery: GenericEntity
 			budget.Consume(cost);
 		}
 
-		vector targetPos = SelectTargetPosition(roundType);
-		if (targetPos == vector.Zero)
-		{
-			PrintFormat("AFM_DiDZoneArtillery: No valid target for %1 — aborting", RoundTypeToString(roundType), level: LogLevel.DEBUG);
-			// Refund budget if we already consumed (fall-through: we haven't assigned waypoint yet)
-			if (budget && cost > 0)
-				budget.AddBonus(cost);
-			return;
-		}
-
 		SetLastFired(roundType, now);
 		m_iMissionsThisLife++;
 
-		AssignFireMission(targetPos, shotCount);
+		if (roundType == EAFMRoundType.SMOKE)
+		{
+			// Smoke uses perpendicular screen pattern — no single target position needed
+			AssignSmokescreenMissions(shotCount);
+		}
+		else
+		{
+			vector targetPos = SelectTargetPosition(roundType);
+			if (targetPos == vector.Zero)
+			{
+				PrintFormat("AFM_DiDZoneArtillery: No valid target for %1 — aborting", RoundTypeToString(roundType), level: LogLevel.DEBUG);
+				if (budget && cost > 0)
+					budget.AddBonus(cost);
+				return;
+			}
 
-		PrintFormat("AFM_DiDZoneArtillery: %1 mission fired — %2 rounds at %3 (cost %4 pts)",
-			RoundTypeToString(roundType), shotCount, targetPos.ToString(), cost);
+			AssignFireMission(targetPos, shotCount, ConvertRoundType(roundType));
+
+			// Notify players when HE rounds are inbound
+			if (roundType == EAFMRoundType.HIGH_EXPLOSIVE)
+			{
+				AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
+				if (gamemode)
+					gamemode.NotifyMortarFiring();
+			}
+		}
+
+		PrintFormat("AFM_DiDZoneArtillery: %1 mission fired — %2 rounds (cost %3 pts)",
+			RoundTypeToString(roundType), shotCount, cost);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Trigger a SMOKE mission explicitly, used as step 1 in combined arms sequences.
+	//! Returns true if the mission was fired successfully.
+	//! Budget is consumed here (smoke rounds cost); the director does NOT pre-reserve.
+	bool TriggerSmokeMission(WorldTimestamp now)
+	{
+		if (!m_bMortarActive || !m_pMortarCrew)
+			return false;
+
+		if (IsOnCooldown(EAFMRoundType.SMOKE, now))
+			return false;
+
+		int shotCount = GetShotCount(EAFMRoundType.SMOKE);
+		int cost = GetMissionCost(EAFMRoundType.SMOKE, shotCount);
+
+		AFM_DiDAttackerBudget budget = m_pZone.GetBudget();
+		if (budget && cost > 0)
+		{
+			if (!budget.CanAfford(cost))
+			{
+				PrintFormat("AFM_DiDZoneArtillery: Can't afford sequence smoke (cost %1 pts)", cost, level: LogLevel.DEBUG);
+				return false;
+			}
+			budget.Consume(cost);
+		}
+
+		SetLastFired(EAFMRoundType.SMOKE, now);
+		m_iMissionsThisLife++;
+
+		AssignSmokescreenMissions(shotCount);
+
+		PrintFormat("AFM_DiDZoneArtillery: Sequence SMOKE — %1 rounds perpendicular screen (cost %2 pts)",
+			shotCount, cost);
+		return true;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -389,7 +452,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 	//------------------------------------------------------------------------------------------------
 	protected EAFMRoundType SelectRoundType(AFM_DiDBattlefieldState state, WorldTimestamp now)
 	{
-		// Night → illumination (m_bIsNight always false until day/night API is verified)
+		// Night → illumination (IsSunSet() drives m_bIsNight via director's BuildBattlefieldState)
 		if (state.m_bIsNight
 			&& !IsOnCooldown(EAFMRoundType.ILLUMINATION, now)
 			&& state.m_fBudgetRatio > 0.3)
@@ -401,7 +464,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 			&& state.m_fBudgetRatio > 0.2)
 			return EAFMRoundType.HIGH_EXPLOSIVE;
 
-		// ASSAULT/FINAL → smoke to disrupt defender positions
+		// ASSAULT/FINAL → smoke screen to disrupt defender positions
 		if (!IsOnCooldown(EAFMRoundType.SMOKE, now)
 			&& state.m_ePhase != EAFMAttackPhase.PROBE)
 			return EAFMRoundType.SMOKE;
@@ -411,6 +474,8 @@ class AFM_DiDZoneArtillery: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Returns a representative target position for non-smoke round types.
+	//! Smoke targeting is handled entirely inside AssignSmokescreenMissions().
 	protected vector SelectTargetPosition(EAFMRoundType roundType)
 	{
 		switch (roundType)
@@ -418,7 +483,6 @@ class AFM_DiDZoneArtillery: GenericEntity
 			case EAFMRoundType.HIGH_EXPLOSIVE:
 			case EAFMRoundType.PRACTICE:
 				return FindBestHETarget();
-			case EAFMRoundType.SMOKE:
 			case EAFMRoundType.ILLUMINATION:
 				return GetZoneCentroid();
 		}
@@ -452,10 +516,89 @@ class AFM_DiDZoneArtillery: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void AssignFireMission(vector targetPos, int shotCount)
+	//! Fire a single-target mission. Clears all active waypoints first.
+	protected void AssignFireMission(vector targetPos, int shotCount, SCR_EAIArtilleryAmmoType ammoType = SCR_EAIArtilleryAmmoType.HIGH_EXPLOSIVE)
+	{
+		ClearCurrentWaypoint();
+		AddFireWaypoint(targetPos, shotCount, ammoType);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Fire a perpendicular smoke screen: 3 waypoints spread along the axis that is
+	//! perpendicular to the mortar→player direction, centered m_fSmokeMinDistance–
+	//! m_fSmokeMaxDistance in front of the player blob (between blob and mortar).
+	//!
+	//! Falls back to zone centroid when no alive defenders are found.
+	protected void AssignSmokescreenMissions(int totalRounds)
 	{
 		ClearCurrentWaypoint();
 
+		// Find player blob centroid
+		vector blobPos = FindPlayerBlob();
+		if (blobPos == vector.Zero)
+			blobPos = GetZoneCentroid();
+
+		if (blobPos == vector.Zero)
+			return;
+
+		// Mortar position — use current spawn point origin as reference
+		vector mortarPos = vector.Zero;
+		if (m_pSpawnedMortar)
+			mortarPos = m_pSpawnedMortar.GetOrigin();
+
+		// Forward direction: mortar → player blob (XZ plane only)
+		float dx = blobPos[0] - mortarPos[0];
+		float dz = blobPos[2] - mortarPos[2];
+		float len = Math.Sqrt(dx * dx + dz * dz);
+
+		// Normalised forward; default to arbitrary axis when mortar is on top of blob
+		float ndx = 1.0, ndz = 0.0;
+		if (len >= 1.0)
+		{
+			ndx = dx / len;
+			ndz = dz / len;
+		}
+
+		// Perpendicular direction (rotate forward 90° in XZ)
+		float perpX = -ndz;
+		float perpZ = ndx;
+
+		// Screen center: 25–50 m from players, towards mortar
+		float offset = s_AIRandomGenerator.RandFloatXY(m_fSmokeMinDistance, m_fSmokeMaxDistance);
+
+		vector center;
+		center[0] = blobPos[0] - ndx * offset;
+		center[2] = blobPos[2] - ndz * offset;
+		center[1] = GetGame().GetWorld().GetSurfaceY(center[0], center[2]);
+
+		// Spread points along perpendicular axis
+		vector leftFlank;
+		leftFlank[0] = center[0] + perpX * m_fSmokeScreenSpread;
+		leftFlank[2] = center[2] + perpZ * m_fSmokeScreenSpread;
+		leftFlank[1] = GetGame().GetWorld().GetSurfaceY(leftFlank[0], leftFlank[2]);
+
+		vector rightFlank;
+		rightFlank[0] = center[0] - perpX * m_fSmokeScreenSpread;
+		rightFlank[2] = center[2] - perpZ * m_fSmokeScreenSpread;
+		rightFlank[1] = GetGame().GetWorld().GetSurfaceY(rightFlank[0], rightFlank[2]);
+
+		// Distribute rounds: center receives half, flanks split the rest
+		int centerRounds = Math.Max(1, totalRounds / 2);
+		int sideRounds = Math.Max(1, (totalRounds - centerRounds) / 2);
+
+		AddFireWaypoint(center, centerRounds, SCR_EAIArtilleryAmmoType.SMOKE);
+		AddFireWaypoint(leftFlank, sideRounds, SCR_EAIArtilleryAmmoType.SMOKE);
+		AddFireWaypoint(rightFlank, sideRounds, SCR_EAIArtilleryAmmoType.SMOKE);
+
+		PrintFormat("AFM_DiDZoneArtillery: Smoke screen — center %1, spread +/-%2m perp, blob at %3 (offset %4m)",
+			center.ToString(), m_fSmokeScreenSpread, blobPos.ToString(), offset);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Spawn and queue a single artillery waypoint. Does NOT clear existing waypoints.
+	//! Used internally to build multi-point smoke screens.
+	protected void AddFireWaypoint(vector targetPos, int shotCount, SCR_EAIArtilleryAmmoType ammoType)
+	{
 		Resource wpResource = Resource.Load("{C524700A27CFECDD}Prefabs/AI/Waypoints/AIWaypoint_ArtillerySupport.et");
 		if (!wpResource || !wpResource.IsValid())
 		{
@@ -483,24 +626,78 @@ class AFM_DiDZoneArtillery: GenericEntity
 		}
 
 		wp.SetTargetShotCount(shotCount);
+		wp.SetAmmoType(ammoType);
 
 		if (m_pMortarCrew)
 			m_pMortarCrew.AddWaypoint(wp);
 
-		m_pCurrentWaypoint = wp;
+		m_aActiveWaypoints.Insert(wp);
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Remove and delete all active waypoints.
 	protected void ClearCurrentWaypoint()
 	{
-		if (!m_pCurrentWaypoint)
-			return;
+		foreach (SCR_AIWaypointArtillerySupport wp : m_aActiveWaypoints)
+		{
+			if (!wp)
+				continue;
+			if (m_pMortarCrew)
+				m_pMortarCrew.RemoveWaypoint(wp);
+			SCR_EntityHelper.DeleteEntityAndChildren(wp);
+		}
+		m_aActiveWaypoints.Clear();
+	}
 
-		if (m_pMortarCrew)
-			m_pMortarCrew.RemoveWaypoint(m_pCurrentWaypoint);
+	//------------------------------------------------------------------------------------------------
+	//! Returns the centroid of all alive defenders. Returns vector.Zero when none are found.
+	protected vector FindPlayerBlob()
+	{
+		if (!m_pZone)
+			return vector.Zero;
 
-		SCR_EntityHelper.DeleteEntityAndChildren(m_pCurrentWaypoint);
-		m_pCurrentWaypoint = null;
+		SCR_Faction defFaction = m_pZone.GetDefenderFaction();
+		if (!defFaction)
+			return vector.Zero;
+
+		array<int> playerIds = {};
+		defFaction.GetPlayersInFaction(playerIds);
+
+		float sumX = 0, sumZ = 0;
+		int count = 0;
+
+		foreach (int pid : playerIds)
+		{
+			PlayerController pc = GetGame().GetPlayerManager().GetPlayerController(pid);
+			if (!pc)
+				continue;
+
+			IEntity ent = pc.GetControlledEntity();
+			if (!ent)
+				continue;
+
+			SCR_ChimeraCharacter ch = SCR_ChimeraCharacter.Cast(ent);
+			if (!ch)
+				continue;
+
+			SCR_DamageManagerComponent dmg = ch.GetDamageManager();
+			if (!dmg || dmg.GetState() == EDamageState.DESTROYED)
+				continue;
+
+			vector pos = ch.GetOrigin();
+			sumX += pos[0];
+			sumZ += pos[2];
+			count++;
+		}
+
+		if (count == 0)
+			return vector.Zero;
+
+		vector blob;
+		blob[0] = sumX / count;
+		blob[2] = sumZ / count;
+		blob[1] = GetGame().GetWorld().GetSurfaceY(blob[0], blob[2]);
+		return blob;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -663,7 +860,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected bool IsOnCooldown(EAFMRoundType roundType, WorldTimestamp now)
+	bool IsOnCooldown(EAFMRoundType roundType, WorldTimestamp now)
 	{
 		int cooldown;
 		WorldTimestamp lastFired;
@@ -716,6 +913,20 @@ class AFM_DiDZoneArtillery: GenericEntity
 			case EAFMRoundType.PRACTICE:       return "PRACTICE";
 		}
 		return "UNKNOWN";
+	}
+
+
+	//------------------------------------------------------------------------------------------------
+	protected SCR_EAIArtilleryAmmoType ConvertRoundType(EAFMRoundType roundType)
+	{
+		switch (roundType)
+		{
+			case EAFMRoundType.HIGH_EXPLOSIVE: return SCR_EAIArtilleryAmmoType.HIGH_EXPLOSIVE;
+			case EAFMRoundType.SMOKE:          return SCR_EAIArtilleryAmmoType.SMOKE;
+			case EAFMRoundType.ILLUMINATION:   return SCR_EAIArtilleryAmmoType.ILLUMINATION;
+			case EAFMRoundType.PRACTICE:       return SCR_EAIArtilleryAmmoType.PRACTICE;
+		}
+		return SCR_EAIArtilleryAmmoType.PRACTICE;
 	}
 
 	//------------------------------------------------------------------------------------------------
