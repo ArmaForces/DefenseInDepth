@@ -309,20 +309,29 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 		return tickets;
 	}
 	
+	//! During ACTIVE state, returns the earliest next-spawn timestamp across active spawners.
+	//! Falls back to now (countdown = 0) if no spawner has a pending spawn — wave ends on AI wipe, not timer.
 	override WorldTimestamp GetZoneEndTime()
 	{
 		if (m_eZoneState != EAFMZoneState.ACTIVE)
 			return super.GetZoneEndTime();
 		
-		//TODO: Fix me - dirty hack
-		WorldTimestamp t = GetCurrentTimestamp().PlusSeconds(1000);
+		WorldTimestamp earliest = GetCurrentTimestamp().PlusSeconds(1000);
+		bool found = false;
 		
-		foreach(AFM_DiDSpawnerComponent spawner: m_aSpawners)
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
 		{
-			WorldTimestamp spawnTimestamp = spawner.GetNextSpawnTime();
-			if (spawner.IsActive() && t.Greater(spawnTimestamp))
-				t = spawnTimestamp;
+			if (!spawner.IsActive())
+				continue;
+			WorldTimestamp spawnTime = spawner.GetNextSpawnTime();
+			if (!found || earliest.Greater(spawnTime))
+			{
+				earliest = spawnTime;
+				found = true;
+			}
 		}
-		return t;
+		if (found)
+			return earliest;
+		return GetCurrentTimestamp();
 	}
 }

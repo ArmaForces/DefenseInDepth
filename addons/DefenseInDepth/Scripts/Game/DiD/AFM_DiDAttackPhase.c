@@ -18,7 +18,7 @@ class AFM_DiDBattlefieldState
 	int m_iTotalActiveAI;		//! Total AI tracked by all spawners (includes outside zone)
 	float m_fBudgetRatio;		//! Remaining budget / total (1.0 when no budget system is active)
 	float m_fTimeRatio;			//! Remaining time / total defense time (1.0 = just started, 0.0 = expired)
-	float m_fDefenderDensity;	//! Alive defender count as a float — used by artillery to decide HE missions
+	float m_fAliveDefenders;	//! Alive defender count as a float — used by artillery HE threshold comparisons
 	EAFMAttackPhase m_ePhase;	//! Attack phase derived from budget ratio
 	bool m_bIsNight;			//! True when TimeAndWeatherManagerEntity.IsSunSet() returns true
 }

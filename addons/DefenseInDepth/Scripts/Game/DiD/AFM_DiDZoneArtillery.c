@@ -236,7 +236,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 
 		// HE: valuable when defenders are clustered and budget allows
 		if (!IsOnCooldown(EAFMRoundType.HIGH_EXPLOSIVE, now)
-			&& state.m_fDefenderDensity >= m_fHEDensityThreshold
+			&& state.m_fAliveDefenders >= m_fHEDensityThreshold
 			&& state.m_fBudgetRatio > 0.2)
 			return 1.5;
 
@@ -245,7 +245,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 			&& state.m_ePhase != EAFMAttackPhase.PROBE)
 			return 1.0;
 
-		// Illumination: night only (m_bIsNight is currently always false — Phase 3 placeholder)
+		// Illumination: night only
 		if (!IsOnCooldown(EAFMRoundType.ILLUMINATION, now)
 			&& state.m_bIsNight
 			&& state.m_fBudgetRatio > 0.3)
@@ -330,42 +330,6 @@ class AFM_DiDZoneArtillery: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Trigger a SMOKE mission explicitly, used as step 1 in combined arms sequences.
-	//! Returns true if the mission was fired successfully.
-	//! Budget is consumed here (smoke rounds cost); the director does NOT pre-reserve.
-	bool TriggerSmokeMission(WorldTimestamp now)
-	{
-		if (!m_bMortarActive || !m_pMortarCrew)
-			return false;
-
-		if (IsOnCooldown(EAFMRoundType.SMOKE, now))
-			return false;
-
-		int shotCount = GetShotCount(EAFMRoundType.SMOKE);
-		int cost = GetMissionCost(EAFMRoundType.SMOKE, shotCount);
-
-		AFM_DiDAttackerBudget budget = m_pZone.GetBudget();
-		if (budget && cost > 0)
-		{
-			if (!budget.CanAfford(cost))
-			{
-				PrintFormat("AFM_DiDZoneArtillery: Can't afford sequence smoke (cost %1 pts)", cost, level: LogLevel.DEBUG);
-				return false;
-			}
-			budget.Consume(cost);
-		}
-
-		SetLastFired(EAFMRoundType.SMOKE, now);
-		m_iMissionsThisLife++;
-
-		AssignSmokescreenMissions(shotCount);
-
-		PrintFormat("AFM_DiDZoneArtillery: Sequence SMOKE — %1 rounds perpendicular screen (cost %2 pts)",
-			shotCount, cost);
-		return true;
-	}
-
-	//------------------------------------------------------------------------------------------------
 	//! Respawn mortar at a new position. Budget consumption is handled by the director.
 	void TriggerRespawn(WorldTimestamp now)
 	{
@@ -374,6 +338,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 
 		AFM_ArtillerySpawnPointEntity spawnPoint = GetNextSpawnPoint();
 		SpawnMortarTeam(spawnPoint);
+		m_iRespawnCount++;
 		// Deliberately no broadcast — defenders are NOT notified of respawn
 		PrintFormat("AFM_DiDZoneArtillery: Mortar respawned (respawn #%1)", m_iRespawnCount);
 	}
@@ -482,7 +447,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 
 		// Dense defenders + budget available → HE
 		if (!IsOnCooldown(EAFMRoundType.HIGH_EXPLOSIVE, now)
-			&& state.m_fDefenderDensity >= m_fHEDensityThreshold
+			&& state.m_fAliveDefenders >= m_fHEDensityThreshold
 			&& state.m_fBudgetRatio > 0.2)
 			return EAFMRoundType.HIGH_EXPLOSIVE;
 
@@ -936,7 +901,6 @@ class AFM_DiDZoneArtillery: GenericEntity
 		}
 		return "UNKNOWN";
 	}
-
 
 	//------------------------------------------------------------------------------------------------
 	protected SCR_EAIArtilleryAmmoType ConvertRoundType(EAFMRoundType roundType)

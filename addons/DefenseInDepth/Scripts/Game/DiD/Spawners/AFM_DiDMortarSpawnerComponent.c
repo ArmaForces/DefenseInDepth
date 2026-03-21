@@ -30,14 +30,10 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 	[Attribute("800", UIWidgets.EditBox, "Maximum distance from mortar to target (meters)", category: "DiD Mortar Spawner")]
 	protected float m_fMaxTargetDistance;
 	
-	[Attribute("1", UIWidgets.CheckBox, "Enable debug visualization of sample points", category: "DiD Mortar Spawner")]
-	protected bool m_bDebugVisualization;
-	
 	// Runtime data
 	protected IEntity m_SpawnedMortar;
 	protected ref map<IEntity, ref MortarFireMissionData> m_mFireMissions = new map<IEntity, ref MortarFireMissionData>();
 	protected WorldTimestamp m_fLastTargetUpdate;
-	protected ref array<Shape> m_aDebugShapes = {};
 	
 	//calculate only once
 	protected ref array<float> m_aPolylinePoints2D = null;
@@ -86,11 +82,7 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 	{
 		super.Cleanup();
 		SCR_EntityHelper.DeleteEntityAndChildren(m_SpawnedMortar);
-		
 		m_mFireMissions.Clear();
-		
-		// Release debug shape references so they are garbage collected
-		m_aDebugShapes.Clear();
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -261,10 +253,6 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 			// Generate random point within zone bounds
 			vector samplePos = GenerateRandomPointInBounds(minBounds, maxBounds);
 			
-			// Debug visualization
-			if (m_bDebugVisualization)
-				DebugDrawSamplePoint(samplePos, 0, 0);
-			
 			// Check if point is actually inside the zone polygon
 			if (!IsPointInZone(samplePos, polylinePoints, polyline.GetOrigin()))
 				continue;
@@ -277,10 +265,6 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 			
 			// Count targets around this sample point
 			int targetCount = CountDefendersInRadius(samplePos, m_fSampleRadius);
-			
-			// Debug visualization
-			if (m_bDebugVisualization)
-				DebugDrawSamplePoint(samplePos, targetCount, maxTargetCount);
 			
 			// Update best position if this sample has more targets
 			if (targetCount > maxTargetCount)
@@ -418,20 +402,6 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		}
 		
 		return Math2D.IsPointInPolygon(m_aPolylinePoints2D, point[0], point[2]);
-	}
-	
-	protected void DebugDrawSamplePoint(vector pos, int targetCount, int maxCount)
-	{
-		Color color = Color.Yellow;
-		if (targetCount == maxCount && targetCount > 0)
-			color = Color.Red;
-		else if (targetCount > 0)
-			color = Color.Orange;
-		
-		// Draw sphere at sample point
-		Shape s = Shape.CreateSphere(color.PackToInt(), ShapeFlags.VISIBLE, pos, m_fSampleRadius);
-	
-		m_aDebugShapes.Insert(s);
 	}
 }
 

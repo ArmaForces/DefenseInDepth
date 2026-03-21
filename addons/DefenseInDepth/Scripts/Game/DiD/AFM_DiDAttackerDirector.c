@@ -300,9 +300,9 @@ class AFM_DiDAttackerDirector: GenericEntity
 		state.m_iAICountInZone = m_pZone.GetAICountInsideZone();
 		state.m_iTotalActiveAI = GetActiveAICount();
 
-		// Defender density: raw count used as density proxy.
+		// Float copy of defender count for artillery HE threshold comparisons.
 		// AFM_DiDZoneArtillery.m_fHEDensityThreshold (default 2.0) means "fire HE when 2+ defenders alive".
-		state.m_fDefenderDensity = state.m_iDefenderCount;
+		state.m_fAliveDefenders = state.m_iDefenderCount;
 
 		AFM_DiDAttackerBudget budget = m_pZone.GetBudget();
 		if (budget)
