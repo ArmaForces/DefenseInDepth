@@ -10,4 +10,9 @@ class AFM_LighthouseEntityClass: SCR_AIWaypointClass
 //------------------------------------------------------------------------------------------------
 class AFM_LighthouseEntity: SCR_AIWaypoint
 {
+	[Attribute("2", UIWidgets.EditBox, "Infantry travel time in ticks (spawn to zone)", category: "DiD Route")]
+	float m_fInfantryTravelTicks;
+
+	[Attribute("3", UIWidgets.EditBox, "Mechanized travel time in ticks (spawn to zone)", category: "DiD Route")]
+	float m_fMechanizedTravelTicks;
 }
