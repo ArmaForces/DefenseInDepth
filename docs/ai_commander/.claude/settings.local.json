@@ -4,7 +4,11 @@
       "mcp__enfusion-mcp__api_search",
       "mcp__enfusion-mcp__wiki_search",
       "mcp__enfusion-mcp__project_browse",
-      "Bash(grep -h \"^AFM_\\\\|^ ID\\\\|  MeshObject\\\\|  Hierarchy\" C:/Users/nielu/Projects/armaforces/DefenseInDepth/addons/DefenseInDepth/Prefabs/AI/Waypoints/AFM_*.et)"
+      "Bash(grep -h \"^AFM_\\\\|^ ID\\\\|  MeshObject\\\\|  Hierarchy\" C:/Users/nielu/Projects/armaforces/DefenseInDepth/addons/DefenseInDepth/Prefabs/AI/Waypoints/AFM_*.et)",
+      "mcp__enfusion-mcp__game_browse",
+      "mcp__enfusion-mcp__game_read",
+      "mcp__enfusion-mcp__asset_search",
+      "WebFetch(domain:community.bistudio.com)"
     ]
   }
 }

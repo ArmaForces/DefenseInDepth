@@ -138,6 +138,17 @@ class AFM_DiDAttackerDirector: GenericEntity
 		entry.m_iAliveCount = group.GetAgentsCount();
 		m_aGroupRegistry.Insert(entry);
 
+		// Subscribe to control-mode changes so we can react when the group goes IDLE.
+		// Signature is intentionally parameterless — poll GetGroupControlMode() in the callback
+		// rather than trusting invoker parameters (exact signature unverified in-engine).
+		SCR_AIGroup scrGroup = SCR_AIGroup.Cast(group);
+		if (scrGroup)
+		{
+			SCR_AIGroupUtilityComponent utility = scrGroup.GetGroupUtilityComponent();
+			if (utility && utility.m_GroupInfo)
+				utility.m_GroupInfo.GetOnControlModeChanged().Insert(OnGroupControlModeChanged);
+		}
+
 		PrintFormat("AFM_DiDAttackerDirector: Registered %1 group — %2 agents, tick %3, registry size %4",
 			typename.EnumToString(EAFMUnitType, unitType), entry.m_iAliveCount,
 			m_iDecisionTick, m_aGroupRegistry.Count(), LogLevel.DEBUG);
@@ -177,6 +188,15 @@ class AFM_DiDAttackerDirector: GenericEntity
 			if (!entry || !entry.m_Group)
 				continue;
 
+			// Unsubscribe before deleting to avoid callbacks firing on dead entries
+			SCR_AIGroup scrGroup = SCR_AIGroup.Cast(entry.m_Group);
+			if (scrGroup)
+			{
+				SCR_AIGroupUtilityComponent utility = scrGroup.GetGroupUtilityComponent();
+				if (utility && utility.m_GroupInfo)
+					utility.m_GroupInfo.GetOnControlModeChanged().Remove(OnGroupControlModeChanged);
+			}
+
 			array<AIAgent> agents = {};
 			entry.m_Group.GetAgents(agents);
 			foreach (AIAgent agent : agents)
@@ -192,6 +212,40 @@ class AFM_DiDAttackerDirector: GenericEntity
 
 		if (m_pArtillery)
 			m_pArtillery.Cleanup();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Fired by SCR_AIGroupInfoComponent.GetOnControlModeChanged() for every registered group.
+	//! Does not rely on invoker parameters — polls current mode from each registry entry instead.
+	protected void OnGroupControlModeChanged()
+	{
+		foreach (AFM_DiDGroupEntry entry : m_aGroupRegistry)
+		{
+			if (!entry || !entry.m_Group)
+				continue;
+
+			SCR_AIGroup scrGroup = SCR_AIGroup.Cast(entry.m_Group);
+			if (!scrGroup)
+				continue;
+
+			SCR_AIGroupUtilityComponent utility = scrGroup.GetGroupUtilityComponent();
+			if (!utility || !utility.m_GroupInfo)
+				continue;
+
+			EGroupControlMode mode = utility.m_GroupInfo.GetGroupControlMode();
+			if (mode == EGroupControlMode.IDLE)
+			{
+				PrintFormat("AFM_DiDAttackerDirector: Group %1 mode → IDLE", entry.m_Group, LogLevel.DEBUG);
+				HandleIdleGroup(entry);
+			}
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Called when a registered group transitions to IDLE.
+	//! Implemented in B4 — stub logs only.
+	protected void HandleIdleGroup(AFM_DiDGroupEntry entry)
+	{
 	}
 
 	//------------------------------------------------------------------------------------------------
