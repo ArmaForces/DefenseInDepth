@@ -31,8 +31,11 @@ class AFM_DiDGroupEntry
 	//! Director tick at which this group was spawned — used for travel time estimation.
 	int m_iSpawnTick;
 
-	//! Number of agents still alive in this group — updated by death event callbacks (B5).
+	//! Number of agents still alive in this group — decremented by OnAgentLifeStateChanged (B5).
 	int m_iAliveCount;
+
+	//! Set to true when m_iAliveCount reaches 0 — entry removed at the start of the next tick.
+	bool m_bPendingRemoval = false;
 
 	//! Dynamically spawned waypoints issued by HandleIdleGroup (patrol/sweep).
 	//! Deleted before issuing a new batch and on director Cleanup().

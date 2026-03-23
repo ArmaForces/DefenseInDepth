@@ -57,12 +57,17 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 
 	//------------------------------------------------------------------------------------------------
 	//! Infantry-specific spawn logic.
-	//! Assigns a three-waypoint chain: staging point → approach point → zone assault waypoint.
+	//! Spawns vanilla Move waypoints at each route marker position and chains them:
+	//! staging → approach → zone assault (attack waypoint).
 	//------------------------------------------------------------------------------------------------
 	override protected void SpawnSingleGroup()
 	{
 		array<ref AFM_DiDApproachRoute> routes = m_Zone.GetApproachRoutes();
 		if (m_aSpawnPoints.Count() == 0 || routes.Count() == 0 || m_aAIGroupPrefabs.Count() == 0)
+			return;
+
+		AFM_DiDAttackerDirector director = m_Zone.GetDirector();
+		if (!director)
 			return;
 
 		ResourceName groupPrefab = m_aAIGroupPrefabs.GetRandomElement();
@@ -85,17 +90,27 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 		if (!group)
 			return;
 
-		// Infantry chain: staging → approach point → zone assault
-		if (route.m_StagingPoint)
-			group.AddWaypoint(route.m_StagingPoint);
-		group.AddWaypoint(route.m_ApproachPoint);
-		AFM_ZoneAssaultWaypointEntity assaultWP = m_Zone.GetAssaultWaypoint();
-		if (assaultWP)
-			group.AddWaypoint(assaultWP);
+		// Infantry chain: staging → approach → zone assault
+		// Waypoints are spawned at marker GetOrigin() and tracked in the registry entry for cleanup.
+		ref array<IEntity> routeWPs = {};
 
-		AFM_DiDAttackerDirector director = m_Zone.GetDirector();
-		if (director)
-			director.RegisterGroup(group, m_Zone, route, EAFMUnitType.INFANTRY);
+		if (route.m_StagingPoint)
+		{
+			SCR_AIWaypoint stagingWP = director.SpawnMoveWaypointAt(route.m_StagingPoint.GetOrigin());
+			if (stagingWP) { routeWPs.Insert(stagingWP); group.AddWaypoint(stagingWP); }
+		}
+
+		SCR_AIWaypoint approachWP = director.SpawnMoveWaypointAt(route.m_ApproachPoint.GetOrigin());
+		if (approachWP) { routeWPs.Insert(approachWP); group.AddWaypoint(approachWP); }
+
+		AFM_ZoneAssaultWaypointEntity assaultMarker = m_Zone.GetAssaultWaypoint();
+		if (assaultMarker)
+		{
+			SCR_AIWaypoint assaultWP = director.SpawnAssaultWaypointAt(assaultMarker.GetOrigin());
+			if (assaultWP) { routeWPs.Insert(assaultWP); group.AddWaypoint(assaultWP); }
+		}
+
+		director.RegisterGroup(group, m_Zone, route, EAFMUnitType.INFANTRY, routeWPs);
 
 		PrintFormat("AFM_DiDInfantrySpawnerComponent: Spawned infantry group %1", groupPrefab, LogLevel.DEBUG);
 	}

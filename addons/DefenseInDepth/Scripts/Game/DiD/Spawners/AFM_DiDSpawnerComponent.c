@@ -227,7 +227,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	//------------------------------------------------------------------------------------------------
 	protected void SpawnWave(int count)
 	{
-		if (m_aSpawnPoints.Count() == 0 || m_aAIWaypoints.Count() == 0)
+		if (m_aSpawnPoints.Count() == 0)
 			return;
 
 		if (m_aAIGroupPrefabs.Count() == 0)

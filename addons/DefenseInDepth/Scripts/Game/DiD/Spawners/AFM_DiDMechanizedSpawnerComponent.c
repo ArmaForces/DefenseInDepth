@@ -116,7 +116,8 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 
 	//------------------------------------------------------------------------------------------------
 	//! m_iPointCostPerUnit represents cost per whole vehicle group (vehicle + crew).
-	//! Assigns a three-waypoint chain: approach point → vehicle overwatch → zone assault waypoint.
+	//! Spawns vanilla waypoints at each route marker position and chains them:
+	//! approach → suppress (overwatch) → zone assault (attack waypoint).
 	//------------------------------------------------------------------------------------------------
 	override protected void SpawnSingleGroup()
 	{
@@ -124,6 +125,10 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 			return;
 
 		if (!m_crewConfig)
+			return;
+
+		AFM_DiDAttackerDirector director = m_Zone.GetDirector();
+		if (!director)
 			return;
 
 		// Budget check — cost is per vehicle, deducted immediately on successful spawn
@@ -145,21 +150,31 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 		if (!cm)
 			return;
 
-		// Crew starts moving toward the approach point immediately
-		AIGroup crew = m_crewConfig.SpawnCrew(cm, route.m_ApproachPoint);
+		// Spawn approach waypoint first — SpawnCrew receives it as the crew's initial order
+		// and adds it internally, so we must not call AddWaypoint on it again.
+		ref array<IEntity> routeWPs = {};
+		SCR_AIWaypoint approachWP = director.SpawnMoveWaypointAt(route.m_ApproachPoint.GetOrigin());
+		if (approachWP)
+			routeWPs.Insert(approachWP);
+
+		AIGroup crew = m_crewConfig.SpawnCrew(cm, approachWP);
 		if (!crew)
 			return;
 
-		// Mechanized chain: approach point → overwatch position → zone assault
 		if (route.m_VehicleOverwatch)
-			crew.AddWaypoint(route.m_VehicleOverwatch);
-		AFM_ZoneAssaultWaypointEntity assaultWP = m_Zone.GetAssaultWaypoint();
-		if (assaultWP)
-			crew.AddWaypoint(assaultWP);
+		{
+			SCR_AIWaypoint suppressWP = director.SpawnSuppressWaypointAt(route.m_VehicleOverwatch.GetOrigin());
+			if (suppressWP) { routeWPs.Insert(suppressWP); crew.AddWaypoint(suppressWP); }
+		}
 
-		AFM_DiDAttackerDirector director = m_Zone.GetDirector();
-		if (director)
-			director.RegisterGroup(crew, m_Zone, route, EAFMUnitType.MECHANIZED);
+		AFM_ZoneAssaultWaypointEntity assaultMarker = m_Zone.GetAssaultWaypoint();
+		if (assaultMarker)
+		{
+			SCR_AIWaypoint assaultWP = director.SpawnAssaultWaypointAt(assaultMarker.GetOrigin());
+			if (assaultWP) { routeWPs.Insert(assaultWP); crew.AddWaypoint(assaultWP); }
+		}
+
+		director.RegisterGroup(crew, m_Zone, route, EAFMUnitType.MECHANIZED, routeWPs);
 
 		// Consume budget immediately — vehicle spawned, cost is committed
 		if (m_Zone && m_Zone.GetBudget())

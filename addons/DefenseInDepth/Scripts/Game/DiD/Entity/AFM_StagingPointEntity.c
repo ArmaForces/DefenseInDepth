@@ -1,13 +1,13 @@
 //------------------------------------------------------------------------------------------------
-//! Infantry staging area marker. Place as a child of AFM_ApproachEntity (not the spawner directly).
-//! Infantry groups regroup here before advancing through the approach point toward the zone.
-//! Extends SCR_AIWaypoint so it can be passed directly to group.AddWaypoint().
+//! Infantry staging area marker. Place as a child of AFM_ApproachEntity (not the zone directly).
+//! Infantry groups regroup here before advancing toward the approach point and into the zone.
+//! Extends GenericEntity — gamecode reads GetOrigin() and spawns a vanilla Move waypoint at that position.
 //------------------------------------------------------------------------------------------------
-class AFM_StagingPointEntityClass: SCR_AIWaypointClass
+class AFM_StagingPointEntityClass: GenericEntityClass
 {
 }
 
 //------------------------------------------------------------------------------------------------
-class AFM_StagingPointEntity: SCR_AIWaypoint
+class AFM_StagingPointEntity: GenericEntity
 {
 }

@@ -5,6 +5,12 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
   }
   SCR_CommunicationSoundComponent "{66AAF4E352EDE112}" {
   }
+  AFM_DiDCommanderConfig "{68EE81C0B5B20FB4}" {
+   m_sMoveWaypointPrefab "{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et"
+   m_sAssaultWaypointPrefab "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et"
+   m_sSuppressWaypointPrefab "{ED8277F35B46B4AA}Prefabs/AI/Waypoints/AIWaypoint_Suppress.et"
+   m_sArtillerySupportWaypoint "{C524700A27CFECDD}Prefabs/AI/Waypoints/AIWaypoint_ArtillerySupport.et"
+  }
   PS_CutsceneManager "{66AAF4E352EDE117}" {
   }
   PS_MissionDataManager "{66AAF4E352EDE116}" {

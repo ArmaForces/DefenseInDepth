@@ -1,14 +1,13 @@
 //------------------------------------------------------------------------------------------------
-//! Zone assault destination waypoint. Place exactly one as a child of each zone entity.
-//! All attack groups on all routes share this single permanent waypoint as their final objective.
-//! Extends SCR_AIWaypoint so it can be passed directly to group.AddWaypoint().
-//! Should be configured as an ATTACK-type waypoint in the editor.
+//! Zone assault destination marker. Place exactly one as a child of each zone entity.
+//! All attack groups on all routes share this position as their final objective.
+//! Extends GenericEntity — gamecode reads GetOrigin() and spawns a vanilla Attack waypoint at that position.
 //------------------------------------------------------------------------------------------------
-class AFM_ZoneAssaultWaypointEntityClass: SCR_AIWaypointClass
+class AFM_ZoneAssaultWaypointEntityClass: GenericEntityClass
 {
 }
 
 //------------------------------------------------------------------------------------------------
-class AFM_ZoneAssaultWaypointEntity: SCR_AIWaypoint
+class AFM_ZoneAssaultWaypointEntity: GenericEntity
 {
 }

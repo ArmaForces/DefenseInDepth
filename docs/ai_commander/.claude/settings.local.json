@@ -8,7 +8,13 @@
       "mcp__enfusion-mcp__game_browse",
       "mcp__enfusion-mcp__game_read",
       "mcp__enfusion-mcp__asset_search",
-      "WebFetch(domain:community.bistudio.com)"
+      "WebFetch(domain:community.bistudio.com)",
+      "Bash(find 'C:/Program Files \\(x86\\)/Steam/steamapps/common' -name *AIGroup* -o -name *ScriptInvoker*)",
+      "Bash(find 'C:/Program Files \\(x86\\)/Steam/steamapps/common/Arma Reforger' -name SCR_AIGroupUtilityComponent.c)",
+      "Bash(find \"C:/Program Files \\(x86\\)/Steam/steamapps/common/Arma Reforger\" -type f -name \"*.c\")",
+      "Bash(xargs grep:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)"
     ]
   }
 }

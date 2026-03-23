@@ -31,4 +31,21 @@ class AFM_DiDApproachRoute
 	//! Mechanized travel time from spawn to zone, in director ticks.
 	//! Copied from AFM_ApproachEntity.m_fMechanizedTravelTicks at collection time.
 	float m_fMechanizedTravelTicks;
+
+	// ---- Pressure tracking (written by director, read by ScoreRequest) ----------------
+
+	//! Total groups sent down this route since the last wipe-decay reset.
+	int m_iGroupsSent;
+
+	//! Number of complete group wipes recorded on this route.
+	//! Incremented by the dead-entry sweep; decayed by RunDecisionCycle.
+	int m_iGroupsWiped;
+
+	//! Ticks remaining before this route may be used again after a cooldown.
+	//! Set to a non-zero value when a wipe is recorded; decremented each tick.
+	int m_iCooldownTicksRemaining;
+
+	//! Ticks remaining before m_iGroupsWiped is decremented by one (gradual decay).
+	//! Reset to a configured value each time m_iGroupsWiped is decremented.
+	int m_iWipeDecayTicksRemaining;
 }

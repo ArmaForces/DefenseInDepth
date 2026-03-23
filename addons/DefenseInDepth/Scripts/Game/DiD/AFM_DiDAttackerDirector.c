@@ -124,7 +124,9 @@ class AFM_DiDAttackerDirector: GenericEntity
 	//------------------------------------------------------------------------------------------------
 	//! Registers a freshly spawned group in the central registry.
 	//! Called by spawner components immediately after a successful spawn.
-	void RegisterGroup(AIGroup group, AFM_DiDZoneComponent zone, AFM_DiDApproachRoute route, EAFMUnitType unitType)
+	//! routeWaypoints: dynamically spawned vanilla waypoints assigned to this group (staging,
+	//! approach, assault). Stored in the entry and cleaned up when the group goes idle or is removed.
+	void RegisterGroup(AIGroup group, AFM_DiDZoneComponent zone, AFM_DiDApproachRoute route, EAFMUnitType unitType, array<IEntity> routeWaypoints = null)
 	{
 		if (!group)
 			return;
@@ -135,23 +137,51 @@ class AFM_DiDAttackerDirector: GenericEntity
 		entry.m_AssignedRoute = route;
 		entry.m_eUnitType = unitType;
 		entry.m_iSpawnTick = m_iDecisionTick;
-		entry.m_iAliveCount = group.GetAgentsCount();
+		// Agents are not yet available at spawn time — alive count is initialized 600ms later
+		// by InitGroupAliveCount(), after the engine has populated the group.
+		entry.m_iAliveCount = 0;
+
+		if (routeWaypoints)
+		{
+			foreach (IEntity wp : routeWaypoints)
+				entry.m_aDynamicWaypoints.Insert(wp);
+		}
+
 		m_aGroupRegistry.Insert(entry);
 
-		// Subscribe to control-mode changes so we can react when the group goes IDLE.
-		// Signature is intentionally parameterless — poll GetGroupControlMode() in the callback
-		// rather than trusting invoker parameters (exact signature unverified in-engine).
+		// Defer alive-count initialization until after the engine spawns the agents (~500ms)
+		GetGame().GetCallqueue().CallLater(InitGroupAliveCount, 600, false, entry);
+
 		SCR_AIGroup scrGroup = SCR_AIGroup.Cast(group);
 		if (scrGroup)
 		{
 			SCR_AIGroupUtilityComponent utility = scrGroup.GetGroupUtilityComponent();
-			if (utility && utility.m_GroupInfo)
-				utility.m_GroupInfo.GetOnControlModeChanged().Insert(OnGroupControlModeChanged);
+			if (utility)
+			{
+				// Agent death tracking — signature: (AIAgent, SCR_AIInfoComponent, IEntity, ECharacterLifeState)
+				utility.m_OnAgentLifeStateChanged.Insert(OnAgentLifeStateChanged);
+
+				// Control mode tracking — parameterless, poll mode in callback
+				if (utility.m_GroupInfo)
+					utility.m_GroupInfo.GetOnControlModeChanged().Insert(OnGroupControlModeChanged);
+			}
 		}
 
-		PrintFormat("AFM_DiDAttackerDirector: Registered %1 group — %2 agents, tick %3, registry size %4",
-			typename.EnumToString(EAFMUnitType, unitType), entry.m_iAliveCount,
+		PrintFormat("AFM_DiDAttackerDirector: Registered %1 group — tick %2, registry size %3 (alive count pending)",
+			typename.EnumToString(EAFMUnitType, unitType),
 			m_iDecisionTick, m_aGroupRegistry.Count(), LogLevel.DEBUG);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Deferred initialization called 600ms after RegisterGroup().
+	//! By this point the engine has populated the group with its agents.
+	protected void InitGroupAliveCount(AFM_DiDGroupEntry entry)
+	{
+		if (!entry || !entry.m_Group || entry.m_bPendingRemoval)
+			return;
+
+		entry.m_iAliveCount = entry.m_Group.GetAgentsCount();
+		PrintFormat("AFM_DiDAttackerDirector: Group alive count initialized — %1 agents", entry.m_iAliveCount, LogLevel.DEBUG);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -188,13 +218,17 @@ class AFM_DiDAttackerDirector: GenericEntity
 			if (!entry || !entry.m_Group)
 				continue;
 
-			// Unsubscribe before deleting to avoid callbacks firing on dead entries
+			// Unsubscribe both events before deleting to avoid callbacks firing on dead entries
 			SCR_AIGroup scrGroup = SCR_AIGroup.Cast(entry.m_Group);
 			if (scrGroup)
 			{
 				SCR_AIGroupUtilityComponent utility = scrGroup.GetGroupUtilityComponent();
-				if (utility && utility.m_GroupInfo)
-					utility.m_GroupInfo.GetOnControlModeChanged().Remove(OnGroupControlModeChanged);
+				if (utility)
+				{
+					utility.m_OnAgentLifeStateChanged.Remove(OnAgentLifeStateChanged);
+					if (utility.m_GroupInfo)
+						utility.m_GroupInfo.GetOnControlModeChanged().Remove(OnGroupControlModeChanged);
+				}
 			}
 
 			ClearDynamicWaypoints(entry);
@@ -214,6 +248,36 @@ class AFM_DiDAttackerDirector: GenericEntity
 
 		if (m_pArtillery)
 			m_pArtillery.Cleanup();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Fired by SCR_AIGroupUtilityComponent.m_OnAgentLifeStateChanged when any agent's life state changes.
+	//! Decrements alive count on the matching registry entry; flags entry for removal when count hits 0.
+	protected void OnAgentLifeStateChanged(AIAgent agent, SCR_AIInfoComponent info, IEntity vehicle, ECharacterLifeState lifeState)
+	{
+		if (lifeState != ECharacterLifeState.DEAD)
+			return;
+
+		AIGroup parentGroup = agent.GetParentGroup();
+		if (!parentGroup)
+			return;
+
+		foreach (AFM_DiDGroupEntry entry : m_aGroupRegistry)
+		{
+			if (!entry || entry.m_Group != parentGroup || entry.m_bPendingRemoval)
+				continue;
+
+			entry.m_iAliveCount--;
+			PrintFormat("AFM_DiDAttackerDirector: Agent died — group alive count now %1", entry.m_iAliveCount, LogLevel.DEBUG);
+
+			if (entry.m_iAliveCount <= 0)
+			{
+				entry.m_bPendingRemoval = true;
+				PrintFormat("AFM_DiDAttackerDirector: Group wiped — flagged for removal", LogLevel.DEBUG);
+			}
+
+			return;
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -255,6 +319,12 @@ class AFM_DiDAttackerDirector: GenericEntity
 		if (!zone || !entry.m_Group)
 			return;
 
+		// Grace period: newly spawned groups are in IDLE state until the engine processes
+		// their initial waypoints (next tick). Ignore IDLE events for 2 ticks after spawn
+		// to avoid overwriting the attack plan before the group has started moving.
+		if (m_iDecisionTick - entry.m_iSpawnTick < 2)
+			return;
+
 		// Clear any previously issued dynamic waypoints before assigning new ones
 		ClearDynamicWaypoints(entry);
 
@@ -274,9 +344,16 @@ class AFM_DiDAttackerDirector: GenericEntity
 			if (target)
 			{
 				PrintFormat("AFM_DiDAttackerDirector: IDLE group — zone captured, relocating to zone %1", target.GetZoneName(), LogLevel.DEBUG);
-				AFM_ZoneAssaultWaypointEntity assaultWP = target.GetAssaultWaypoint();
-				if (assaultWP)
-					entry.m_Group.AddWaypoint(assaultWP);
+				AFM_ZoneAssaultWaypointEntity assaultMarker = target.GetAssaultWaypoint();
+				if (assaultMarker)
+				{
+					SCR_AIWaypoint assaultWP = SpawnAssaultWaypointAt(assaultMarker.GetOrigin());
+					if (assaultWP)
+					{
+						entry.m_aDynamicWaypoints.Insert(assaultWP);
+						entry.m_Group.AddWaypoint(assaultWP);
+					}
+				}
 				entry.m_AssignedZone = target;
 				entry.m_AssignedRoute = null;
 			}
@@ -297,7 +374,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 		for (int i = 0; i < count; i++)
 		{
 			vector pos = zone.GetRandomPointInZone();
-			SCR_AIWaypoint wp = SpawnWaypointAt(pos);
+			SCR_AIWaypoint wp = SpawnMoveWaypointAt(pos);
 			if (!wp)
 				return;
 			entry.m_aDynamicWaypoints.Insert(wp);
@@ -310,7 +387,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 	protected void IssueSweepWaypoint(AFM_DiDGroupEntry entry)
 	{
 		vector centroid = entry.m_AssignedZone.GetZoneCentroid();
-		SCR_AIWaypoint wp = SpawnWaypointAt(centroid);
+		SCR_AIWaypoint wp = SpawnMoveWaypointAt(centroid);
 		if (!wp)
 			return;
 		entry.m_aDynamicWaypoints.Insert(wp);
@@ -330,14 +407,44 @@ class AFM_DiDAttackerDirector: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Spawns a move waypoint prefab at the given world position.
-	//! Returns null and logs a warning if the prefab is not configured.
-	protected SCR_AIWaypoint SpawnWaypointAt(vector pos)
+	//! Spawns a Move waypoint prefab at pos. Called by spawners for staging/approach positions
+	//! and by the director for patrol/sweep orders.
+	SCR_AIWaypoint SpawnMoveWaypointAt(vector pos)
 	{
 		AFM_DiDCommanderConfig config = AFM_DiDCommanderConfig.GetInstance();
-		if (!config || config.m_sMoveWaypointPrefab == string.Empty)
+		if (!config)
+			return null;
+		return SpawnWaypointAt(pos, config.m_sMoveWaypointPrefab);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Spawns an Attack waypoint prefab at pos. Used for zone assault objectives.
+	SCR_AIWaypoint SpawnAssaultWaypointAt(vector pos)
+	{
+		AFM_DiDCommanderConfig config = AFM_DiDCommanderConfig.GetInstance();
+		if (!config)
+			return null;
+		return SpawnWaypointAt(pos, config.m_sAssaultWaypointPrefab);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Spawns a Suppress waypoint prefab at pos. Used for mechanized vehicle overwatch positions.
+	SCR_AIWaypoint SpawnSuppressWaypointAt(vector pos)
+	{
+		AFM_DiDCommanderConfig config = AFM_DiDCommanderConfig.GetInstance();
+		if (!config)
+			return null;
+		return SpawnWaypointAt(pos, config.m_sSuppressWaypointPrefab);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Core waypoint spawn helper — spawns a prefab at pos and returns it as SCR_AIWaypoint.
+	//! Returns null and logs a warning if prefab is empty or spawn fails.
+	protected SCR_AIWaypoint SpawnWaypointAt(vector pos, ResourceName prefab)
+	{
+		if (prefab == string.Empty)
 		{
-			PrintFormat("AFM_DiDAttackerDirector: m_sMoveWaypointPrefab not configured in AFM_DiDCommanderConfig!", LogLevel.WARNING);
+			PrintFormat("AFM_DiDAttackerDirector: Waypoint prefab not configured in AFM_DiDCommanderConfig!", LogLevel.WARNING);
 			return null;
 		}
 
@@ -345,7 +452,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 		Math3D.MatrixIdentity4(spawnParams.Transform);
 		spawnParams.Transform[3] = pos;
 
-		IEntity entity = GetGame().SpawnEntityPrefab(Resource.Load(config.m_sMoveWaypointPrefab), GetGame().GetWorld(), spawnParams);
+		IEntity entity = GetGame().SpawnEntityPrefab(Resource.Load(prefab), GetGame().GetWorld(), spawnParams);
 		return SCR_AIWaypoint.Cast(entity);
 	}
 
@@ -362,6 +469,19 @@ class AFM_DiDAttackerDirector: GenericEntity
 	protected void RunDecisionCycle(WorldTimestamp now)
 	{
 		m_iDecisionTick++;
+
+		// Remove wiped groups flagged by OnAgentLifeStateChanged — iterate in reverse to allow safe removal
+		for (int i = m_aGroupRegistry.Count() - 1; i >= 0; i--)
+		{
+			AFM_DiDGroupEntry entry = m_aGroupRegistry[i];
+			if (entry && entry.m_bPendingRemoval)
+			{
+				ClearDynamicWaypoints(entry);
+				m_aGroupRegistry.Remove(i);
+				PrintFormat("AFM_DiDAttackerDirector: Removed wiped group from registry (size now %1)", m_aGroupRegistry.Count(), LogLevel.DEBUG);
+			}
+		}
+
 		AFM_DiDBattlefieldState state = BuildBattlefieldState(now);
 
 		// --- Spawner selection ---
