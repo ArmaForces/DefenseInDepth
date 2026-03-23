@@ -161,6 +161,9 @@ class AFM_DiDAttackerDirector: GenericEntity
 				// Agent death tracking — signature: (AIAgent, SCR_AIInfoComponent, IEntity, ECharacterLifeState)
 				utility.m_OnAgentLifeStateChanged.Insert(OnAgentLifeStateChanged);
 
+				// Move failure tracking — signature: (int moveResult, IEntity vehicleUsed, bool isWaypointRelated, vector moveLocation)
+				utility.GetOnMoveFailed().Insert(OnMoveFailed);
+
 				// Control mode tracking — parameterless, poll mode in callback
 				if (utility.m_GroupInfo)
 					utility.m_GroupInfo.GetOnControlModeChanged().Insert(OnGroupControlModeChanged);
@@ -226,6 +229,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 				if (utility)
 				{
 					utility.m_OnAgentLifeStateChanged.Remove(OnAgentLifeStateChanged);
+					utility.GetOnMoveFailed().Remove(OnMoveFailed);
 					if (utility.m_GroupInfo)
 						utility.m_GroupInfo.GetOnControlModeChanged().Remove(OnGroupControlModeChanged);
 				}
@@ -273,11 +277,59 @@ class AFM_DiDAttackerDirector: GenericEntity
 			if (entry.m_iAliveCount <= 0)
 			{
 				entry.m_bPendingRemoval = true;
+				if (entry.m_AssignedRoute)
+					RecordRouteWipe(entry.m_AssignedRoute);
 				PrintFormat("AFM_DiDAttackerDirector: Group wiped — flagged for removal", LogLevel.DEBUG);
 			}
 
 			return;
 		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Fired by SCR_AIGroupUtilityComponent.GetOnMoveFailed() when a group cannot reach a waypoint.
+	//! Uses the failure position to identify the route and records a wipe even if agents survived.
+	//! Signature: (int moveResult, IEntity vehicleUsed, bool isWaypointRelated, vector moveLocation)
+	protected void OnMoveFailed(int moveResult, IEntity vehicleUsed, bool isWaypointRelated, vector moveLocation)
+	{
+		if (!isWaypointRelated)
+			return;
+
+		// Identify the route by proximity: find the entry whose approach point is nearest
+		// to the failed move location (within 100m). Not exact but sufficient for pressure tracking.
+		AFM_DiDGroupEntry closest;
+		float closestDist = 100;
+
+		foreach (AFM_DiDGroupEntry entry : m_aGroupRegistry)
+		{
+			if (!entry || !entry.m_AssignedRoute || entry.m_bPendingRemoval)
+				continue;
+
+			float dist = vector.Distance(moveLocation, entry.m_AssignedRoute.m_ApproachPoint.GetOrigin());
+			if (dist < closestDist)
+			{
+				closestDist = dist;
+				closest = entry;
+			}
+		}
+
+		if (closest)
+		{
+			PrintFormat("AFM_DiDAttackerDirector: Move failed near approach route (dist=%1m) — recording route wipe", closestDist, LogLevel.DEBUG);
+			RecordRouteWipe(closest.m_AssignedRoute);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Records a wipe event on a route: increments wipe counter, sets cooldown and decay timer.
+	//! Cooldown length scales with aggression (high aggression = shorter cooldown).
+	protected void RecordRouteWipe(AFM_DiDApproachRoute route)
+	{
+		route.m_iGroupsWiped++;
+		route.m_iWipeDecayTicksRemaining = 10;
+		route.m_iCooldownTicksRemaining = Math.Round(Math.Lerp(4, 1, m_fAggression));
+		PrintFormat("AFM_DiDAttackerDirector: Route wipe recorded — wiped=%1, cooldown=%2 ticks",
+			route.m_iGroupsWiped, route.m_iCooldownTicksRemaining, LogLevel.DEBUG);
 	}
 
 	//------------------------------------------------------------------------------------------------
