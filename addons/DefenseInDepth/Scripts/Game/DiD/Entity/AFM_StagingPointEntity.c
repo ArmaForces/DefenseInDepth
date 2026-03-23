@@ -1,8 +1,7 @@
 //------------------------------------------------------------------------------------------------
-//! Infantry staging area marker. Place one per approach route as a child of the spawner.
-//! Infantry groups regroup here before advancing through the lighthouse toward the zone.
+//! Infantry staging area marker. Place as a child of AFM_ApproachEntity (not the spawner directly).
+//! Infantry groups regroup here before advancing through the approach point toward the zone.
 //! Extends SCR_AIWaypoint so it can be passed directly to group.AddWaypoint().
-//! Paired with a lighthouse by matching child index order in the spawner hierarchy.
 //------------------------------------------------------------------------------------------------
 class AFM_StagingPointEntityClass: SCR_AIWaypointClass
 {

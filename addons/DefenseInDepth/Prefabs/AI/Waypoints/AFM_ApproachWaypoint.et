@@ -1,4 +1,4 @@
-AFM_LighthouseEntity {
+AFM_ApproachEntity {
  ID "997089CB6EE448CC"
  components {
   MeshObject BB6A6A4F53564C43 {
@@ -13,8 +13,8 @@ AFM_LighthouseEntity {
   Hierarchy A6EF627A52084B38 {
   }
  }
- Type "Lighthouse"
- Title "Waypoint lighthouse"
+ Type "Approach"
+ Title "Waypoint approach"
  AIBehaviorTree "{53C0853FB44E73E9}AI/BehaviorTrees/Waypoints/WP_Defend.bt"
  AIBehaviorTreeMoveTo "{A3755C1F88DED8D6}AI/BehaviorTrees/Waypoints/WP_Move.bt"
  Autocomplete 0

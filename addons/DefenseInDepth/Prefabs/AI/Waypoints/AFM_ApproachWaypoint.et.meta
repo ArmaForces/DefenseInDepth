@@ -1,5 +1,5 @@
 MetaFileClass {
- Name "{B79DD5F41076E0C7}Prefabs/AI/Waypoints/AFM_LighthouseWaypoint.et"
+ Name "{FD1CB619AD6612AC}Prefabs/AI/Waypoints/AFM_ApproachWaypoint.et"
  Configurations {
   EntityTemplateResourceClass PC {
   }

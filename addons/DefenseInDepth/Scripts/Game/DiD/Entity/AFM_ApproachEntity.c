@@ -1,14 +1,14 @@
 //------------------------------------------------------------------------------------------------
-//! Approach route entry-point marker. Place one per approach route as a child of the spawner.
+//! Approach route entry-point marker. Place one per approach route as a direct child of the spawner.
+//! Paired staging point and vehicle overwatch are placed as children of this entity (not siblings).
 //! Extends SCR_AIWaypoint so it can be passed directly to group.AddWaypoint().
-//! Route index is determined by child order in the spawner hierarchy (see AFM_DiDSpawnerComponent.Prepare()).
 //------------------------------------------------------------------------------------------------
-class AFM_LighthouseEntityClass: SCR_AIWaypointClass
+class AFM_ApproachEntityClass: SCR_AIWaypointClass
 {
 }
 
 //------------------------------------------------------------------------------------------------
-class AFM_LighthouseEntity: SCR_AIWaypoint
+class AFM_ApproachEntity: SCR_AIWaypoint
 {
 	[Attribute("2", UIWidgets.EditBox, "Infantry travel time in ticks (spawn to zone)", category: "DiD Route")]
 	float m_fInfantryTravelTicks;

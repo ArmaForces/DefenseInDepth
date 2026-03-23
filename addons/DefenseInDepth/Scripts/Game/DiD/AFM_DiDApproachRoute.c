@@ -1,16 +1,19 @@
 //------------------------------------------------------------------------------------------------
 //! Plain data container describing a single approach route to a zone.
-//! Populated by AFM_DiDSpawnerComponent.Prepare() from child entities (see A3).
+//! Populated by AFM_DiDSpawnerComponent.Prepare() via BuildRoute() from the spawner hierarchy.
 //!
-//! Pairing convention: entities are matched by child index order in the spawner hierarchy.
-//! The Nth AFM_LighthouseEntity pairs with the Nth AFM_StagingPointEntity and
-//! the Nth AFM_VehicleOverwatchEntity (if present). Routes without a VehicleOverwatch
-//! are infantry-only.
+//! Hierarchy convention:
+//!   AFM_DiD[Infantry/Mechanized]SpawnerComponent
+//!   └── AFM_ApproachEntity          ← place one per route as a direct child of the spawner
+//!       ├── AFM_StagingPointEntity    ← child of the approach point (infantry only)
+//!       └── AFM_VehicleOverwatchEntity ← child of the approach point (mechanized; optional)
+//!
+//! Routes without a VehicleOverwatch are infantry-only.
 //------------------------------------------------------------------------------------------------
 class AFM_DiDApproachRoute
 {
 	//! Entry-point waypoint for this route. Always present.
-	AFM_LighthouseEntity m_Lighthouse;
+	AFM_ApproachEntity m_ApproachPoint;
 
 	//! Infantry staging/regrouping point before final push. Always present.
 	AFM_StagingPointEntity m_StagingPoint;
@@ -19,10 +22,10 @@ class AFM_DiDApproachRoute
 	AFM_VehicleOverwatchEntity m_VehicleOverwatch;
 
 	//! Infantry travel time from spawn to zone, in director ticks.
-	//! Copied from AFM_LighthouseEntity.m_fInfantryTravelTicks at collection time.
+	//! Copied from AFM_ApproachEntity.m_fInfantryTravelTicks at collection time.
 	float m_fInfantryTravelTicks;
 
 	//! Mechanized travel time from spawn to zone, in director ticks.
-	//! Copied from AFM_LighthouseEntity.m_fMechanizedTravelTicks at collection time.
+	//! Copied from AFM_ApproachEntity.m_fMechanizedTravelTicks at collection time.
 	float m_fMechanizedTravelTicks;
 }

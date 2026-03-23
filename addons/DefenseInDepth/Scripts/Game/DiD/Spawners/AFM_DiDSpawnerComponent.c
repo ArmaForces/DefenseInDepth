@@ -36,10 +36,38 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	protected ref array<AFM_SpawnPointEntity> m_aSpawnPoints = {};
 	protected ref array<SCR_AIWaypoint> m_aAIWaypoints = {};
 	protected ref array<AIGroup> m_aSpawnedAIGroups = {};
+	protected ref array<ref AFM_DiDApproachRoute> m_aApproachRoutes = {};
+	protected AFM_ZoneAssaultWaypointEntity m_AssaultWaypoint;
 	protected WorldTimestamp m_fLastSpawnTime;
 	protected int m_iRemainingTickets = 0;
 	//! True once SetRemainingTickets() has been called — signals ticket-mode is active for this wave.
 	protected bool m_bTicketModeActive = false;
+
+	//------------------------------------------------------------------------------------------------
+	//! Build an AFM_DiDApproachRoute from an approach point entity and its children.
+	//! Staging point and vehicle overwatch are optional children of the approach entity.
+	//------------------------------------------------------------------------------------------------
+	protected AFM_DiDApproachRoute BuildRoute(AFM_ApproachEntity approachPoint)
+	{
+		AFM_DiDApproachRoute route = new AFM_DiDApproachRoute();
+		route.m_ApproachPoint = approachPoint;
+		route.m_fInfantryTravelTicks = approachPoint.m_fInfantryTravelTicks;
+		route.m_fMechanizedTravelTicks = approachPoint.m_fMechanizedTravelTicks;
+
+		IEntity child = approachPoint.GetChildren();
+		while (child)
+		{
+			if (!route.m_StagingPoint)
+				route.m_StagingPoint = AFM_StagingPointEntity.Cast(child);
+
+			if (!route.m_VehicleOverwatch)
+				route.m_VehicleOverwatch = AFM_VehicleOverwatchEntity.Cast(child);
+
+			child = child.GetSibling();
+		}
+
+		return route;
+	}
 
 	//------------------------------------------------------------------------------------------------
 	// Prepare method - called by owner zone component (or director) on start
@@ -51,6 +79,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		IEntity child = GetChildren();
 		while (child)
 		{
+			// Spawn points
 			AFM_SpawnPointEntity spawnPoint = AFM_SpawnPointEntity.Cast(child);
 			if (spawnPoint)
 			{
@@ -59,6 +88,26 @@ class AFM_DiDSpawnerComponent: GenericEntity
 				continue;
 			}
 
+			// Final assault objective — single permanent entity shared by all groups
+			AFM_ZoneAssaultWaypointEntity assaultWP = AFM_ZoneAssaultWaypointEntity.Cast(child);
+			if (assaultWP)
+			{
+				m_AssaultWaypoint = assaultWP;
+				child = child.GetSibling();
+				continue;
+			}
+
+			// Each approach point is a route root; its own children carry the paired staging point
+			// and optional vehicle overwatch — no index matching needed.
+			AFM_ApproachEntity approachPoint = AFM_ApproachEntity.Cast(child);
+			if (approachPoint)
+			{
+				m_aApproachRoutes.Insert(BuildRoute(approachPoint));
+				child = child.GetSibling();
+				continue;
+			}
+
+			// Generic waypoints — used by wave-mode spawners (AFM_DiDWaveSpawnerComponent)
 			SCR_AIWaypoint waypoint = SCR_AIWaypoint.Cast(child);
 			if (waypoint)
 			{
@@ -73,8 +122,16 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		if (m_aSpawnPoints.Count() == 0)
 			PrintFormat("AFM_DiDSpawnerComponent: No spawn points found in spawner!", LogLevel.WARNING);
 
-		if (m_aAIWaypoints.Count() == 0)
-			PrintFormat("AFM_DiDSpawnerComponent: No waypoints found in spawner!", LogLevel.WARNING);
+		if (m_aApproachRoutes.Count() > 0)
+		{
+			PrintFormat("AFM_DiDSpawnerComponent: Found %1 approach route(s)", m_aApproachRoutes.Count(), LogLevel.DEBUG);
+			if (!m_AssaultWaypoint)
+				PrintFormat("AFM_DiDSpawnerComponent: No ZoneAssaultWaypoint found — groups have no final objective!", LogLevel.WARNING);
+		}
+		else if (m_aAIWaypoints.Count() == 0)
+		{
+			PrintFormat("AFM_DiDSpawnerComponent: No approach routes or waypoints found in spawner!", LogLevel.WARNING);
+		}
 
 		ChimeraWorld world = GetGame().GetWorld();
 		m_fLastSpawnTime = world.GetServerTimestamp().PlusSeconds(-m_iWaveIntervalSeconds);
@@ -312,6 +369,16 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	array<ResourceName> GetAIGroupPrefabs()
 	{
 		return m_aAIGroupPrefabs;
+	}
+
+	array<ref AFM_DiDApproachRoute> GetApproachRoutes()
+	{
+		return m_aApproachRoutes;
+	}
+
+	AFM_ZoneAssaultWaypointEntity GetAssaultWaypoint()
+	{
+		return m_AssaultWaypoint;
 	}
 
 	protected AIGroup SpawnAI(ResourceName groupPrefab, IEntity spawnPoint, SCR_AIWaypoint waypoint)
