@@ -518,9 +518,39 @@ class AFM_DiDAttackerDirector: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Ticks route pressure counters: decrements cooldowns and wipe-decay timers.
+	//! When a decay timer reaches zero the wipe count is halved (gradual forgetting).
+	//! Called once per decision cycle before any spawn logic runs.
+	protected void UpdateRoutePressure()
+	{
+		if (!m_pZone)
+			return;
+
+		array<ref AFM_DiDApproachRoute> routes = m_pZone.GetApproachRoutes();
+		foreach (AFM_DiDApproachRoute route : routes)
+		{
+			if (route.m_iCooldownTicksRemaining > 0)
+				route.m_iCooldownTicksRemaining--;
+
+			if (route.m_iWipeDecayTicksRemaining > 0)
+			{
+				route.m_iWipeDecayTicksRemaining--;
+				if (route.m_iWipeDecayTicksRemaining == 0)
+				{
+					route.m_iGroupsWiped = Math.Max(0, route.m_iGroupsWiped / 2);
+					PrintFormat("AFM_DiDAttackerDirector: Route wipe decay — wiped count halved to %1", route.m_iGroupsWiped, LogLevel.DEBUG);
+				}
+			}
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected void RunDecisionCycle(WorldTimestamp now)
 	{
 		m_iDecisionTick++;
+
+		// Tick route pressure before any spawn decisions
+		UpdateRoutePressure();
 
 		// Remove wiped groups flagged by OnAgentLifeStateChanged — iterate in reverse to allow safe removal
 		for (int i = m_aGroupRegistry.Count() - 1; i >= 0; i--)

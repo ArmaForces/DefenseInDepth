@@ -322,6 +322,67 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		return m_aAIGroupPrefabs;
 	}
 
+	//------------------------------------------------------------------------------------------------
+	//! Selects an approach route using pressure-aware weighted random selection.
+	//! Routes on cooldown are excluded unless ALL routes are on cooldown (use least-bad).
+	//! Weight per route = 1 / max(0.1, wiped/max(1,sent)) — higher wipe ratio → lower weight.
+	//! Increments m_iGroupsSent on the chosen route.
+	//! Returns null if no routes are available.
+	//------------------------------------------------------------------------------------------------
+	protected AFM_DiDApproachRoute SelectRoute()
+	{
+		if (!m_Zone)
+			return null;
+
+		array<ref AFM_DiDApproachRoute> all = m_Zone.GetApproachRoutes();
+		if (all.IsEmpty())
+			return null;
+
+		// Prefer routes not currently on cooldown
+		ref array<AFM_DiDApproachRoute> available = {};
+		foreach (AFM_DiDApproachRoute route : all)
+		{
+			if (route.m_iCooldownTicksRemaining == 0)
+				available.Insert(route);
+		}
+
+		// All routes are on cooldown — fall back to the full set (use least-bad)
+		if (available.IsEmpty())
+		{
+			foreach (AFM_DiDApproachRoute route : all)
+				available.Insert(route);
+		}
+
+		// Build weight array: inverse wipe ratio
+		ref array<float> weights = {};
+		float totalWeight = 0;
+		foreach (AFM_DiDApproachRoute route : available)
+		{
+			float wipeRatio = route.m_iGroupsWiped / Math.Max(1, route.m_iGroupsSent);
+			float weight = 1.0 / Math.Max(0.1, wipeRatio);
+			weights.Insert(weight);
+			totalWeight += weight;
+		}
+
+		// Weighted random pick
+		float r = Math.RandomFloat(0, totalWeight);
+		float cumulative = 0;
+		for (int i = 0; i < available.Count(); i++)
+		{
+			cumulative += weights[i];
+			if (r <= cumulative)
+			{
+				available[i].m_iGroupsSent++;
+				return available[i];
+			}
+		}
+
+		// Floating-point fallback
+		AFM_DiDApproachRoute fallback = available[available.Count() - 1];
+		fallback.m_iGroupsSent++;
+		return fallback;
+	}
+
 	//! Spawns a group prefab at spawnPoint and schedules post-spawn setup.
 	//! Waypoints must be assigned by the caller after this returns.
 	protected AIGroup SpawnAI(ResourceName groupPrefab, IEntity spawnPoint)

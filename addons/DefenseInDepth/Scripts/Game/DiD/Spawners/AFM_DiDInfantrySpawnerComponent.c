@@ -62,8 +62,7 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 	//------------------------------------------------------------------------------------------------
 	override protected void SpawnSingleGroup()
 	{
-		array<ref AFM_DiDApproachRoute> routes = m_Zone.GetApproachRoutes();
-		if (m_aSpawnPoints.Count() == 0 || routes.Count() == 0 || m_aAIGroupPrefabs.Count() == 0)
+		if (m_aSpawnPoints.Count() == 0 || m_Zone.GetApproachRoutes().IsEmpty() || m_aAIGroupPrefabs.Count() == 0)
 			return;
 
 		AFM_DiDAttackerDirector director = m_Zone.GetDirector();
@@ -84,7 +83,9 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 			m_iCurrentSpawnPointIndex = (m_iCurrentSpawnPointIndex + 1) % m_aSpawnPoints.Count();
 		}
 
-		AFM_DiDApproachRoute route = routes.GetRandomElement();
+		AFM_DiDApproachRoute route = SelectRoute();
+		if (!route)
+			return;
 
 		AIGroup group = SpawnAI(groupPrefab, spawnPoint);
 		if (!group)

@@ -121,7 +121,7 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	//------------------------------------------------------------------------------------------------
 	override protected void SpawnSingleGroup()
 	{
-		if (m_aSpawnPoints.Count() == 0 || m_Zone.GetApproachRoutes().Count() == 0 || m_aVehiclePrefabs.Count() == 0)
+		if (m_aSpawnPoints.Count() == 0 || m_Zone.GetApproachRoutes().IsEmpty() || m_aVehiclePrefabs.Count() == 0)
 			return;
 
 		if (!m_crewConfig)
@@ -135,8 +135,9 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 		if (!CanSpendBudget(m_iPointCostPerUnit))
 			return;
 
-		array<ref AFM_DiDApproachRoute> routes = m_Zone.GetApproachRoutes();
-		AFM_DiDApproachRoute route = routes.GetRandomElement();
+		AFM_DiDApproachRoute route = SelectRoute();
+		if (!route)
+			return;
 
 		IEntity vehicle = SpawnPrefab(m_aVehiclePrefabs.GetRandomElement(), m_aSpawnPoints.GetRandomElement());
 		if (!vehicle)
