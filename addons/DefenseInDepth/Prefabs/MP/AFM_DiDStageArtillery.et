@@ -1,0 +1,16 @@
+AFM_DiDStageArtillery {
+ ID "68EE818B803D9474"
+ components {
+  Hierarchy "{68EE818B9A332F85}" {
+  }
+ }
+ coords 1519.817 53.697 5969.223
+ m_sMortarPrefab "{7C420F3570791EF7}Prefabs/Compositions/DiD_MortarComposition_US.et"
+ m_CrewConfig AFM_CrewConfig "{68EE818BF86B7D42}" {
+  m_sGunnerPrefab "{EBFB363AC7A5FCE6}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Engineer.et"
+  m_bSpawnDriver 0
+  m_bNoTurretDismount 0
+ }
+ m_iMonteCarloSamples 100
+ m_fSampleRadius 15
+}

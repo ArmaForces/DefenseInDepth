@@ -6,7 +6,7 @@
 //!  - m_sMoveWaypointPrefab:     Move-type, used for staging, approach, patrol and sweep orders
 //!  - m_sAssaultWaypointPrefab:  Attack-type, spawned at AFM_ZoneAssaultWaypointEntity position
 //!  - m_sSuppressWaypointPrefab: Suppress-type, spawned at AFM_VehicleOverwatchEntity position
-//!  - m_sArtillerySupportWaypoint: fire mission target marker, spawned by AFM_DiDZoneArtillery
+//!  - m_sArtillerySupportWaypoint: fire mission target marker, spawned by AFM_DiDStageArtillery
 //------------------------------------------------------------------------------------------------
 [ComponentEditorProps(category: "DiD", description: "AI Commander configuration singleton")]
 class AFM_DiDCommanderConfigClass: ScriptComponentClass

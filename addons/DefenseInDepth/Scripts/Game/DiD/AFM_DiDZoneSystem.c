@@ -1,7 +1,8 @@
 class AFM_DiDZoneSystem: GameSystem
 {
-	protected ref map<int, AFM_DiDZoneComponent> m_aZones = new map<int, AFM_DiDZoneComponent>();
-	protected AFM_DiDZoneComponent m_ActiveZone = null;
+	protected ref map<int, AFM_DiDStage> m_aStages = new map<int, AFM_DiDStage>();
+	protected AFM_DiDStage m_ActiveStage = null;
+	protected EAFMZoneState m_eActiveStageState = EAFMZoneState.INACTIVE;
 
 	// How often should the system check zones (in seconds)
 	protected const float m_fCheckInterval = 1.0;
@@ -13,8 +14,8 @@ class AFM_DiDZoneSystem: GameSystem
 	protected ref ScriptInvoker m_OnAllZonesCompleted;
 	protected ref ScriptInvoker m_OnZoneHeld;
 	protected ref ScriptInvoker m_OnZoneRepelled;	// Invoked when attacker budget exhausted + zone cleared
-	protected ref ScriptInvoker m_OnZoneFailed;		// Invoked with (int zoneIndex) when defenders are eliminated
-	protected ref ScriptInvoker m_OnZoneCaptured;	// Invoked with (int zoneIndex) when AI holds capture progress to 1.0
+	protected ref ScriptInvoker m_OnZoneFailed;		// Invoked with (int stageIndex) when defenders are eliminated
+	protected ref ScriptInvoker m_OnZoneCaptured;	// Invoked with (int stageIndex) when AI holds capture progress to 1.0
 	protected ref ScriptInvoker m_OnWaveCompleted;	// Invoked with (int wave, int totalWaves) when a wave is cleared
 
 	// Game mode reference
@@ -23,7 +24,7 @@ class AFM_DiDZoneSystem: GameSystem
 	protected bool m_bIsSystemActive = false;
 	protected bool m_bSkipWarmup = false;
 
-	protected const int m_iStartingZoneIndex = 1;
+	protected const int m_iStartingStageIndex = 1;
 
 	//------------------------------------------------------------------------------------------------
 	void AFM_DiDZoneSystem()
@@ -65,7 +66,7 @@ class AFM_DiDZoneSystem: GameSystem
 
 		m_fCheckTimer = 0;
 
-		ProcessZone();
+		ProcessStage();
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -75,20 +76,18 @@ class AFM_DiDZoneSystem: GameSystem
 	}
 
 	//------------------------------------------------------------------------------------------------
-	bool RegisterZone(AFM_DiDZoneComponent zone)
+	bool RegisterStage(AFM_DiDStage stage)
 	{
-		PrintFormat("Registering zone %1 as %2 stage", zone.GetZoneName(), zone.GetZoneIndex());
+		int stageIndex = stage.GetStageIndex();
 
-		int zoneIndex = zone.GetZoneIndex();
-
-		if (m_aZones.Contains(zoneIndex))
+		if (m_aStages.Contains(stageIndex))
 		{
-			PrintFormat("Zone %1 is already present at index %2", zone.GetZoneName(), zoneIndex, level: LogLevel.ERROR);
+			PrintFormat("AFM_DiDZoneSystem: Stage index %1 already registered!", stageIndex, level: LogLevel.ERROR);
 			return false;
 		}
 
-		m_aZones.Insert(zoneIndex, zone);
-
+		m_aStages.Insert(stageIndex, stage);
+		PrintFormat("AFM_DiDZoneSystem: Registered stage %1", stageIndex);
 		return true;
 	}
 
@@ -98,85 +97,82 @@ class AFM_DiDZoneSystem: GameSystem
 		m_bIsSystemActive = true;
 		Enable(true);
 
-		PrintFormat("AFM_DiDZoneSystem: Started zone system with %1 zones", m_aZones.Count());
+		PrintFormat("AFM_DiDZoneSystem: Started with %1 stage(s)", m_aStages.Count());
 
-		if (m_aZones.Contains(m_iStartingZoneIndex))
+		if (m_aStages.Contains(m_iStartingStageIndex))
 		{
-			m_ActiveZone = m_aZones[m_iStartingZoneIndex];
-			m_ActiveZone.ActivateZone();
+			m_ActiveStage = m_aStages[m_iStartingStageIndex];
+			m_ActiveStage.ActivateStage();
+			m_eActiveStageState = EAFMZoneState.PREPARE;
 
 			if (m_OnZoneChanged)
-				m_OnZoneChanged.Invoke(m_iStartingZoneIndex);
+				m_OnZoneChanged.Invoke();
 		}
 		else
 		{
-			PrintFormat("AFM_DiDZoneSystem: Zone index %1 is invalid! Zone count: %2",
-				m_iStartingZoneIndex, m_aZones.Count(), level: LogLevel.ERROR
-			);
+			PrintFormat("AFM_DiDZoneSystem: Stage index %1 not found! Count: %2",
+				m_iStartingStageIndex, m_aStages.Count(), level: LogLevel.ERROR);
 			StopZoneSystem();
 		}
 	}
 
 	//------------------------------------------------------------------------------------------------
-	// Main zone processing method
+	// Main stage processing method
 	//------------------------------------------------------------------------------------------------
 
-	protected void ProcessZone()
+	protected void ProcessStage()
 	{
 		WorldTimestamp tStart = GetCurrentTimestamp();
-		if (!m_ActiveZone)
+		if (!m_ActiveStage)
 		{
-			PrintFormat("AFM_DiDZoneSystem: Invalid active zone!", level: LogLevel.ERROR);
+			PrintFormat("AFM_DiDZoneSystem: No active stage!", level: LogLevel.ERROR);
 			return;
 		}
 
-		if (m_ActiveZone.IsZoneFinished())
-			return;
-
-		EAFMZoneState previousState = m_ActiveZone.GetZoneState();
-		EAFMZoneState currentState = m_ActiveZone.Process();
-		int zoneIndex = m_ActiveZone.GetZoneIndex();
+		EAFMZoneState previousState = m_eActiveStageState;
+		EAFMZoneState currentState = m_ActiveStage.ProcessZones();
+		m_eActiveStageState = currentState;
+		int stageIndex = m_ActiveStage.GetStageIndex();
 
 		if (previousState != currentState)
-			OnZoneStateChanged(zoneIndex, previousState, currentState);
+			OnStageStateChanged(stageIndex, previousState, currentState);
 
-		// Defenders held — timer expired
+		// Defenders held — timer expired or budget exhausted
 		if (currentState == EAFMZoneState.FINISHED_HELD)
 		{
-			PrintFormat("AFM_DiDZoneSystem: Zone %1 — defenders held! (timer expired)", zoneIndex);
+			PrintFormat("AFM_DiDZoneSystem: Stage %1 — defenders held!", stageIndex);
 			if (m_OnZoneHeld)
 				m_OnZoneHeld.Invoke();
 			StopZoneSystem();
 			return;
 		}
 
-		// Defenders repelled the assault — budget exhausted + zone cleared
 		if (currentState == EAFMZoneState.FINISHED_REPELLED)
 		{
-			PrintFormat("AFM_DiDZoneSystem: Zone %1 — assault repelled! (budget exhausted)", zoneIndex);
+			PrintFormat("AFM_DiDZoneSystem: Stage %1 — assault repelled! (budget exhausted)", stageIndex);
 			if (m_OnZoneRepelled)
 				m_OnZoneRepelled.Invoke();
 			StopZoneSystem();
 			return;
 		}
 
-		// Zone failed — all defenders eliminated; fire event before advancing
+		// Stage failed — advance to next stage
 		if (currentState == EAFMZoneState.FINISHED_FAILED)
 		{
-			PrintFormat("AFM_DiDZoneSystem: All defenders eliminated in zone %1", zoneIndex);
+			PrintFormat("AFM_DiDZoneSystem: All defenders eliminated in stage %1", stageIndex);
 			if (m_OnZoneFailed)
-				m_OnZoneFailed.Invoke(zoneIndex);
-			ProgressToNextZone();
+				m_OnZoneFailed.Invoke(stageIndex);
+			ProgressToNextStage();
 			return;
 		}
 
-		// Zone captured — AI held progressive capture to 1.0; fire distinct event before advancing
+		// Stage captured — AI held progressive capture
 		if (currentState == EAFMZoneState.FINISHED_CAPTURED)
 		{
-			PrintFormat("AFM_DiDZoneSystem: Zone %1 captured by AI (progressive capture)", zoneIndex);
+			PrintFormat("AFM_DiDZoneSystem: Stage %1 captured by AI", stageIndex);
 			if (m_OnZoneCaptured)
-				m_OnZoneCaptured.Invoke(zoneIndex);
-			ProgressToNextZone();
+				m_OnZoneCaptured.Invoke(stageIndex);
+			ProgressToNextStage();
 			return;
 		}
 
@@ -186,13 +182,13 @@ class AFM_DiDZoneSystem: GameSystem
 		WorldTimestamp tEnd = GetCurrentTimestamp();
 		float diff = tEnd.DiffMilliseconds(tStart);
 		if (diff > 5)
-			PrintFormat("AFM_DiDZoneSystem: ProcessZone took %1 ms", diff, level: LogLevel.WARNING);
+			PrintFormat("AFM_DiDZoneSystem: ProcessStage took %1 ms", diff, level: LogLevel.WARNING);
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void OnZoneStateChanged(int zoneIndex, EAFMZoneState oldState, EAFMZoneState newState)
+	protected void OnStageStateChanged(int stageIndex, EAFMZoneState oldState, EAFMZoneState newState)
 	{
-		PrintFormat("AFM_DiDZoneSystem: Zone %1 state changed from %2 to %3", zoneIndex, oldState, newState);
+		PrintFormat("AFM_DiDZoneSystem: Stage %1 state changed from %2 to %3", stageIndex, oldState, newState);
 
 		if (oldState == EAFMZoneState.PREPARE && newState == EAFMZoneState.ACTIVE)
 		{
@@ -225,30 +221,28 @@ class AFM_DiDZoneSystem: GameSystem
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void ProgressToNextZone()
+	protected void ProgressToNextStage()
 	{
-		int newZoneIndex = m_iStartingZoneIndex;
+		int newStageIndex = m_iStartingStageIndex;
 		int rolloverBudget = 0;
 
-		if (m_ActiveZone)
+		if (m_ActiveStage)
 		{
 			// Capture rollover before deactivating
-			int remaining = m_ActiveZone.GetRemainingBudget();
+			int remaining = m_ActiveStage.GetRemainingBudget();
 			if (remaining > 0)
-				rolloverBudget = Math.Floor(remaining * m_ActiveZone.GetBudgetRolloverFraction());
+				rolloverBudget = Math.Floor(remaining * m_ActiveStage.GetBudgetRolloverFraction());
 
-			newZoneIndex = m_ActiveZone.GetZoneIndex() + 1;
-			m_ActiveZone.DeactivateZone();
+			newStageIndex = m_ActiveStage.GetStageIndex() + 1;
+			m_ActiveStage.DeactivateStage();
 		}
 
-		m_ActiveZone = m_aZones[newZoneIndex];
-
-		Print("AFM_DiDZoneSystem: Progressing to zone " + newZoneIndex);
+		Print("AFM_DiDZoneSystem: Progressing to stage " + newStageIndex);
 		m_bSkipWarmup = false;
 
-		if (newZoneIndex > m_aZones.Count())
+		if (newStageIndex > m_aStages.Count())
 		{
-			PrintFormat("AFM_DiDZoneSystem: All zones completed (max: %1)", m_aZones.Count());
+			PrintFormat("AFM_DiDZoneSystem: All stages completed (max: %1)", m_aStages.Count());
 			StopZoneSystem();
 
 			if (m_OnAllZonesCompleted)
@@ -256,15 +250,18 @@ class AFM_DiDZoneSystem: GameSystem
 			return;
 		}
 
-		if (m_ActiveZone)
-		{
-			m_ActiveZone.ActivateZone();
+		m_ActiveStage = m_aStages[newStageIndex];
+		m_eActiveStageState = EAFMZoneState.PREPARE;
 
-			// Apply rollover after ActivateZone initialises the new budget
-			if (rolloverBudget > 0 && m_ActiveZone.GetBudget())
+		if (m_ActiveStage)
+		{
+			m_ActiveStage.ActivateStage();
+
+			// Apply rollover after ActivateStage initialises the new budget
+			if (rolloverBudget > 0 && m_ActiveStage.GetBudget())
 			{
-				m_ActiveZone.GetBudget().AddBonus(rolloverBudget);
-				PrintFormat("AFM_DiDZoneSystem: Rolled over %1 pts to zone %2", rolloverBudget, newZoneIndex);
+				m_ActiveStage.GetBudget().AddBonus(rolloverBudget);
+				PrintFormat("AFM_DiDZoneSystem: Rolled over %1 pts to stage %2", rolloverBudget, newStageIndex);
 			}
 
 			if (m_OnZoneChanged)
@@ -277,84 +274,117 @@ class AFM_DiDZoneSystem: GameSystem
 	//------------------------------------------------------------------------------------------------
 	int GetBluforScore()
 	{
-		if (!m_ActiveZone)
+		if (!m_ActiveStage)
 			return -1;
-		return m_ActiveZone.GetBluforScore();
+
+		int total = 0;
+		foreach (AFM_DiDZoneComponent zone : m_ActiveStage.GetZones())
+			total += zone.GetBluforScore();
+		return total;
 	}
 
 	int GetRedforScore()
 	{
-		if (!m_ActiveZone)
+		if (!m_ActiveStage)
 			return -1;
-		return m_ActiveZone.GetRedforScore();
+
+		// Return remaining stage budget if active, else total AI in all zones
+		AFM_DiDAttackerBudget budget = m_ActiveStage.GetBudget();
+		if (budget)
+			return budget.GetRemaining();
+
+		int total = 0;
+		foreach (AFM_DiDZoneComponent zone : m_ActiveStage.GetZones())
+			total += zone.GetAICountInsideZone();
+		return total;
 	}
 
 	int GetAICountInCurrentZone()
 	{
-		if (!m_ActiveZone)
+		if (!m_ActiveStage)
 			return -1;
-		return m_ActiveZone.GetAICountInsideZone();
+
+		int total = 0;
+		foreach (AFM_DiDZoneComponent zone : m_ActiveStage.GetZones())
+			total += zone.GetAICountInsideZone();
+		return total;
 	}
 
 	int GetDefenderCount()
 	{
-		if (!m_ActiveZone)
+		if (!m_ActiveStage)
 			return -1;
-		return m_ActiveZone.GetDefenderCount();
+
+		int total = 0;
+		foreach (AFM_DiDZoneComponent zone : m_ActiveStage.GetZones())
+			total += zone.GetDefenderCount();
+		return total;
 	}
 
 	AFM_PlayerSpawnPointEntity GetCurrentZonePlayerSpawnPoint()
 	{
-		if (!m_ActiveZone)
+		if (!m_ActiveStage)
 			return null;
-		return m_ActiveZone.GetPlayerSpawnPoint();
+		return m_ActiveStage.GetPlayerSpawnPoint();
 	}
 
 	int GetCurrentZoneIndex()
 	{
-		if (!m_ActiveZone)
+		if (!m_ActiveStage)
 			return -1;
-		return m_ActiveZone.GetZoneDisplayNumber();
+		return m_ActiveStage.GetStageIndex();
 	}
 
 	int GetMaxZoneIndex()
 	{
-		return m_aZones.Count();
+		return m_aStages.Count();
 	}
 
 	bool IsTimerRunning()
 	{
-		if (!m_ActiveZone)
+		if (!m_ActiveStage)
 			return false;
 
-		EAFMZoneState state = m_ActiveZone.GetZoneState();
 		return (
-			state == EAFMZoneState.ACTIVE ||
-			state == EAFMZoneState.PREPARE ||
-			state == EAFMZoneState.WAVE_COMPLETE
+			m_eActiveStageState == EAFMZoneState.ACTIVE ||
+			m_eActiveStageState == EAFMZoneState.PREPARE ||
+			m_eActiveStageState == EAFMZoneState.WAVE_COMPLETE
 		);
 	}
 
 	bool IsWarmup()
 	{
-		if (!m_ActiveZone)
-			return false;
-
-		return m_ActiveZone.GetZoneState() == EAFMZoneState.PREPARE;
+		return m_eActiveStageState == EAFMZoneState.PREPARE;
 	}
 
 	WorldTimestamp GetZoneTimeoutTimestamp()
 	{
-		if (!m_ActiveZone)
+		if (!m_ActiveStage)
 			return GetCurrentTimestamp();
-		return m_ActiveZone.GetZoneEndTime();
+
+		// Return the latest end time across all active zones in the stage
+		WorldTimestamp latest = GetCurrentTimestamp();
+		foreach (AFM_DiDZoneComponent zone : m_ActiveStage.GetZones())
+		{
+			if (zone.IsZoneFinished())
+				continue;
+			WorldTimestamp t = zone.GetZoneEndTime();
+			if (t.GreaterEqual(latest))
+				latest = t;
+		}
+		return latest;
 	}
 
 	void ForceEndPrepareStage()
 	{
-		if (!m_ActiveZone || m_ActiveZone.GetZoneState() != EAFMZoneState.PREPARE)
+		if (!m_ActiveStage)
 			return;
-		m_ActiveZone.ForceEndPrepareStage();
+
+		foreach (AFM_DiDZoneComponent zone : m_ActiveStage.GetZones())
+		{
+			if (zone && zone.GetZoneState() == EAFMZoneState.PREPARE)
+				zone.ForceEndPrepareStage();
+		}
 	}
 
 	WorldTimestamp GetCurrentTimestamp()
@@ -367,10 +397,10 @@ class AFM_DiDZoneSystem: GameSystem
 	{
 		Enable(false);
 		m_bIsSystemActive = false;
-		foreach (AFM_DiDZoneComponent zone : m_aZones)
+		foreach (AFM_DiDStage stage : m_aStages)
 		{
-			if (zone)
-				zone.DeactivateZone();
+			if (stage)
+				stage.DeactivateStage();
 		}
 	}
 
@@ -410,7 +440,7 @@ class AFM_DiDZoneSystem: GameSystem
 		return m_OnZoneRepelled;
 	}
 
-	//! Fired with (int zoneIndex) when AI holds progressive capture to 1.0
+	//! Fired with (int stageIndex) when AI holds progressive capture to 1.0
 	ScriptInvoker GetOnZoneCaptured()
 	{
 		if (!m_OnZoneCaptured)
@@ -418,7 +448,7 @@ class AFM_DiDZoneSystem: GameSystem
 		return m_OnZoneCaptured;
 	}
 
-	//! Fired with (int zoneIndex) when all defenders in a zone are eliminated
+	//! Fired with (int stageIndex) when all defenders in a stage are eliminated
 	ScriptInvoker GetOnZoneFailed()
 	{
 		if (!m_OnZoneFailed)

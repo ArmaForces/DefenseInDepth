@@ -10,7 +10,7 @@ enum EAFMAttackPhase
 
 //------------------------------------------------------------------------------------------------
 //! Snapshot of battlefield conditions built by AFM_DiDAttackerDirector each decision cycle.
-//! Passed read-only to AFM_DiDSpawnerComponent.ScoreRequest() and AFM_DiDZoneArtillery scoring.
+//! Passed read-only to AFM_DiDSpawnerComponent.ScoreRequest() and AFM_DiDStageArtillery scoring.
 class AFM_DiDBattlefieldState
 {
 	int m_iDefenderCount;		//! Alive defenders (blufor)

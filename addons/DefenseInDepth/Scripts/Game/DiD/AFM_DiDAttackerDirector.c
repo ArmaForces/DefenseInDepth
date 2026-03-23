@@ -1,12 +1,12 @@
 //------------------------------------------------------------------------------------------------
-//! Central decision-maker for the attacker side.
+//! Central decision-maker for the attacker side — shared across all zones in a stage.
 //!
-//! Placed as a GenericEntity child of the zone entity in the world editor.
-//! Owns spawner entities and optionally an AFM_DiDZoneArtillery entity as children.
+//! Placed as a GenericEntity child of the stage entity in the world editor.
+//! Owns spawner entities and an optional AFM_DiDStageArtillery entity as direct children.
 //! Coordinates all attackers on each decision cycle.
 //!
 //! Decision cycle (every m_iDecisionIntervalSeconds):
-//!   1. Build battlefield state snapshot (defender count, AI count, budget ratio, phase)
+//!   1. Build battlefield state snapshot (aggregate defender/AI counts, stage budget ratio, phase)
 //!   2. Ask each spawner for a score via ScoreRequest()
 //!   3. Filter: score > 0, spawner off cooldown, budget covers cost
 //!   4. Weighted random pick from top 3 candidates (scores as weights)
@@ -14,14 +14,18 @@
 //!   6. Independently evaluate and trigger artillery missions / respawns
 //!
 //! Hierarchy in world editor:
-//!   AFM_DiDZoneEntity
-//!   ├── AFM_ArtillerySpawnPointEntity   ← 1..N optional mortar spawn markers
-//!   ├── PolylineShapeEntity
+//!   AFM_DiDStage (GenericEntity)
 //!   ├── AFM_PlayerSpawnPointEntity
-//!   └── AFM_DiDAttackerDirector             ← this entity
-//!       ├── AFM_DiDInfantrySpawnerComponent  ← spawner children
-//!       ├── AFM_DiDMechanizedSpawnerComponent
-//!       └── AFM_DiDZoneArtillery             ← optional artillery child
+//!   ├── AFM_DiDAttackerDirector             ← this entity
+//!   │   ├── AFM_DiDInfantrySpawnerComponent  ← spawner children
+//!   │   ├── AFM_DiDMechanizedSpawnerComponent
+//!   │   └── AFM_DiDStageArtillery           ← optional artillery child
+//!   │       └── AFM_ArtillerySpawnPointEntity
+//!   └── Zone entity (1..N)
+//!       ├── AFM_DiDZoneComponent [ScriptComponent]
+//!       ├── PolylineShapeEntity
+//!       ├── AFM_ZoneAssaultWaypointEntity
+//!       └── AFM_ApproachEntity
 //------------------------------------------------------------------------------------------------
 class AFM_DiDAttackerDirectorClass: GenericEntityClass
 {
@@ -36,27 +40,34 @@ class AFM_DiDAttackerDirector: GenericEntity
 	[Attribute("0.75", UIWidgets.EditBox, "Aggression 0.0-1.0: scales score of costly options (0=conservative, 1=reckless)", category: "DiD Director")]
 	protected float m_fAggression;
 
-	protected AFM_DiDZoneComponent m_pZone;
+	protected AFM_DiDStage m_pStage;
 	protected ref array<AFM_DiDSpawnerComponent> m_aSpawners = {};
-	protected AFM_DiDZoneArtillery m_pArtillery;
+	protected AFM_DiDStageArtillery m_pArtillery;
 	protected WorldTimestamp m_fLastDecisionTime;
 	protected bool m_bInitialized = false;
 	protected ref array<ref AFM_DiDGroupEntry> m_aGroupRegistry = {};
 	protected int m_iDecisionTick = 0;
 
 	//------------------------------------------------------------------------------------------------
-	//! Called by AFM_DiDZoneComponent.LateInit() after all artillery spawn points are collected.
-	//! Links this director to its zone, initialises spawner and artillery children.
-	void Init(AFM_DiDZoneComponent zone)
+	//! Called by AFM_DiDStage.LateInit() after all zone children are collected.
+	//! Links this director to its stage; scans own children for spawners and artillery.
+	//! Spawners are prepared against the first zone (single-zone stages) or primary zone
+	//! (multi-zone stages — future extension point).
+	void Init(AFM_DiDStage stage)
 	{
-		m_pZone = zone;
+		m_pStage = stage;
 
-		// Find and register all children (spawners + optional artillery)
+		array<AFM_DiDZoneComponent> zones = stage.GetZones();
+		// Primary zone used as the spawner context (approach routes, assault waypoint, etc.)
+		AFM_DiDZoneComponent primaryZone = null;
+		if (!zones.IsEmpty())
+			primaryZone = zones[0];
+
+		// Scan own children: spawners + optional artillery
 		IEntity child = GetChildren();
 		while (child)
 		{
-			// Artillery capability — not a spawner, handled separately
-			AFM_DiDZoneArtillery artillery = AFM_DiDZoneArtillery.Cast(child);
+			AFM_DiDStageArtillery artillery = AFM_DiDStageArtillery.Cast(child);
 			if (artillery)
 			{
 				m_pArtillery = artillery;
@@ -65,21 +76,20 @@ class AFM_DiDAttackerDirector: GenericEntity
 			}
 
 			AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(child);
-			if (spawner)
+			if (spawner && primaryZone)
 			{
 				m_aSpawners.Insert(spawner);
-				spawner.Prepare(zone);
+				spawner.Prepare(primaryZone);
 			}
 
 			child = child.GetSibling();
 		}
 
-		// Initialize artillery with the zone's spawn points (collected before Init() was called)
-		if (m_pArtillery)
+		// Artillery: spawn points are own children of the artillery entity
+		if (m_pArtillery && primaryZone)
 		{
-			array<AFM_ArtillerySpawnPointEntity> artilleryPoints = zone.GetArtillerySpawnPoints();
-			m_pArtillery.Initialize(zone, artilleryPoints);
-			PrintFormat("AFM_DiDAttackerDirector: Artillery enabled (%1 spawn points)", artilleryPoints.Count());
+			m_pArtillery.Initialize(primaryZone);
+			PrintFormat("AFM_DiDAttackerDirector: Artillery initialized");
 		}
 
 		if (m_aSpawners.Count() == 0)
@@ -90,8 +100,8 @@ class AFM_DiDAttackerDirector: GenericEntity
 		m_fLastDecisionTime = world.GetServerTimestamp().PlusSeconds(-m_iDecisionIntervalSeconds);
 		m_bInitialized = true;
 
-		PrintFormat("AFM_DiDAttackerDirector: Initialized with %1 spawners, decision every %2s, artillery=%3",
-			m_aSpawners.Count(), m_iDecisionIntervalSeconds, m_pArtillery != null);
+		PrintFormat("AFM_DiDAttackerDirector: Initialized with %1 spawner(s), %2 zone(s), decision every %3s, artillery=%4",
+			m_aSpawners.Count(), zones.Count(), m_iDecisionIntervalSeconds, m_pArtillery != null);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -99,7 +109,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 	//! Checks artillery health every call; runs full decision cycle on configured interval.
 	void Process()
 	{
-		if (!m_bInitialized || !m_pZone)
+		if (!m_bInitialized || !m_pStage)
 			return;
 
 		// First active tick: spawn the mortar now that this zone is actually running
@@ -203,13 +213,13 @@ class AFM_DiDAttackerDirector: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Returns whether all spawners exhausted their tickets
+	//! Returns whether all spawners exhausted their tickets (stage budget exhausted)
 	bool AreTicketsExhausted()
 	{
-		if (!m_pZone)
+		if (!m_pStage)
 			return true;
-		AFM_DiDAttackerBudget budget = m_pZone.GetBudget();
-		return budget.IsExhausted();
+		AFM_DiDAttackerBudget budget = m_pStage.GetBudget();
+		return budget != null && budget.IsExhausted();
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -509,12 +519,36 @@ class AFM_DiDAttackerDirector: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Stub — returns null until Phase E provides stage-wide zone access.
-	//! Full implementation: find zone with lowest (groupsEnRoute + groupsEngaging) / playerCount ratio.
-	//! TODO E2: implement using AFM_DiDStageContext.GetActiveZones()
+	//! Returns the active (non-finished) zone in the stage that has the fewest AI groups assigned
+	//! relative to its defender count. Used to redirect idle groups after a zone is captured.
+	//! Returns null if no active zone is found or only one zone exists.
 	protected AFM_DiDZoneComponent FindUndercoveredZone()
 	{
-		return null;
+		if (!m_pStage)
+			return null;
+
+		AFM_DiDZoneComponent bestZone;
+		float bestRatio = 999.0;
+
+		foreach (AFM_DiDZoneComponent zone : m_pStage.GetZones())
+		{
+			if (zone.IsZoneFinished())
+				continue;
+
+			int defenders = zone.GetDefenderCount();
+			if (defenders <= 0)
+				continue;
+
+			int aiInZone = zone.GetActiveAICount();
+			float ratio = aiInZone / defenders;
+			if (ratio < bestRatio)
+			{
+				bestRatio = ratio;
+				bestZone = zone;
+			}
+		}
+
+		return bestZone;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -523,22 +557,24 @@ class AFM_DiDAttackerDirector: GenericEntity
 	//! Called once per decision cycle before any spawn logic runs.
 	protected void UpdateRoutePressure()
 	{
-		if (!m_pZone)
+		if (!m_pStage)
 			return;
 
-		array<ref AFM_DiDApproachRoute> routes = m_pZone.GetApproachRoutes();
-		foreach (AFM_DiDApproachRoute route : routes)
+		foreach (AFM_DiDZoneComponent zone : m_pStage.GetZones())
 		{
-			if (route.m_iCooldownTicksRemaining > 0)
-				route.m_iCooldownTicksRemaining--;
-
-			if (route.m_iWipeDecayTicksRemaining > 0)
+			foreach (AFM_DiDApproachRoute route : zone.GetApproachRoutes())
 			{
-				route.m_iWipeDecayTicksRemaining--;
-				if (route.m_iWipeDecayTicksRemaining == 0)
+				if (route.m_iCooldownTicksRemaining > 0)
+					route.m_iCooldownTicksRemaining--;
+
+				if (route.m_iWipeDecayTicksRemaining > 0)
 				{
-					route.m_iGroupsWiped = Math.Max(0, route.m_iGroupsWiped / 2);
-					PrintFormat("AFM_DiDAttackerDirector: Route wipe decay — wiped count halved to %1", route.m_iGroupsWiped, LogLevel.DEBUG);
+					route.m_iWipeDecayTicksRemaining--;
+					if (route.m_iWipeDecayTicksRemaining == 0)
+					{
+						route.m_iGroupsWiped = Math.Max(0, route.m_iGroupsWiped / 2);
+						PrintFormat("AFM_DiDAttackerDirector: Route wipe decay — wiped count halved to %1", route.m_iGroupsWiped, LogLevel.DEBUG);
+					}
 				}
 			}
 		}
@@ -581,7 +617,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 			int cost = spawner.GetPointCostPerUnit();
 
 			// Skip if budget can't cover this spawn
-			AFM_DiDAttackerBudget budget = m_pZone.GetBudget();
+			AFM_DiDAttackerBudget budget = m_pStage.GetBudget();
 			if (budget && !budget.CanAfford(cost))
 				continue;
 
@@ -625,7 +661,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 			float respawnScore = m_pArtillery.ScoreRespawn(state);
 			if (respawnScore > 0)
 			{
-				AFM_DiDAttackerBudget budget = m_pZone.GetBudget();
+				AFM_DiDAttackerBudget budget = m_pStage.GetBudget();
 				int respawnCost = m_pArtillery.GetRespawnCost();
 				if (!budget || budget.CanAfford(respawnCost))
 				{
@@ -700,28 +736,62 @@ class AFM_DiDAttackerDirector: GenericEntity
 	{
 		AFM_DiDBattlefieldState state = new AFM_DiDBattlefieldState();
 
-		state.m_iDefenderCount = m_pZone.GetDefenderCount();
-		state.m_iAICountInZone = m_pZone.GetAICountInsideZone();
+		// Aggregate defender and AI counts across all active zones in the stage
+		array<AFM_DiDZoneComponent> zones = m_pStage.GetZones();
+		AFM_DiDZoneComponent primaryZone;
+		int totalDefenders = 0;
+		int totalAIInZone = 0;
+		float maxCaptureProgress = 0.0;
+		int maxStallTicks = 0;
+
+		foreach (AFM_DiDZoneComponent zone : zones)
+		{
+			if (zone.IsZoneFinished())
+				continue;
+
+			if (!primaryZone)
+				primaryZone = zone;
+
+			totalDefenders += zone.GetDefenderCount();
+			totalAIInZone += zone.GetAICountInsideZone();
+
+			float cp = zone.GetCaptureProgress();
+			if (cp > maxCaptureProgress)
+				maxCaptureProgress = cp;
+
+			int st = zone.GetStallTicks();
+			if (st > maxStallTicks)
+				maxStallTicks = st;
+		}
+
+		state.m_iDefenderCount = totalDefenders;
+		state.m_iAICountInZone = totalAIInZone;
 		state.m_iTotalActiveAI = GetActiveAICount();
+		state.m_fAliveDefenders = totalDefenders;
+		state.m_fZoneCaptureProgress = maxCaptureProgress;
+		state.m_iZoneStallTicks = maxStallTicks;
 
-		// Float copy of defender count for artillery HE threshold comparisons.
-		// AFM_DiDZoneArtillery.m_fHEDensityThreshold (default 2.0) means "fire HE when 2+ defenders alive".
-		state.m_fAliveDefenders = state.m_iDefenderCount;
-
-		AFM_DiDAttackerBudget budget = m_pZone.GetBudget();
+		AFM_DiDAttackerBudget budget = m_pStage.GetBudget();
 		if (budget)
 			state.m_fBudgetRatio = budget.GetRatio();
 		else
 			state.m_fBudgetRatio = 1.0;
 
-		// Time ratio: 1.0 at zone start, approaching 0.0 at deadline
-		WorldTimestamp zoneEnd = m_pZone.GetZoneEndTime();
-		float secondsRemaining = Math.Max(0, zoneEnd.DiffSeconds(now));
-		int totalDefenseSeconds = m_pZone.GetTotalDefenseSeconds();
-		if (totalDefenseSeconds > 0)
-			state.m_fTimeRatio = Math.Clamp(secondsRemaining / totalDefenseSeconds, 0.0, 1.0);
+		// Time ratio from primary zone — 1.0 at start, approaching 0.0 at deadline
+		if (primaryZone)
+		{
+			WorldTimestamp zoneEnd = primaryZone.GetZoneEndTime();
+			float secondsRemaining = Math.Max(0, zoneEnd.DiffSeconds(now));
+			int totalDefenseSeconds = primaryZone.GetTotalDefenseSeconds();
+			if (totalDefenseSeconds > 0)
+				state.m_fTimeRatio = Math.Clamp(secondsRemaining / totalDefenseSeconds, 0.0, 1.0);
+			else
+				state.m_fTimeRatio = 1.0;
+		}
 		else
+		{
 			state.m_fTimeRatio = 1.0;
+		}
 
 		// Derive attack phase from budget ratio
 		if (state.m_fBudgetRatio > 0.75)
@@ -730,9 +800,6 @@ class AFM_DiDAttackerDirector: GenericEntity
 			state.m_ePhase = EAFMAttackPhase.ASSAULT;
 		else
 			state.m_ePhase = EAFMAttackPhase.FINAL;
-
-		state.m_fZoneCaptureProgress = m_pZone.GetCaptureProgress();
-		state.m_iZoneStallTicks = m_pZone.GetStallTicks();
 
 		// Day/night via TimeAndWeatherManagerEntity.IsSunSet()
 		ChimeraWorld chimeraWorld = ChimeraWorld.CastFrom(GetGame().GetWorld());

@@ -273,7 +273,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		Rpc(RPC_DoMortarFiring);
 	}
 
-	//! Called by AFM_DiDZoneArtillery on server when the mortar is destroyed.
+	//! Called by AFM_DiDStageArtillery on server when the mortar is destroyed.
 	void NotifyMortarDestroyed()
 	{
 		RPC_DoMortarDestroyed();

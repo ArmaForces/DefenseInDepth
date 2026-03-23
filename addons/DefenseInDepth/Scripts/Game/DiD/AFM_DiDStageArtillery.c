@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-//! Internal round type classification for AFM_DiDZoneArtillery.
+//! Internal round type classification for AFM_DiDStageArtillery.
 //! Does NOT directly map to SCR_EAIArtilleryAmmoType — the waypoint prefab's default
 //! ammo is used by the AI crew. This enum drives targeting strategy, cost, and cooldown.
 enum EAFMRoundType
@@ -20,17 +20,16 @@ enum EAFMRoundType
 //! to the mortar→player axis, positioned 25–50m in front of the player blob.
 //!
 //! Hierarchy in world editor:
-//!   AFM_DiDZoneEntity
-//!   ├── AFM_ArtillerySpawnPointEntity   ← 1..N spawn positions (children of zone)
-//!   └── AFM_DiDAttackerDirector
-//!       └── AFM_DiDZoneArtillery        ← this entity (child of director)
+//!   AFM_DiDAttackerDirector
+//!   └── AFM_DiDStageArtillery            ← this entity (child of director)
+//!       └── AFM_ArtillerySpawnPointEntity  ← 1..N spawn positions (children of artillery)
 //!
-//! No AFM_ArtillerySpawnPointEntity children on the zone = artillery disabled for that zone.
+//! No AFM_ArtillerySpawnPointEntity children = artillery disabled.
 //------------------------------------------------------------------------------------------------
-class AFM_DiDZoneArtilleryClass: GenericEntityClass
+class AFM_DiDStageArtilleryClass: GenericEntityClass
 {}
 
-class AFM_DiDZoneArtillery: GenericEntity
+class AFM_DiDStageArtillery: GenericEntity
 {
 	[Attribute("", UIWidgets.ResourceNamePicker, "Mortar vehicle prefab to spawn", params: "et", category: "DiD Artillery")]
 	protected ResourceName m_sMortarPrefab;
@@ -107,12 +106,21 @@ class AFM_DiDZoneArtillery: GenericEntity
 	protected ref array<float> m_aPolylinePoints2D = null;
 
 	//------------------------------------------------------------------------------------------------
-	//! Called by AFM_DiDAttackerDirector.Init() after all spawners and spawn points are collected.
-	void Initialize(AFM_DiDZoneComponent zone, array<AFM_ArtillerySpawnPointEntity> spawnPoints)
+	//! Called by AFM_DiDAttackerDirector.Init() after all spawners are collected.
+	//! Scans own children for AFM_ArtillerySpawnPointEntity instances.
+	void Initialize(AFM_DiDZoneComponent zone)
 	{
 		m_pZone = zone;
-		foreach (AFM_ArtillerySpawnPointEntity sp : spawnPoints)
-			m_aSpawnPoints.Insert(sp);
+
+		// Collect spawn positions from own children
+		IEntity child = GetChildren();
+		while (child)
+		{
+			AFM_ArtillerySpawnPointEntity sp = AFM_ArtillerySpawnPointEntity.Cast(child);
+			if (sp)
+				m_aSpawnPoints.Insert(sp);
+			child = child.GetSibling();
+		}
 
 		// Push cooldowns far into the past so first decision cycle can fire immediately
 		WorldTimestamp farPast = GetCurrentTimestamp().PlusSeconds(-3600);
@@ -123,25 +131,25 @@ class AFM_DiDZoneArtillery: GenericEntity
 
 		if (m_aSpawnPoints.IsEmpty())
 		{
-			PrintFormat("AFM_DiDZoneArtillery: No spawn points — artillery disabled for this zone", level: LogLevel.DEBUG);
+			PrintFormat("AFM_DiDStageArtillery: No spawn points — artillery disabled", level: LogLevel.DEBUG);
 			return;
 		}
 
 		if (m_sMortarPrefab.IsEmpty())
 		{
-			PrintFormat("AFM_DiDZoneArtillery: No mortar prefab configured — artillery disabled!", level: LogLevel.WARNING);
+			PrintFormat("AFM_DiDStageArtillery: No mortar prefab configured — artillery disabled!", level: LogLevel.WARNING);
 			return;
 		}
 
 		if (!m_CrewConfig)
 		{
-			PrintFormat("AFM_DiDZoneArtillery: No crew config — artillery disabled!", level: LogLevel.WARNING);
+			PrintFormat("AFM_DiDStageArtillery: No crew config — artillery disabled!", level: LogLevel.WARNING);
 			return;
 		}
 
 		// Mortar spawns when the zone activates, not at init time (see TriggerInitialSpawn)
 		m_bInitialSpawnPending = true;
-		PrintFormat("AFM_DiDZoneArtillery: Initialized with %1 spawn points — mortar pending zone activation", m_aSpawnPoints.Count());
+		PrintFormat("AFM_DiDStageArtillery: Initialized with %1 spawn point(s) — mortar pending zone activation", m_aSpawnPoints.Count());
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -188,7 +196,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 			return;
 
 		SpawnMortarTeam(m_aSpawnPoints.GetRandomElement());
-		PrintFormat("AFM_DiDZoneArtillery: Initial mortar spawn triggered by zone activation");
+		PrintFormat("AFM_DiDStageArtillery: Initial mortar spawn triggered by zone activation");
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -289,7 +297,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 		{
 			if (!budget.CanAfford(cost))
 			{
-				PrintFormat("AFM_DiDZoneArtillery: Can't afford %1 mission (cost %2 pts)", RoundTypeToString(roundType), cost, level: LogLevel.DEBUG);
+				PrintFormat("AFM_DiDStageArtillery: Can't afford %1 mission (cost %2 pts)", RoundTypeToString(roundType), cost, level: LogLevel.DEBUG);
 				return;
 			}
 			budget.Consume(cost);
@@ -308,7 +316,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 			vector targetPos = SelectTargetPosition(roundType);
 			if (targetPos == vector.Zero)
 			{
-				PrintFormat("AFM_DiDZoneArtillery: No valid target for %1 — aborting", RoundTypeToString(roundType), level: LogLevel.DEBUG);
+				PrintFormat("AFM_DiDStageArtillery: No valid target for %1 — aborting", RoundTypeToString(roundType), level: LogLevel.DEBUG);
 				if (budget && cost > 0)
 					budget.AddBonus(cost);
 				return;
@@ -325,7 +333,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 			}
 		}
 
-		PrintFormat("AFM_DiDZoneArtillery: %1 mission fired — %2 rounds (cost %3 pts)",
+		PrintFormat("AFM_DiDStageArtillery: %1 mission fired — %2 rounds (cost %3 pts)",
 			RoundTypeToString(roundType), shotCount, cost);
 	}
 
@@ -340,7 +348,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 		SpawnMortarTeam(spawnPoint);
 		m_iRespawnCount++;
 		// Deliberately no broadcast — defenders are NOT notified of respawn
-		PrintFormat("AFM_DiDZoneArtillery: Mortar respawned (respawn #%1)", m_iRespawnCount);
+		PrintFormat("AFM_DiDStageArtillery: Mortar respawned (respawn #%1)", m_iRespawnCount);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -373,7 +381,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 	{
 		if (!spawnPoint)
 		{
-			PrintFormat("AFM_DiDZoneArtillery: No spawn point provided!", level: LogLevel.ERROR);
+			PrintFormat("AFM_DiDStageArtillery: No spawn point provided!", level: LogLevel.ERROR);
 			return;
 		}
 
@@ -385,7 +393,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 		m_pSpawnedMortar = GetGame().SpawnEntityPrefab(Resource.Load(m_sMortarPrefab), GetGame().GetWorld(), spawnParams);
 		if (!m_pSpawnedMortar)
 		{
-			PrintFormat("AFM_DiDZoneArtillery: Failed to spawn mortar!", level: LogLevel.ERROR);
+			PrintFormat("AFM_DiDStageArtillery: Failed to spawn mortar!", level: LogLevel.ERROR);
 			return;
 		}
 
@@ -394,7 +402,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 		);
 		if (!cm)
 		{
-			PrintFormat("AFM_DiDZoneArtillery: Mortar has no compartment manager!", level: LogLevel.ERROR);
+			PrintFormat("AFM_DiDStageArtillery: Mortar has no compartment manager!", level: LogLevel.ERROR);
 			SCR_EntityHelper.DeleteEntityAndChildren(m_pSpawnedMortar);
 			m_pSpawnedMortar = null;
 			return;
@@ -403,7 +411,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 		m_pMortarCrew = m_CrewConfig.SpawnCrew(cm, null);
 		if (!m_pMortarCrew)
 		{
-			PrintFormat("AFM_DiDZoneArtillery: Failed to spawn mortar crew!", level: LogLevel.ERROR);
+			PrintFormat("AFM_DiDStageArtillery: Failed to spawn mortar crew!", level: LogLevel.ERROR);
 			SCR_EntityHelper.DeleteEntityAndChildren(m_pSpawnedMortar);
 			m_pSpawnedMortar = null;
 			return;
@@ -415,7 +423,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 		// Invalidate polygon cache on respawn (position hasn't moved but be safe)
 		m_aPolylinePoints2D = null;
 
-		PrintFormat("AFM_DiDZoneArtillery: Mortar spawned at %1", m_pSpawnedMortar.GetOrigin().ToString(), level: LogLevel.DEBUG);
+		PrintFormat("AFM_DiDStageArtillery: Mortar spawned at %1", m_pSpawnedMortar.GetOrigin().ToString(), level: LogLevel.DEBUG);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -433,7 +441,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 		if (gamemode)
 			gamemode.NotifyMortarDestroyed();
 
-		PrintFormat("AFM_DiDZoneArtillery: Mortar destroyed after %1 missions", missionsFired);
+		PrintFormat("AFM_DiDStageArtillery: Mortar destroyed after %1 missions", missionsFired);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -577,7 +585,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 		AddFireWaypoint(leftFlank, sideRounds, SCR_EAIArtilleryAmmoType.SMOKE);
 		AddFireWaypoint(rightFlank, sideRounds, SCR_EAIArtilleryAmmoType.SMOKE);
 
-		PrintFormat("AFM_DiDZoneArtillery: Smoke screen — center %1, spread +/-%2m perp, blob at %3 (offset %4m)",
+		PrintFormat("AFM_DiDStageArtillery: Smoke screen — center %1, spread +/-%2m perp, blob at %3 (offset %4m)",
 			center.ToString(), m_fSmokeScreenSpread, blobPos.ToString(), offset);
 	}
 
@@ -589,7 +597,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 		Resource wpResource = Resource.Load("{C524700A27CFECDD}Prefabs/AI/Waypoints/AIWaypoint_ArtillerySupport.et");
 		if (!wpResource || !wpResource.IsValid())
 		{
-			PrintFormat("AFM_DiDZoneArtillery: Failed to load artillery waypoint prefab!", level: LogLevel.ERROR);
+			PrintFormat("AFM_DiDStageArtillery: Failed to load artillery waypoint prefab!", level: LogLevel.ERROR);
 			return;
 		}
 
@@ -601,7 +609,7 @@ class AFM_DiDZoneArtillery: GenericEntity
 		IEntity wpEntity = GetGame().SpawnEntityPrefab(wpResource, GetGame().GetWorld(), spawnParams);
 		if (!wpEntity)
 		{
-			PrintFormat("AFM_DiDZoneArtillery: Failed to spawn waypoint!", level: LogLevel.ERROR);
+			PrintFormat("AFM_DiDStageArtillery: Failed to spawn waypoint!", level: LogLevel.ERROR);
 			return;
 		}
 

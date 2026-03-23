@@ -43,12 +43,6 @@ class AFM_DiDZoneComponent: ScriptComponent
 	[Attribute("50", UIWidgets.EditBox, "Max number of AI groups", category: "DiD")]
 	protected int m_iMaxAICount;
 
-	[Attribute("0", UIWidgets.EditBox, "Attacker points budget (0 = unlimited, no budget system)", category: "DiD Budget")]
-	protected int m_iPointsBudget;
-
-	[Attribute("0.5", UIWidgets.EditBox, "Fraction of remaining budget rolled over to next zone on failure (0.0-1.0)", category: "DiD Budget")]
-	protected float m_fBudgetRolloverFraction;
-
 	[Attribute("3.0", UIWidgets.EditBox, "Time multiplier when all tickets exhausted (e.g. 3.0 = 3x faster). Only applies when spawners use the ticket system.", category: "DiD")]
 	protected float m_fTicketExhaustTimeMultiplier;
 
@@ -60,14 +54,11 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected int m_iStallTicks = 0;
 	protected float m_fLastCaptureProgress = 0.0;
 
+	//! Stage this zone belongs to — set by AFM_DiDStage.LateInit() via SetStage().
+	//! Null for stand-alone wave zones that don't use a stage.
+	protected AFM_DiDStage m_pStage;
+
 	protected PolylineShapeEntity m_PolylineEntity;
-	protected AFM_PlayerSpawnPointEntity m_PlayerSpawnPoint;
-	// Legacy: spawners are direct children of the zone (used when no director is present)
-	protected ref array<AFM_DiDSpawnerComponent> m_aSpawners = {};
-	// Director mode: central coordinator that owns its own spawner children
-	protected AFM_DiDAttackerDirector m_Director;
-	// Phase 3: artillery spawn positions on the zone entity (passed to director → artillery)
-	protected ref array<AFM_ArtillerySpawnPointEntity> m_aArtillerySpawnPoints = {};
 	// Approach routes — defined on the zone, shared by all spawners
 	protected ref array<ref AFM_DiDApproachRoute> m_aApproachRoutes = {};
 	protected AFM_ZoneAssaultWaypointEntity m_AssaultWaypoint;
@@ -81,9 +72,6 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected WorldTimestamp m_fZoneStartTime;
 	protected WorldTimestamp m_fZoneEndTime;
 	protected int m_iRemainingTimeSeconds;
-
-	// Budget — null if m_iPointsBudget == 0 (system disabled)
-	protected ref AFM_DiDAttackerBudget m_Budget;
 
 	protected bool m_bTicketsExhaustedNotified = false;	//! Prevents repeated notifications once tickets run out
 
@@ -135,8 +123,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 		if (!e)
 			PrintFormat("AFM_DiDZoneComponent %1: No children found!", m_sZoneName, level: LogLevel.ERROR);
 
-		// First pass: collect all children.
-		// Director init is deferred until after all AFM_ArtillerySpawnPointEntity children are found.
+		// Collect zone entity children.
+		// Spawners, director, and player-spawn are on the parent stage / director entity.
 		while (e)
 		{
 			switch (e.Type())
@@ -144,56 +132,24 @@ class AFM_DiDZoneComponent: ScriptComponent
 				case PolylineShapeEntity:
 					m_PolylineEntity = PolylineShapeEntity.Cast(e);
 					break;
-				case AFM_PlayerSpawnPointEntity:
-					m_PlayerSpawnPoint = AFM_PlayerSpawnPointEntity.Cast(e);
+				// Approach routes — zone owns routes, shared by all spawners in the stage
+				case AFM_ApproachEntity:
+					m_aApproachRoutes.Insert(BuildRoute(AFM_ApproachEntity.Cast(e)));
 					break;
-				// Phase 3: mortar spawn position markers — collected here, forwarded to director
-				case AFM_ArtillerySpawnPointEntity:
-					m_aArtillerySpawnPoints.Insert(AFM_ArtillerySpawnPointEntity.Cast(e));
+				case AFM_ZoneAssaultWaypointEntity:
+					m_AssaultWaypoint = AFM_ZoneAssaultWaypointEntity.Cast(e);
 					break;
-				// Director mode: central spawner coordinator — owns its own spawner children
-				case AFM_DiDAttackerDirector:
-					m_Director = AFM_DiDAttackerDirector.Cast(e);
-					// Init deferred below — artillery spawn points must be collected first
-					break;
-				// Legacy mode: spawners are direct children of the zone
-				case AFM_DiDMechanizedSpawnerComponent:
-				case AFM_DiDInfantrySpawnerComponent:
-				case AFM_DiDWaveSpawnerComponent:
-					AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(e);
-					m_aSpawners.Insert(spawner);
-				break;
-				// Approach routes — zone owns routes, all spawners share them
-			case AFM_ApproachEntity:
-				m_aApproachRoutes.Insert(BuildRoute(AFM_ApproachEntity.Cast(e)));
-				break;
-			case AFM_ZoneAssaultWaypointEntity:
-				m_AssaultWaypoint = AFM_ZoneAssaultWaypointEntity.Cast(e);
-				break;
-			case AFM_SupplyCacheEntity:
+				case AFM_SupplyCacheEntity:
 					m_SupplyCache = SCR_ResourceComponent.Cast(e.FindComponent(SCR_ResourceComponent));
 					break;
 				default:
-					PrintFormat("AFM_DiDZoneComponent %1: Unknown type %2", m_sZoneName, e.Type().ToString());
+					PrintFormat("AFM_DiDZoneComponent %1: Unknown child type %2", m_sZoneName, e.Type().ToString());
 			}
 			e = e.GetSibling();
 		}
 
-		// Init director now that all artillery spawn points have been collected
-		if (m_Director)
-		{
-			m_Director.Init(this);
-			if (m_aArtillerySpawnPoints.Count() > 0)
-				PrintFormat("AFM_DiDZoneComponent %1: %2 artillery spawn point(s) registered", m_sZoneName, m_aArtillerySpawnPoints.Count());
-		}
-
 		if (!m_PolylineEntity)
 			PrintFormat("AFM_DiDZoneComponent %1: Missing polyline component, zone wont work properly!", m_sZoneName, level: LogLevel.ERROR);
-		if (!m_PlayerSpawnPoint)
-			PrintFormat("AFM_DiDZoneComponent %1: Missing player spawnpoint, zone wont work properly!", m_sZoneName, level: LogLevel.ERROR);
-
-		if (!m_Director && m_aSpawners.Count() == 0)
-			PrintFormat("AFM_DiDZoneComponent %1: No spawner components found, AI will not spawn!", m_sZoneName, level: LogLevel.WARNING);
 
 		if (m_aApproachRoutes.Count() > 0)
 		{
@@ -201,18 +157,6 @@ class AFM_DiDZoneComponent: ScriptComponent
 			if (!m_AssaultWaypoint)
 				PrintFormat("AFM_DiDZoneComponent %1: No ZoneAssaultWaypoint found — groups have no final objective!", m_sZoneName, level: LogLevel.WARNING);
 		}
-
-		// Wave zone mode: initialize direct spawner children (used by AFM_DiDWaveZoneComponent)
-		foreach (AFM_DiDSpawnerComponent s : m_aSpawners)
-			s.Prepare(this);
-
-		if (!AFM_DiDZoneSystem.GetInstance().RegisterZone(this))
-			PrintFormat("AFM_DiDZoneComponent %1: Failed to register zone!", m_sZoneName, LogLevel.ERROR);
-		else
-			PrintFormat("AFM_DiDZoneComponent %1: Zone registered", m_sZoneName);
-
-		if (m_Director)
-			PrintFormat("AFM_DiDZoneComponent %1: Director active", m_sZoneName);
 
 		AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
 		if (!gamemode)
@@ -335,10 +279,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Returns true when all defenders have been eliminated (zone lost by defenders).
+	//! Returns true when the zone has been lost to AI — either all defenders eliminated
+	//! (FINISHED_FAILED) or AI held progressive capture to 1.0 (FINISHED_CAPTURED).
 	bool IsZoneCaptured()
 	{
-		return m_eZoneState == EAFMZoneState.FINISHED_FAILED;
+		return m_eZoneState == EAFMZoneState.FINISHED_FAILED
+			|| m_eZoneState == EAFMZoneState.FINISHED_CAPTURED;
 	}
 
 	int GetAICountInsideZone()
@@ -386,17 +332,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//------------------------------------------------------------------------------------------------
 	protected void Cleanup()
 	{
-		if (m_Director)
-		{
-			m_Director.Cleanup();
-			return;
-		}
-
-		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
-		{
-			if (spawner)
-				spawner.Cleanup();
-		}
+		// Director and spawner cleanup is handled by AFM_DiDStage.DeactivateStage().
 	}
 
 	protected void FinishZoneHeld()
@@ -485,7 +421,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 		}
 
 		// Budget exhausted and zone cleared = defenders repelled the assault
-		if (m_Budget && m_Budget.IsExhausted() && attackerCount == 0 && GetActiveAICount() == 0)
+		AFM_DiDAttackerBudget budget = GetBudget();
+		if (budget && budget.IsExhausted() && attackerCount == 0 && GetActiveAICount() == 0)
 		{
 			FinishZoneRepelled();
 			return m_eZoneState;
@@ -524,10 +461,6 @@ class AFM_DiDZoneComponent: ScriptComponent
 				UnfreezeZone();
 			}
 		}
-
-		// Director runs the decision cycle
-		if (m_Director)
-			m_Director.Process();
 
 		// Ticket exhaustion: notify once then accelerate zone timer
 		if (!m_bTicketsExhaustedNotified && AreAllSpawnerTicketsExhausted())
@@ -616,12 +549,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 		m_iStallTicks = 0;
 		m_fLastCaptureProgress = 0.0;
 
-		// Initialize budget if configured
-		if (m_iPointsBudget > 0)
-		{
-			m_Budget = new AFM_DiDAttackerBudget(m_iPointsBudget);
-			PrintFormat("AFM_DiDZoneComponent %1: Budget initialized with %2 pts", m_sZoneName, m_iPointsBudget);
-		}
+		// Budget is owned and created by the parent stage — no per-zone budget creation.
 
 		WorldTimestamp now = GetCurrentTimestamp();
 		m_eZoneState = EAFMZoneState.PREPARE;
@@ -657,11 +585,6 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return m_fZoneEndTime;
 	}
 
-	AFM_PlayerSpawnPointEntity GetPlayerSpawnPoint()
-	{
-		return m_PlayerSpawnPoint;
-	}
-
 	PolylineShapeEntity GetPolylineEntity()
 	{
 		return m_PolylineEntity;
@@ -685,8 +608,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//! Returns remaining budget if active, otherwise AI count inside zone
 	int GetRedforScore()
 	{
-		if (m_Budget)
-			return m_Budget.GetRemaining();
+		AFM_DiDAttackerBudget budget = GetBudget();
+		if (budget)
+			return budget.GetRemaining();
 		return GetAICountInsideZone();
 	}
 
@@ -696,42 +620,48 @@ class AFM_DiDZoneComponent: ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Get total active AI count across director or all direct spawners
-	//------------------------------------------------------------------------------------------------
-	int GetActiveAICount()
+	//! Links this zone to its parent stage. Called by AFM_DiDStage.LateInit().
+	void SetStage(AFM_DiDStage stage)
 	{
-		if (m_Director)
-			return m_Director.GetActiveAICount();
-
-		int totalCount = 0;
-		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
-		{
-			if (spawner)
-				totalCount += spawner.GetActiveAICount();
-		}
-		return totalCount;
+		m_pStage = stage;
 	}
 
 	//------------------------------------------------------------------------------------------------
-	// Budget API
+	//! Get total active AI count via the stage director.
+	//------------------------------------------------------------------------------------------------
+	int GetActiveAICount()
+	{
+		AFM_DiDAttackerDirector director = GetDirector();
+		if (director)
+			return director.GetActiveAICount();
+		return 0;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	// Budget / stage delegation API
 	//------------------------------------------------------------------------------------------------
 
-	//! Returns the budget instance, or null if budget system is disabled for this zone
+	//! Returns the shared stage budget, or null if no stage / budget system disabled.
 	AFM_DiDAttackerBudget GetBudget()
 	{
-		return m_Budget;
+		if (!m_pStage)
+			return null;
+		return m_pStage.GetBudget();
 	}
 
 	int GetRemainingBudget()
 	{
-		if (!m_Budget)
+		AFM_DiDAttackerBudget budget = GetBudget();
+		if (!budget)
 			return 0;
-		return m_Budget.GetRemaining();
+		return budget.GetRemaining();
 	}
 
 	float GetBudgetRolloverFraction()
 	{
-		return m_fBudgetRolloverFraction;
+		if (!m_pStage)
+			return 0.5;
+		return m_pStage.GetBudgetRolloverFraction();
 	}
 
 	float GetCaptureProgress()
@@ -750,16 +680,20 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return m_iDefenseTimeSeconds;
 	}
 
-	//! Artillery spawn points collected from zone children — forwarded to director on Init()
-	array<AFM_ArtillerySpawnPointEntity> GetArtillerySpawnPoints()
-	{
-		return m_aArtillerySpawnPoints;
-	}
-
-	//! The attacker director for this zone, or null if running in wave-zone mode
+	//! The shared stage director, or null if no stage (wave-zone legacy mode).
 	AFM_DiDAttackerDirector GetDirector()
 	{
-		return m_Director;
+		if (!m_pStage)
+			return null;
+		return m_pStage.GetDirector();
+	}
+
+	//! Returns the player spawn point from the parent stage.
+	AFM_PlayerSpawnPointEntity GetPlayerSpawnPoint()
+	{
+		if (!m_pStage)
+			return null;
+		return m_pStage.GetPlayerSpawnPoint();
 	}
 
 	//! Approach routes defined on this zone — shared by all spawner children
@@ -799,20 +733,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//! Returns false if no ticket-based spawners exist (no acceleration in that case).
 	protected bool AreAllSpawnerTicketsExhausted()
 	{
-		// Director mode: delegate to director
-		if (m_Director)
-			return m_Director.AreTicketsExhausted();
-
-		// Legacy mode: iterate direct spawner children
-		bool hasTicketSpawners = false;
-		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
-		{
-			if (!spawner || !spawner.IsTicketBased())
-				continue;
-			hasTicketSpawners = true;
-			if (spawner.GetRemainingTickets() > 0)
-				return false;
-		}
-		return hasTicketSpawners;
+		AFM_DiDAttackerDirector director = GetDirector();
+		if (director)
+			return director.AreTicketsExhausted();
+		return false;
 	}
 }

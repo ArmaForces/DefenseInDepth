@@ -1,0 +1,10 @@
+AFM_DiDStage {
+ ID "68EE81F26EF6C5AC"
+ components {
+  Hierarchy "{68EE81F2602A766C}" {
+  }
+ }
+ coords 1511.18 54.909 5917.949
+ m_iStageIndex 1
+ m_iPointsBudget 120
+}

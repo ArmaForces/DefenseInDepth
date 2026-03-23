@@ -35,14 +35,25 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 	
 	// Wave-specific state
 	protected int m_iCurrentWave = 1;
+	protected ref array<AFM_DiDSpawnerComponent> m_aSpawners = {};
 
-	
+
 	//------------------------------------------------------------------------------------------------
 	override protected void LateInit()
 	{
 		super.LateInit();
-		
-		PrintFormat("AFM_DiDWaveZoneComponent %1: Initialized with %2 waves, %3 spawners", 
+
+		// Collect spawner entities that are direct children of this zone entity
+		IEntity child = GetOwner().GetChildren();
+		while (child)
+		{
+			AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(child.FindComponent(AFM_DiDSpawnerComponent));
+			if (spawner)
+				m_aSpawners.Insert(spawner);
+			child = child.GetSibling();
+		}
+
+		PrintFormat("AFM_DiDWaveZoneComponent %1: Initialized with %2 waves, %3 spawners",
 			m_sZoneName, m_iTotalWaves, m_aSpawners.Count());
 	}
 	
