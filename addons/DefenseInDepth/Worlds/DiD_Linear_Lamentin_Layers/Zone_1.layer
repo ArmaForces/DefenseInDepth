@@ -837,6 +837,10 @@ AFM_DiDZoneEntity zone1 {
     coords 666.152 73.763 -189.732
    }
   }
+  AFM_ZoneAssaultWaypointEntity : "{5486C59C74086B03}Prefabs/AI/Waypoints/AFM_ZoneAssaultWaypoint.et" {
+   coords 40.857 7.525 34.095
+   CompletionRadius 80
+  }
   AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
    coords 78.478 6.073 20.088
   }
@@ -860,10 +864,6 @@ AFM_DiDZoneEntity zone1 {
         angles 0 -100.862 0
        }
       }
-      SCR_DefendWaypoint zone1_aiwp_1_def2 : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
-       coords -221.929 -22.955 131.933
-       CompletionRadius 80
-      }
      }
     }
     AFM_DiDInfantrySpawnerComponent : "{A93E8199BD60FD8A}Prefabs/Spawners/AFM_DidInfantrySpawner.et" {
@@ -886,19 +886,39 @@ AFM_DiDZoneEntity zone1 {
         coords -26.872 -48.507 252.457
        }
       }
-      $grp SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
-       zone1_aiwp_1_def {
-        coords -154.778 -6.384 57.859
-        CompletionRadius 80
-       }
-       zone1_aiwp_2_def {
-        coords -88.145 -1.257 -44.769
-        CompletionRadius 120
-       }
-      }
-      SCR_SearchAndDestroyWaypoint zone_1_aiwp_3_sead : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
-       coords -110.969 -2.429 0.844
-      }
+     }
+    }
+   }
+  }
+  $grp AFM_ApproachEntity : "{FD1CB619AD6612AC}Prefabs/AI/Waypoints/AFM_ApproachWaypoint.et" {
+   {
+    coords 108.884 3.293 99.385
+    {
+     AFM_StagingPointEntity : "{12C793FDAD299F1C}Prefabs/AI/Waypoints/AFM_StagingPointWaypoint.et" {
+      coords 176.563 2.453 -10.335
+     }
+     AFM_VehicleOverwatchEntity : "{E8133452FFB18799}Prefabs/AI/Waypoints/AFM_VehicleOverwatchWaypoint.et" {
+      coords 107.783 5.469 -10.394
+      angles 0 -79.994 0
+     }
+    }
+   }
+   {
+    coords 65.643 7.939 -68.19
+    {
+     AFM_StagingPointEntity : "{12C793FDAD299F1C}Prefabs/AI/Waypoints/AFM_StagingPointWaypoint.et" {
+      coords 232.795 14.756 34.51
+     }
+     AFM_VehicleOverwatchEntity : "{E8133452FFB18799}Prefabs/AI/Waypoints/AFM_VehicleOverwatchWaypoint.et" {
+      coords 179.416 7.107 46.422
+     }
+    }
+   }
+   {
+    coords 91.45 6.693 32.349
+    {
+     AFM_StagingPointEntity : "{12C793FDAD299F1C}Prefabs/AI/Waypoints/AFM_StagingPointWaypoint.et" {
+      coords 120.669 13.733 -158.738
      }
     }
    }

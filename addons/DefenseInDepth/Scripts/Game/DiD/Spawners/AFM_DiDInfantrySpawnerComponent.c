@@ -56,11 +56,13 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Infantry-specific spawn logic with optional sequential spawn point selection.
+	//! Infantry-specific spawn logic.
+	//! Assigns a three-waypoint chain: staging point → approach point → zone assault waypoint.
 	//------------------------------------------------------------------------------------------------
 	override protected void SpawnSingleGroup()
 	{
-		if (m_aSpawnPoints.Count() == 0 || m_aAIWaypoints.Count() == 0 || m_aAIGroupPrefabs.Count() == 0)
+		array<ref AFM_DiDApproachRoute> routes = m_Zone.GetApproachRoutes();
+		if (m_aSpawnPoints.Count() == 0 || routes.Count() == 0 || m_aAIGroupPrefabs.Count() == 0)
 			return;
 
 		ResourceName groupPrefab = m_aAIGroupPrefabs.GetRandomElement();
@@ -77,10 +79,20 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 			m_iCurrentSpawnPointIndex = (m_iCurrentSpawnPointIndex + 1) % m_aSpawnPoints.Count();
 		}
 
-		SCR_AIWaypoint waypoint = m_aAIWaypoints.GetRandomElement();
+		AFM_DiDApproachRoute route = routes.GetRandomElement();
 
-		AIGroup group = SpawnAI(groupPrefab, spawnPoint, waypoint);
-		if (group)
-			PrintFormat("AFM_DiDInfantrySpawnerComponent: Spawned infantry group %1", groupPrefab, LogLevel.DEBUG);
+		AIGroup group = SpawnAI(groupPrefab, spawnPoint);
+		if (!group)
+			return;
+
+		// Infantry chain: staging → approach point → zone assault
+		if (route.m_StagingPoint)
+			group.AddWaypoint(route.m_StagingPoint);
+		group.AddWaypoint(route.m_ApproachPoint);
+		AFM_ZoneAssaultWaypointEntity assaultWP = m_Zone.GetAssaultWaypoint();
+		if (assaultWP)
+			group.AddWaypoint(assaultWP);
+
+		PrintFormat("AFM_DiDInfantrySpawnerComponent: Spawned infantry group %1", groupPrefab, LogLevel.DEBUG);
 	}
 }

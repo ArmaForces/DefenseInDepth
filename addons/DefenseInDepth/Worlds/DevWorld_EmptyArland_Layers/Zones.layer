@@ -16,9 +16,6 @@ AFM_ZoneAssaultWaypointEntity : "{5486C59C74086B03}Prefabs/AI/Waypoints/AFM_Zone
 GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
  coords 1756.535 39 2890.292
 }
-AFM_LighthouseEntity : "{B79DD5F41076E0C7}Prefabs/AI/Waypoints/AFM_LighthouseWaypoint.et" {
- coords 1252.639 39 2726.574
-}
 $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
  zone_3 {
   components {
@@ -962,4 +959,7 @@ SCR_AIGroup : "{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et" 
 }
 AFM_VehicleOverwatchEntity : "{E8133452FFB18799}Prefabs/AI/Waypoints/AFM_VehicleOverwatchWaypoint.et" {
  coords 1250.57 39 2729.252
+}
+AFM_ApproachEntity : "{FD1CB619AD6612AC}Prefabs/AI/Waypoints/AFM_ApproachWaypoint.et" {
+ coords 1253.594 39 2724.075
 }

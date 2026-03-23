@@ -1,12 +1,15 @@
 //------------------------------------------------------------------------------------------------
 //! Plain data container describing a single approach route to a zone.
-//! Populated by AFM_DiDSpawnerComponent.Prepare() via BuildRoute() from the spawner hierarchy.
+//! Populated by AFM_DiDZoneComponent.LateInit() via BuildRoute() from the zone's child hierarchy.
 //!
 //! Hierarchy convention:
-//!   AFM_DiD[Infantry/Mechanized]SpawnerComponent
-//!   └── AFM_ApproachEntity          ← place one per route as a direct child of the spawner
-//!       ├── AFM_StagingPointEntity    ← child of the approach point (infantry only)
-//!       └── AFM_VehicleOverwatchEntity ← child of the approach point (mechanized; optional)
+//!   AFM_DiDZoneComponent
+//!   ├── AFM_DiD[Infantry/Mechanized]SpawnerComponent
+//!   │   └── AFM_SpawnPointEntity
+//!   ├── AFM_ZoneAssaultWaypointEntity  ← one, shared by all groups
+//!   └── AFM_ApproachEntity             ← one per route, direct child of zone
+//!       ├── AFM_StagingPointEntity     ← child of approach entity (infantry only)
+//!       └── AFM_VehicleOverwatchEntity ← child of approach entity (mechanized; optional)
 //!
 //! Routes without a VehicleOverwatch are infantry-only.
 //------------------------------------------------------------------------------------------------

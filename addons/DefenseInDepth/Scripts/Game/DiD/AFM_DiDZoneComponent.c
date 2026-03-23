@@ -59,6 +59,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected AFM_DiDAttackerDirector m_Director;
 	// Phase 3: artillery spawn positions on the zone entity (passed to director → artillery)
 	protected ref array<AFM_ArtillerySpawnPointEntity> m_aArtillerySpawnPoints = {};
+	// Approach routes — defined on the zone, shared by all spawners
+	protected ref array<ref AFM_DiDApproachRoute> m_aApproachRoutes = {};
+	protected AFM_ZoneAssaultWaypointEntity m_AssaultWaypoint;
 	protected SCR_ResourceComponent m_SupplyCache;
 
 	// Cached 2D polyline points for zone boundary checks (world-space X/Z pairs)
@@ -79,6 +82,31 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected SCR_Faction m_RedforFaction;
 	protected SCR_Faction m_BluforFaction;
 
+
+	//------------------------------------------------------------------------------------------------
+	//! Build an AFM_DiDApproachRoute from an approach entity and its direct children.
+	//------------------------------------------------------------------------------------------------
+	protected AFM_DiDApproachRoute BuildRoute(AFM_ApproachEntity approachPoint)
+	{
+		AFM_DiDApproachRoute route = new AFM_DiDApproachRoute();
+		route.m_ApproachPoint = approachPoint;
+		route.m_fInfantryTravelTicks = approachPoint.m_fInfantryTravelTicks;
+		route.m_fMechanizedTravelTicks = approachPoint.m_fMechanizedTravelTicks;
+
+		IEntity child = approachPoint.GetChildren();
+		while (child)
+		{
+			if (!route.m_StagingPoint)
+				route.m_StagingPoint = AFM_StagingPointEntity.Cast(child);
+
+			if (!route.m_VehicleOverwatch)
+				route.m_VehicleOverwatch = AFM_VehicleOverwatchEntity.Cast(child);
+
+			child = child.GetSibling();
+		}
+
+		return route;
+	}
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -126,7 +154,14 @@ class AFM_DiDZoneComponent: ScriptComponent
 					AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(e);
 					m_aSpawners.Insert(spawner);
 				break;
-				case AFM_SupplyCacheEntity:
+				// Approach routes — zone owns routes, all spawners share them
+			case AFM_ApproachEntity:
+				m_aApproachRoutes.Insert(BuildRoute(AFM_ApproachEntity.Cast(e)));
+				break;
+			case AFM_ZoneAssaultWaypointEntity:
+				m_AssaultWaypoint = AFM_ZoneAssaultWaypointEntity.Cast(e);
+				break;
+			case AFM_SupplyCacheEntity:
 					m_SupplyCache = SCR_ResourceComponent.Cast(e.FindComponent(SCR_ResourceComponent));
 					break;
 				default:
@@ -150,6 +185,13 @@ class AFM_DiDZoneComponent: ScriptComponent
 
 		if (!m_Director && m_aSpawners.Count() == 0)
 			PrintFormat("AFM_DiDZoneComponent %1: No spawner components found, AI will not spawn!", m_sZoneName, level: LogLevel.WARNING);
+
+		if (m_aApproachRoutes.Count() > 0)
+		{
+			PrintFormat("AFM_DiDZoneComponent %1: Found %2 approach route(s)", m_sZoneName, m_aApproachRoutes.Count());
+			if (!m_AssaultWaypoint)
+				PrintFormat("AFM_DiDZoneComponent %1: No ZoneAssaultWaypoint found — groups have no final objective!", m_sZoneName, level: LogLevel.WARNING);
+		}
 
 		// Wave zone mode: initialize direct spawner children (used by AFM_DiDWaveZoneComponent)
 		foreach (AFM_DiDSpawnerComponent s : m_aSpawners)
@@ -583,6 +625,18 @@ class AFM_DiDZoneComponent: ScriptComponent
 	array<AFM_ArtillerySpawnPointEntity> GetArtillerySpawnPoints()
 	{
 		return m_aArtillerySpawnPoints;
+	}
+
+	//! Approach routes defined on this zone — shared by all spawner children
+	array<ref AFM_DiDApproachRoute> GetApproachRoutes()
+	{
+		return m_aApproachRoutes;
+	}
+
+	//! Final assault waypoint shared by all groups across all routes
+	AFM_ZoneAssaultWaypointEntity GetAssaultWaypoint()
+	{
+		return m_AssaultWaypoint;
 	}
 
 	//------------------------------------------------------------------------------------------------

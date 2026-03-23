@@ -116,10 +116,11 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 
 	//------------------------------------------------------------------------------------------------
 	//! m_iPointCostPerUnit represents cost per whole vehicle group (vehicle + crew).
+	//! Assigns a three-waypoint chain: approach point → vehicle overwatch → zone assault waypoint.
 	//------------------------------------------------------------------------------------------------
 	override protected void SpawnSingleGroup()
 	{
-		if (m_aSpawnPoints.Count() == 0 || m_aAIWaypoints.Count() == 0 || m_aVehiclePrefabs.Count() == 0)
+		if (m_aSpawnPoints.Count() == 0 || m_Zone.GetApproachRoutes().Count() == 0 || m_aVehiclePrefabs.Count() == 0)
 			return;
 
 		if (!m_crewConfig)
@@ -128,6 +129,9 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 		// Budget check — cost is per vehicle, deducted immediately on successful spawn
 		if (!CanSpendBudget(m_iPointCostPerUnit))
 			return;
+
+		array<ref AFM_DiDApproachRoute> routes = m_Zone.GetApproachRoutes();
+		AFM_DiDApproachRoute route = routes.GetRandomElement();
 
 		IEntity vehicle = SpawnPrefab(m_aVehiclePrefabs.GetRandomElement(), m_aSpawnPoints.GetRandomElement());
 		if (!vehicle)
@@ -141,10 +145,20 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 		if (!cm)
 			return;
 
-		AIGroup crew = m_crewConfig.SpawnCrew(cm, m_aAIWaypoints.GetRandomElement());
+		// Crew starts moving toward the approach point immediately
+		AIGroup crew = m_crewConfig.SpawnCrew(cm, route.m_ApproachPoint);
+		if (!crew)
+			return;
+
+		// Mechanized chain: approach point → overwatch position → zone assault
+		if (route.m_VehicleOverwatch)
+			crew.AddWaypoint(route.m_VehicleOverwatch);
+		AFM_ZoneAssaultWaypointEntity assaultWP = m_Zone.GetAssaultWaypoint();
+		if (assaultWP)
+			crew.AddWaypoint(assaultWP);
 
 		// Consume budget immediately — vehicle spawned, cost is committed
-		if (crew && m_Zone && m_Zone.GetBudget())
+		if (m_Zone && m_Zone.GetBudget())
 			m_Zone.GetBudget().Consume(m_iPointCostPerUnit);
 	}
 }
