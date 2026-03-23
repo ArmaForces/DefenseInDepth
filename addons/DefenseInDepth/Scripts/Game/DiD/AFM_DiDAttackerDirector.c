@@ -421,7 +421,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 			}
 			else
 			{
-				PrintFormat("AFM_DiDAttackerDirector: IDLE group — zone captured, stub FindUndercoveredZone returned null — no relocation", LogLevel.DEBUG);
+				PrintFormat("AFM_DiDAttackerDirector: IDLE group — all zones finished or no undercovered zone found, no relocation", LogLevel.DEBUG);
 			}
 		}
 	}
@@ -519,9 +519,10 @@ class AFM_DiDAttackerDirector: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Returns the active (non-finished) zone in the stage that has the fewest AI groups assigned
-	//! relative to its defender count. Used to redirect idle groups after a zone is captured.
-	//! Returns null if no active zone is found or only one zone exists.
+	//! Returns the active (non-finished) zone in the stage with the lowest
+	//! (groupsAssigned / max(1, defenderCount)) ratio.
+	//! Used to redirect idle groups after their assigned zone is captured.
+	//! Returns null when all zones are finished or the stage has only one zone.
 	protected AFM_DiDZoneComponent FindUndercoveredZone()
 	{
 		if (!m_pStage)
@@ -535,12 +536,16 @@ class AFM_DiDAttackerDirector: GenericEntity
 			if (zone.IsZoneFinished())
 				continue;
 
-			int defenders = zone.GetDefenderCount();
-			if (defenders <= 0)
-				continue;
+			// Count groups currently assigned to this zone (en route or engaging)
+			int groupsAssigned = 0;
+			foreach (AFM_DiDGroupEntry entry : m_aGroupRegistry)
+			{
+				if (entry && !entry.m_bPendingRemoval && entry.m_AssignedZone == zone)
+					groupsAssigned++;
+			}
 
-			int aiInZone = zone.GetActiveAICount();
-			float ratio = aiInZone / defenders;
+			int defenders = zone.GetDefenderCount();
+			float ratio = groupsAssigned / Math.Max(1.0, defenders);
 			if (ratio < bestRatio)
 			{
 				bestRatio = ratio;
