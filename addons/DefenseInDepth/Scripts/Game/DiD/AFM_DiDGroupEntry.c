@@ -33,4 +33,8 @@ class AFM_DiDGroupEntry
 
 	//! Number of agents still alive in this group — updated by death event callbacks (B5).
 	int m_iAliveCount;
+
+	//! Dynamically spawned waypoints issued by HandleIdleGroup (patrol/sweep).
+	//! Deleted before issuing a new batch and on director Cleanup().
+	ref array<IEntity> m_aDynamicWaypoints = {};
 }

@@ -242,6 +242,96 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return remainingPlayers;
 	}
 
+	//------------------------------------------------------------------------------------------------
+	//! Builds the flat 2D polygon cache from the polyline entity (world-space X/Z pairs).
+	//! Safe to call multiple times — no-op if already built.
+	protected void BuildPolylineCacheIfNeeded()
+	{
+		if (m_aZonePolylinePoints2D || !m_PolylineEntity)
+			return;
+
+		m_aZonePolylinePoints2D = new array<float>();
+		vector zonePos = m_PolylineEntity.GetOrigin();
+		array<vector> points3d = {};
+		m_PolylineEntity.GetPointsPositions(points3d);
+		foreach (vector p : points3d)
+		{
+			m_aZonePolylinePoints2D.Insert(p[0] + zonePos[0]);
+			m_aZonePolylinePoints2D.Insert(p[2] + zonePos[2]);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns the average world-space position of all polyline vertices at terrain height.
+	vector GetZoneCentroid()
+	{
+		if (!m_PolylineEntity)
+			return GetOwner().GetOrigin();
+
+		vector zonePos = m_PolylineEntity.GetOrigin();
+		array<vector> points = {};
+		m_PolylineEntity.GetPointsPositions(points);
+
+		if (points.Count() == 0)
+			return zonePos;
+
+		float sumX = 0, sumZ = 0;
+		foreach (vector p : points)
+		{
+			sumX += p[0] + zonePos[0];
+			sumZ += p[2] + zonePos[2];
+		}
+
+		float cx = sumX / points.Count();
+		float cz = sumZ / points.Count();
+		float cy = GetGame().GetWorld().GetSurfaceY(cx, cz);
+		return Vector(cx, cy, cz);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns a random world-space point inside the zone polygon at terrain height.
+	//! Falls back to centroid if no valid point is found within maxAttempts tries.
+	vector GetRandomPointInZone(int maxAttempts = 20)
+	{
+		BuildPolylineCacheIfNeeded();
+
+		if (!m_aZonePolylinePoints2D || m_aZonePolylinePoints2D.Count() < 4)
+			return GetZoneCentroid();
+
+		// Bounding box from cached world-space X/Z pairs
+		float minX = m_aZonePolylinePoints2D[0], maxX = minX;
+		float minZ = m_aZonePolylinePoints2D[1], maxZ = minZ;
+		for (int i = 2; i < m_aZonePolylinePoints2D.Count(); i += 2)
+		{
+			float x = m_aZonePolylinePoints2D[i];
+			float z = m_aZonePolylinePoints2D[i + 1];
+			if (x < minX) minX = x;
+			if (x > maxX) maxX = x;
+			if (z < minZ) minZ = z;
+			if (z > maxZ) maxZ = z;
+		}
+
+		for (int i = 0; i < maxAttempts; i++)
+		{
+			float rx = Math.RandomFloat(minX, maxX);
+			float rz = Math.RandomFloat(minZ, maxZ);
+			if (Math2D.IsPointInPolygon(m_aZonePolylinePoints2D, rx, rz))
+			{
+				float ry = GetGame().GetWorld().GetSurfaceY(rx, rz);
+				return Vector(rx, ry, rz);
+			}
+		}
+
+		return GetZoneCentroid();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns true when all defenders have been eliminated (zone lost by defenders).
+	bool IsZoneCaptured()
+	{
+		return m_eZoneState == EAFMZoneState.FINISHED_FAILED;
+	}
+
 	int GetAICountInsideZone()
 	{
 		WorldTimestamp timeStart = GetCurrentTimestamp();
@@ -249,19 +339,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 		if (!m_PolylineEntity)
 			return -1;
 
-		// Build 2D polygon cache once — polyline shape does not move at runtime
-		if (!m_aZonePolylinePoints2D)
-		{
-			m_aZonePolylinePoints2D = new array<float>();
-			vector zonePos = m_PolylineEntity.GetOrigin();
-			array<vector> points3d = {};
-			m_PolylineEntity.GetPointsPositions(points3d);
-			foreach (vector p : points3d)
-			{
-				m_aZonePolylinePoints2D.Insert(p[0] + zonePos[0]);
-				m_aZonePolylinePoints2D.Insert(p[2] + zonePos[2]);
-			}
-		}
+		BuildPolylineCacheIfNeeded();
 
 		array<AIAgent> agents = {};
 		GetGame().GetAIWorld().GetAIAgents(agents);

@@ -197,6 +197,8 @@ class AFM_DiDAttackerDirector: GenericEntity
 					utility.m_GroupInfo.GetOnControlModeChanged().Remove(OnGroupControlModeChanged);
 			}
 
+			ClearDynamicWaypoints(entry);
+
 			array<AIAgent> agents = {};
 			entry.m_Group.GetAgents(agents);
 			foreach (AIAgent agent : agents)
@@ -242,10 +244,118 @@ class AFM_DiDAttackerDirector: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Called when a registered group transitions to IDLE.
-	//! Implemented in B4 — stub logs only.
+	//! Called when a registered group transitions to IDLE (no waypoints, not engaging).
+	//! Three branches:
+	//!   1. Defenders present in zone  → issue patrol waypoints inside zone polygon
+	//!   2. Defenders gone, not captured → issue sweep waypoint at zone centroid
+	//!   3. Zone captured               → relocate to undercovered zone (stub until E2)
 	protected void HandleIdleGroup(AFM_DiDGroupEntry entry)
 	{
+		AFM_DiDZoneComponent zone = entry.m_AssignedZone;
+		if (!zone || !entry.m_Group)
+			return;
+
+		// Clear any previously issued dynamic waypoints before assigning new ones
+		ClearDynamicWaypoints(entry);
+
+		if (zone.GetDefenderCount() > 0)
+		{
+			PrintFormat("AFM_DiDAttackerDirector: IDLE group — defenders present, issuing patrol", LogLevel.DEBUG);
+			IssuePatrolWaypoints(entry);
+		}
+		else if (!zone.IsZoneCaptured())
+		{
+			PrintFormat("AFM_DiDAttackerDirector: IDLE group — zone not captured, issuing sweep", LogLevel.DEBUG);
+			IssueSweepWaypoint(entry);
+		}
+		else
+		{
+			AFM_DiDZoneComponent target = FindUndercoveredZone();
+			if (target)
+			{
+				PrintFormat("AFM_DiDAttackerDirector: IDLE group — zone captured, relocating to zone %1", target.GetZoneName(), LogLevel.DEBUG);
+				AFM_ZoneAssaultWaypointEntity assaultWP = target.GetAssaultWaypoint();
+				if (assaultWP)
+					entry.m_Group.AddWaypoint(assaultWP);
+				entry.m_AssignedZone = target;
+				entry.m_AssignedRoute = null;
+			}
+			else
+			{
+				PrintFormat("AFM_DiDAttackerDirector: IDLE group — zone captured, stub FindUndercoveredZone returned null — no relocation", LogLevel.DEBUG);
+			}
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Issues 2-3 random patrol waypoints inside the zone polygon and assigns them to the group.
+	protected void IssuePatrolWaypoints(AFM_DiDGroupEntry entry)
+	{
+		AFM_DiDZoneComponent zone = entry.m_AssignedZone;
+		int count = 2 + s_AIRandomGenerator.RandInt(0, 1); // 2 or 3
+
+		for (int i = 0; i < count; i++)
+		{
+			vector pos = zone.GetRandomPointInZone();
+			SCR_AIWaypoint wp = SpawnWaypointAt(pos);
+			if (!wp)
+				return;
+			entry.m_aDynamicWaypoints.Insert(wp);
+			entry.m_Group.AddWaypoint(wp);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Issues a single sweep waypoint at the zone centroid.
+	protected void IssueSweepWaypoint(AFM_DiDGroupEntry entry)
+	{
+		vector centroid = entry.m_AssignedZone.GetZoneCentroid();
+		SCR_AIWaypoint wp = SpawnWaypointAt(centroid);
+		if (!wp)
+			return;
+		entry.m_aDynamicWaypoints.Insert(wp);
+		entry.m_Group.AddWaypoint(wp);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Deletes all dynamically spawned waypoints for this entry and clears the list.
+	protected void ClearDynamicWaypoints(AFM_DiDGroupEntry entry)
+	{
+		foreach (IEntity wp : entry.m_aDynamicWaypoints)
+		{
+			if (wp)
+				SCR_EntityHelper.DeleteEntityAndChildren(wp);
+		}
+		entry.m_aDynamicWaypoints.Clear();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Spawns a move waypoint prefab at the given world position.
+	//! Returns null and logs a warning if the prefab is not configured.
+	protected SCR_AIWaypoint SpawnWaypointAt(vector pos)
+	{
+		AFM_DiDCommanderConfig config = AFM_DiDCommanderConfig.GetInstance();
+		if (!config || config.m_sMoveWaypointPrefab == string.Empty)
+		{
+			PrintFormat("AFM_DiDAttackerDirector: m_sMoveWaypointPrefab not configured in AFM_DiDCommanderConfig!", LogLevel.WARNING);
+			return null;
+		}
+
+		EntitySpawnParams spawnParams = new EntitySpawnParams();
+		Math3D.MatrixIdentity4(spawnParams.Transform);
+		spawnParams.Transform[3] = pos;
+
+		IEntity entity = GetGame().SpawnEntityPrefab(Resource.Load(config.m_sMoveWaypointPrefab), GetGame().GetWorld(), spawnParams);
+		return SCR_AIWaypoint.Cast(entity);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Stub — returns null until Phase E provides stage-wide zone access.
+	//! Full implementation: find zone with lowest (groupsEnRoute + groupsEngaging) / playerCount ratio.
+	//! TODO E2: implement using AFM_DiDStageContext.GetActiveZones()
+	protected AFM_DiDZoneComponent FindUndercoveredZone()
+	{
+		return null;
 	}
 
 	//------------------------------------------------------------------------------------------------
