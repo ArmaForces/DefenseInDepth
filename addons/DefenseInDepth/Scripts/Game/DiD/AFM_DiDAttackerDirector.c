@@ -854,12 +854,22 @@ class AFM_DiDAttackerDirector: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Execute a combined-arms package: consume budget, fire artillery pre-assault, spawn infantry
-	//! and mechanized. F3 replaces the mechanized spawn with a staggered-timing delayed call.
+	//! Execute a combined-arms package with staggered arrival timing.
+	//!
+	//! Order of events:
+	//!   t=0       Artillery pre-assault fire mission (if configured and active)
+	//!   t=0       Infantry spawns immediately
+	//!   t=delay   Mechanized spawns after a calculated delay so both reach the zone together
+	//!
+	//! Delay formula: Max(0, (infantryTravelTicks - mechTravelTicks) * decisionIntervalMs)
+	//! If mechanized is already slower than infantry the delay is 0 — they spawn together.
 	protected void ExecutePackage(AFM_DiDAssaultPackage package, AFM_DiDBattlefieldState state, WorldTimestamp now)
 	{
-		PrintFormat("AFM_DiDAttackerDirector: Issuing assault package (cost=%1 pts, artillery=%2)",
-			package.m_iTotalCost, package.m_Artillery != null);
+		PrintFormat("AFM_DiDAttackerDirector: Issuing assault package (cost=%1 pts, route travel inf=%2 mech=%3 ticks, artillery=%4)",
+			package.m_iTotalCost,
+			package.m_Route.m_fInfantryTravelTicks,
+			package.m_Route.m_fMechanizedTravelTicks,
+			package.m_Artillery != null);
 
 		AFM_DiDAttackerBudget budget = m_pStage.GetBudget();
 		if (budget)
@@ -871,7 +881,29 @@ class AFM_DiDAttackerDirector: GenericEntity
 		package.m_InfantrySpawner.TriggerSpawn(now, 1);
 
 		if (package.m_MechanizedSpawner)
-			package.m_MechanizedSpawner.TriggerSpawn(now, 1);
+		{
+			float travelDiff = package.m_fTargetArrivalTicks - package.m_Route.m_fMechanizedTravelTicks;
+			int delayMs = Math.Max(0, Math.Round(travelDiff * m_iDecisionIntervalSeconds * 1000));
+
+			if (delayMs <= 0)
+				package.m_MechanizedSpawner.TriggerSpawn(now, 1);
+			else
+				GetGame().GetCallqueue().CallLater(SpawnMechanized, delayMs, false, package);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Delayed callback — spawns the mechanized element of a package at the calculated offset.
+	//! Called by ExecutePackage via CallLater; gets a fresh timestamp at execution time.
+	protected void SpawnMechanized(AFM_DiDAssaultPackage package)
+	{
+		if (!package || !package.m_MechanizedSpawner)
+			return;
+
+		ChimeraWorld world = GetGame().GetWorld();
+		WorldTimestamp now = world.GetServerTimestamp();
+		package.m_MechanizedSpawner.TriggerSpawn(now, 1);
+		PrintFormat("AFM_DiDAttackerDirector: Package — mechanized element spawned (staggered)");
 	}
 
 	//------------------------------------------------------------------------------------------------
