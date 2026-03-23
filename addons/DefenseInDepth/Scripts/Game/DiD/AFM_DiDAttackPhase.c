@@ -21,4 +21,6 @@ class AFM_DiDBattlefieldState
 	float m_fAliveDefenders;	//! Alive defender count as a float — used by artillery HE threshold comparisons
 	EAFMAttackPhase m_ePhase;	//! Attack phase derived from budget ratio
 	bool m_bIsNight;			//! True when TimeAndWeatherManagerEntity.IsSunSet() returns true
+	float m_fZoneCaptureProgress;	//! 0.0 (player-held) → 1.0 (AI-captured) — updated each zone tick
+	int m_iZoneStallTicks;			//! Consecutive ticks with no capture progress change — signals a deadlock
 }

@@ -731,6 +731,9 @@ class AFM_DiDAttackerDirector: GenericEntity
 		else
 			state.m_ePhase = EAFMAttackPhase.FINAL;
 
+		state.m_fZoneCaptureProgress = m_pZone.GetCaptureProgress();
+		state.m_iZoneStallTicks = m_pZone.GetStallTicks();
+
 		// Day/night via TimeAndWeatherManagerEntity.IsSunSet()
 		ChimeraWorld chimeraWorld = ChimeraWorld.CastFrom(GetGame().GetWorld());
 		if (chimeraWorld)

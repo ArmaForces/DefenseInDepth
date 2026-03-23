@@ -8,6 +8,7 @@ enum EAFMZoneState
 	FINISHED_HELD,		// Zone successfully defended — timer expired
 	FINISHED_FAILED,	// Zone lost — all defenders eliminated
 	FINISHED_REPELLED,	// Zone successfully defended — attacker budget exhausted and all AI cleared
+	FINISHED_CAPTURED,	// Zone lost — AI held capture progress at 1.0 (progressive capture)
 
 	// Wave zone specific states
 	WAVE_COMPLETE		// Wave cleared, preparing for next wave
@@ -50,6 +51,14 @@ class AFM_DiDZoneComponent: ScriptComponent
 
 	[Attribute("3.0", UIWidgets.EditBox, "Time multiplier when all tickets exhausted (e.g. 3.0 = 3x faster). Only applies when spawners use the ticket system.", category: "DiD")]
 	protected float m_fTicketExhaustTimeMultiplier;
+
+	[Attribute("0.02", UIWidgets.EditBox, "Capture progress rate per second when AI outnumbers defenders (default 0.02 ≈ 50s for full capture)", category: "DiD Zone")]
+	protected float m_fCaptureRatePerSecond;
+
+	// Capture progress runtime state — server-only, not replicated
+	protected float m_fCaptureProgress = 0.0;
+	protected int m_iStallTicks = 0;
+	protected float m_fLastCaptureProgress = 0.0;
 
 	protected PolylineShapeEntity m_PolylineEntity;
 	protected AFM_PlayerSpawnPointEntity m_PlayerSpawnPoint;
@@ -408,6 +417,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 		PrintFormat("AFM_DiDZoneComponent %1: FINISHED_REPELLED - Attacker budget exhausted, assault repelled!", m_sZoneName);
 	}
 
+	protected void FinishZoneCaptured()
+	{
+		m_eZoneState = EAFMZoneState.FINISHED_CAPTURED;
+		PrintFormat("AFM_DiDZoneComponent %1: FINISHED_CAPTURED - AI held capture progress to 1.0!", m_sZoneName);
+	}
+
 	protected void FreezeZone()
 	{
 		if (m_eZoneState != EAFMZoneState.ACTIVE)
@@ -476,6 +491,27 @@ class AFM_DiDZoneComponent: ScriptComponent
 			return m_eZoneState;
 		}
 
+		// Capture progress — advances when AI outnumbers defenders, retreats when defenders lead
+		if (attackerCount > defenderCount)
+			m_fCaptureProgress += m_fCaptureRatePerSecond;
+		else if (defenderCount > attackerCount)
+			m_fCaptureProgress -= m_fCaptureRatePerSecond;
+
+		m_fCaptureProgress = Math.Clamp(m_fCaptureProgress, 0.0, 1.0);
+
+		// Stall detection — consecutive ticks with no meaningful change
+		if (Math.AbsFloat(m_fCaptureProgress - m_fLastCaptureProgress) < 0.001)
+			m_iStallTicks++;
+		else
+			m_iStallTicks = 0;
+		m_fLastCaptureProgress = m_fCaptureProgress;
+
+		if (m_fCaptureProgress >= 1.0)
+		{
+			FinishZoneCaptured();
+			return m_eZoneState;
+		}
+
 		// Freeze/unfreeze zone timer
 		if (m_bStopTimerOnRedforSuperiority)
 		{
@@ -533,6 +569,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 			case EAFMZoneState.FINISHED_HELD:
 			case EAFMZoneState.FINISHED_FAILED:
 			case EAFMZoneState.FINISHED_REPELLED:
+		case EAFMZoneState.FINISHED_CAPTURED:
 				return m_eZoneState;
 			case EAFMZoneState.PREPARE:
 				return HandlePrepareLogic();
@@ -568,12 +605,16 @@ class AFM_DiDZoneComponent: ScriptComponent
 	{
 		return m_eZoneState == EAFMZoneState.FINISHED_HELD
 			|| m_eZoneState == EAFMZoneState.FINISHED_FAILED
-			|| m_eZoneState == EAFMZoneState.FINISHED_REPELLED;
+			|| m_eZoneState == EAFMZoneState.FINISHED_REPELLED
+			|| m_eZoneState == EAFMZoneState.FINISHED_CAPTURED;
 	}
 
 	void ActivateZone()
 	{
 		m_bTicketsExhaustedNotified = false;
+		m_fCaptureProgress = 0.0;
+		m_iStallTicks = 0;
+		m_fLastCaptureProgress = 0.0;
 
 		// Initialize budget if configured
 		if (m_iPointsBudget > 0)
@@ -691,6 +732,16 @@ class AFM_DiDZoneComponent: ScriptComponent
 	float GetBudgetRolloverFraction()
 	{
 		return m_fBudgetRolloverFraction;
+	}
+
+	float GetCaptureProgress()
+	{
+		return m_fCaptureProgress;
+	}
+
+	int GetStallTicks()
+	{
+		return m_iStallTicks;
 	}
 
 	//! Total defense time in seconds — used by director for time ratio calculation

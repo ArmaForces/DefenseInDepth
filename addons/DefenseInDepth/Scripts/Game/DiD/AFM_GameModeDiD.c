@@ -91,6 +91,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			m_ZoneSystem.GetOnZoneHeld().Insert(OnZoneHeld);
 			m_ZoneSystem.GetOnZoneRepelled().Insert(OnZoneRepelled);
 			m_ZoneSystem.GetOnZoneFailed().Insert(OnZoneFailed);
+			m_ZoneSystem.GetOnZoneCaptured().Insert(OnZoneCaptured);
 			m_ZoneSystem.GetOnWaveCompleted().Insert(OnWaveCompleted);
 		}
 	}
@@ -166,6 +167,13 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	{
 		RPC_DoZoneFailed(zoneIndex);
 		Rpc(RPC_DoZoneFailed, zoneIndex);
+	}
+
+	//! AI held progressive capture to 1.0 — zone captured, progressing to next
+	protected void OnZoneCaptured(int zoneIndex)
+	{
+		RPC_DoZoneCaptured(zoneIndex);
+		Rpc(RPC_DoZoneCaptured, zoneIndex);
 	}
 
 	//! Wave zone wave cleared
@@ -333,6 +341,13 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	protected void RPC_DoZoneFailed(int zoneIndex)
 	{
 		SCR_ChatComponent.RadioProtocolMessage("Position overrun. All units fall back and regroup at the next position.");
+	}
+
+	//! Zone captured — AI held progressive capture to 1.0
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoZoneCaptured(int zoneIndex)
+	{
+		SCR_ChatComponent.RadioProtocolMessage("Zone lost to enemy occupation. All units fall back to the next position immediately.");
 	}
 
 	//! New zone is now active

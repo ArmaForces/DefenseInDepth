@@ -52,6 +52,10 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 		if (state.m_fBudgetRatio < 0.15)
 			score -= 0.5;
 
+		// Deadlock: zone stalled for 2+ ticks — more infantry won't break it, save budget
+		if (state.m_iZoneStallTicks >= 2)
+			score -= 2.0;
+
 		return score;
 	}
 

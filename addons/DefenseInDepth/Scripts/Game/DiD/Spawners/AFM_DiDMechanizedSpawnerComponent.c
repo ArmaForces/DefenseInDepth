@@ -67,6 +67,11 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 		if (m_bRequireMinAI && state.m_iTotalActiveAI < m_iMinAIThreshold)
 			score -= 0.1;
 
+		// Deadlock: zone stalled for 2+ ticks — armor is a good escalation option here
+		// (unlike infantry, mechanized gets a smaller penalty since it may break the stall)
+		if (state.m_iZoneStallTicks >= 2)
+			score -= 0.5;
+
 		return score;
 	}
 

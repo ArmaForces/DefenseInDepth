@@ -14,6 +14,7 @@ class AFM_DiDZoneSystem: GameSystem
 	protected ref ScriptInvoker m_OnZoneHeld;
 	protected ref ScriptInvoker m_OnZoneRepelled;	// Invoked when attacker budget exhausted + zone cleared
 	protected ref ScriptInvoker m_OnZoneFailed;		// Invoked with (int zoneIndex) when defenders are eliminated
+	protected ref ScriptInvoker m_OnZoneCaptured;	// Invoked with (int zoneIndex) when AI holds capture progress to 1.0
 	protected ref ScriptInvoker m_OnWaveCompleted;	// Invoked with (int wave, int totalWaves) when a wave is cleared
 
 	// Game mode reference
@@ -165,6 +166,16 @@ class AFM_DiDZoneSystem: GameSystem
 			PrintFormat("AFM_DiDZoneSystem: All defenders eliminated in zone %1", zoneIndex);
 			if (m_OnZoneFailed)
 				m_OnZoneFailed.Invoke(zoneIndex);
+			ProgressToNextZone();
+			return;
+		}
+
+		// Zone captured — AI held progressive capture to 1.0; fire distinct event before advancing
+		if (currentState == EAFMZoneState.FINISHED_CAPTURED)
+		{
+			PrintFormat("AFM_DiDZoneSystem: Zone %1 captured by AI (progressive capture)", zoneIndex);
+			if (m_OnZoneCaptured)
+				m_OnZoneCaptured.Invoke(zoneIndex);
 			ProgressToNextZone();
 			return;
 		}
@@ -397,6 +408,14 @@ class AFM_DiDZoneSystem: GameSystem
 		if (!m_OnZoneRepelled)
 			m_OnZoneRepelled = new ScriptInvoker();
 		return m_OnZoneRepelled;
+	}
+
+	//! Fired with (int zoneIndex) when AI holds progressive capture to 1.0
+	ScriptInvoker GetOnZoneCaptured()
+	{
+		if (!m_OnZoneCaptured)
+			m_OnZoneCaptured = new ScriptInvoker();
+		return m_OnZoneCaptured;
 	}
 
 	//! Fired with (int zoneIndex) when all defenders in a zone are eliminated
