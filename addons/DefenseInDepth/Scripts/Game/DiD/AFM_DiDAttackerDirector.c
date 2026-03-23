@@ -607,6 +607,18 @@ class AFM_DiDAttackerDirector: GenericEntity
 
 		AFM_DiDBattlefieldState state = BuildBattlefieldState(now);
 
+		// --- Package path (takes priority over single-spawner pick during stalls) ---
+		if (ShouldIssuePackage(state))
+		{
+			AFM_DiDAssaultPackage package = BuildBestPackage(state, now);
+			AFM_DiDAttackerBudget packageBudget = m_pStage.GetBudget();
+			if (package && (!packageBudget || packageBudget.CanAfford(package.m_iTotalCost)))
+			{
+				ExecutePackage(package, state, now);
+				return;
+			}
+		}
+
 		// --- Spawner selection ---
 		ref array<ref AFM_DiDSpawnRequest> candidates = {};
 
@@ -734,6 +746,132 @@ class AFM_DiDAttackerDirector: GenericEntity
 		}
 
 		return candidates[0];
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns true when a combined-arms package should replace the normal single-spawner pick.
+	//! Conditions: ASSAULT or FINAL phase, zone stalled for 2+ ticks, both spawner types affordable.
+	protected bool ShouldIssuePackage(AFM_DiDBattlefieldState state)
+	{
+		if (state.m_ePhase == EAFMAttackPhase.PROBE)
+			return false;
+
+		if (state.m_iZoneStallTicks < 2)
+			return false;
+
+		AFM_DiDAttackerBudget budget = m_pStage.GetBudget();
+		bool hasInfantry = false;
+		bool hasMechanized = false;
+
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			if (!spawner)
+				continue;
+
+			int cost = spawner.GetPointCostPerUnit();
+			if (budget && !budget.CanAfford(cost))
+				continue;
+
+			if (AFM_DiDInfantrySpawnerComponent.Cast(spawner))
+				hasInfantry = true;
+			else if (AFM_DiDMechanizedSpawnerComponent.Cast(spawner))
+				hasMechanized = true;
+
+			if (hasInfantry && hasMechanized)
+				return true;
+		}
+
+		return hasInfantry && hasMechanized;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Builds the best combined-arms package for the current battlefield state.
+	//! Spawners are picked randomly from eligible pools; route is picked randomly from all
+	//! off-cooldown routes across active zones.
+	//! Returns null when a complete package cannot be assembled.
+	protected AFM_DiDAssaultPackage BuildBestPackage(AFM_DiDBattlefieldState state, WorldTimestamp now)
+	{
+		AFM_DiDAttackerBudget budget = m_pStage.GetBudget();
+
+		// Collect eligible spawners into typed pools
+		ref array<AFM_DiDInfantrySpawnerComponent> infantryPool = {};
+		ref array<AFM_DiDMechanizedSpawnerComponent> mechanizedPool = {};
+
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			if (!spawner || !spawner.CanSpawnNow(now))
+				continue;
+
+			if (budget && !budget.CanAfford(spawner.GetPointCostPerUnit()))
+				continue;
+
+			AFM_DiDInfantrySpawnerComponent inf = AFM_DiDInfantrySpawnerComponent.Cast(spawner);
+			if (inf)
+			{
+				infantryPool.Insert(inf);
+				continue;
+			}
+
+			AFM_DiDMechanizedSpawnerComponent mech = AFM_DiDMechanizedSpawnerComponent.Cast(spawner);
+			if (mech)
+				mechanizedPool.Insert(mech);
+		}
+
+		if (infantryPool.IsEmpty() || mechanizedPool.IsEmpty())
+			return null;
+
+		AFM_DiDInfantrySpawnerComponent infantrySpawner = infantryPool.GetRandomElement();
+		AFM_DiDMechanizedSpawnerComponent mechanizedSpawner = mechanizedPool.GetRandomElement();
+
+		// Collect all off-cooldown routes across active zones, then pick one at random
+		ref array<AFM_DiDApproachRoute> routePool = {};
+		foreach (AFM_DiDZoneComponent zone : m_pStage.GetZones())
+		{
+			if (zone.IsZoneFinished())
+				continue;
+
+			foreach (AFM_DiDApproachRoute r : zone.GetApproachRoutes())
+			{
+				if (r.m_iCooldownTicksRemaining <= 0)
+					routePool.Insert(r);
+			}
+		}
+
+		if (routePool.IsEmpty())
+			return null;
+
+		AFM_DiDApproachRoute route = routePool.GetRandomElement();
+
+		return new AFM_DiDAssaultPackage(
+			infantrySpawner,
+			infantrySpawner.GetPointCostPerUnit(),
+			route,
+			route.m_fInfantryTravelTicks,
+			mechanizedSpawner,
+			mechanizedSpawner.GetPointCostPerUnit(),
+			m_pArtillery,
+			EAFMRoundType.SMOKE);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Execute a combined-arms package: consume budget, fire artillery pre-assault, spawn infantry
+	//! and mechanized. F3 replaces the mechanized spawn with a staggered-timing delayed call.
+	protected void ExecutePackage(AFM_DiDAssaultPackage package, AFM_DiDBattlefieldState state, WorldTimestamp now)
+	{
+		PrintFormat("AFM_DiDAttackerDirector: Issuing assault package (cost=%1 pts, artillery=%2)",
+			package.m_iTotalCost, package.m_Artillery != null);
+
+		AFM_DiDAttackerBudget budget = m_pStage.GetBudget();
+		if (budget)
+			budget.Consume(package.m_iTotalCost);
+
+		if (package.m_Artillery && package.m_Artillery.IsMortarActive())
+			package.m_Artillery.TriggerMission(state, now);
+
+		package.m_InfantrySpawner.TriggerSpawn(now, 1);
+
+		if (package.m_MechanizedSpawner)
+			package.m_MechanizedSpawner.TriggerSpawn(now, 1);
 	}
 
 	//------------------------------------------------------------------------------------------------
