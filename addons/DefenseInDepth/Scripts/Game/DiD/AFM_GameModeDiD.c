@@ -280,6 +280,20 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		Rpc(RPC_DoMortarDestroyed);
 	}
 
+	//! Called by AFM_DiDStage on the first tick AI holds zone majority.
+	void NotifyMajorityLost()
+	{
+		RPC_DoMajorityLost();
+		Rpc(RPC_DoMajorityLost);
+	}
+
+	//! Called by AFM_DiDStage when defenders retake zone majority.
+	void NotifyMajorityRecaptured()
+	{
+		RPC_DoMajorityRecaptured();
+		Rpc(RPC_DoMajorityRecaptured);
+	}
+
 	//------------------------------------------------------------------------------------------------
 	// Broadcast RPCs
 	//------------------------------------------------------------------------------------------------
@@ -327,6 +341,20 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	protected void RPC_DoMortarDestroyed()
 	{
 		SCR_ChatComponent.RadioProtocolMessage("Enemy fire support eliminated. Well done.");
+	}
+
+	//! AI holds zone majority for the first time this stage
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoMajorityLost()
+	{
+		SCR_ChatComponent.RadioProtocolMessage("Warning: enemy holds the majority of our positions. Fall back or retake — you have limited time!");
+	}
+
+	//! Defenders retook zone majority
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoMajorityRecaptured()
+	{
+		SCR_ChatComponent.RadioProtocolMessage("Majority recaptured. Hold your ground!");
 	}
 
 	//! Defenders repelled the assault (budget exhausted + zone cleared)

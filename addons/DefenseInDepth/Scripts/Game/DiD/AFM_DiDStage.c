@@ -179,16 +179,12 @@ class AFM_DiDStage: GenericEntity
 
 	//------------------------------------------------------------------------------------------------
 	//! Called once per second by the zone system while this stage is active.
-	//! Runs the director decision cycle, processes each zone, and evaluates E3 majority timer.
+	//! Processes each zone, then runs the director decision cycle (skipped during PREPARE).
 	//! Returns the aggregate state that the zone system uses to check completion.
 	EAFMZoneState ProcessZones()
 	{
 		if (m_aZones.IsEmpty())
 			return EAFMZoneState.INACTIVE;
-
-		// Director runs once per stage tick, not once per zone
-		if (m_Director)
-			m_Director.Process();
 
 		// Process each zone and collect terminal states
 		bool anyNonFinished = false;
@@ -221,6 +217,10 @@ class AFM_DiDStage: GenericEntity
 			}
 		}
 
+		// Director runs only while zones are active — not during preparation countdown
+		if (m_Director && !allPrepare)
+			m_Director.Process();
+
 		if (!anyNonFinished)
 		{
 			// All zones have finished — determine stage outcome
@@ -240,8 +240,12 @@ class AFM_DiDStage: GenericEntity
 		}
 
 		// E3: if AI holds majority, tick timer; sustained majority = stage lost
+		AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
 		if (IsMajorityCaptured())
 		{
+			if (m_fAIMajorityHeldSeconds == 0.0 && gamemode)
+				gamemode.NotifyMajorityLost();
+
 			m_fAIMajorityHeldSeconds += 1.0;
 			if (m_fMajorityLostThresholdSeconds > 0 && m_fAIMajorityHeldSeconds >= m_fMajorityLostThresholdSeconds)
 			{
@@ -251,6 +255,9 @@ class AFM_DiDStage: GenericEntity
 		}
 		else
 		{
+			if (m_fAIMajorityHeldSeconds > 0.0 && gamemode)
+				gamemode.NotifyMajorityRecaptured();
+
 			m_fAIMajorityHeldSeconds = 0.0;
 		}
 
