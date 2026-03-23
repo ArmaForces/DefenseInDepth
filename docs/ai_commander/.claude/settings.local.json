@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "mcp__enfusion-mcp__api_search",
-      "mcp__enfusion-mcp__wiki_search"
+      "mcp__enfusion-mcp__wiki_search",
+      "mcp__enfusion-mcp__project_browse",
+      "Bash(grep -h \"^AFM_\\\\|^ ID\\\\|  MeshObject\\\\|  Hierarchy\" C:/Users/nielu/Projects/armaforces/DefenseInDepth/addons/DefenseInDepth/Prefabs/AI/Waypoints/AFM_*.et)"
     ]
   }
 }

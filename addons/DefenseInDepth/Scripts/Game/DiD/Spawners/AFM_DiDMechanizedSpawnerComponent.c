@@ -15,9 +15,6 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	[Attribute("10", UIWidgets.EditBox, "Minimum AI count before spawning mechanized groups", category: "DiD Mechanized Spawner")]
 	protected int m_iMinAIThreshold;
 
-	[Attribute("2", UIWidgets.EditBox, "Delay multiplier for mechanized spawns (slower than infantry)", category: "DiD Mechanized Spawner")]
-	protected float m_fDelayMultiplier;
-
 	[Attribute("1", UIWidgets.CheckBox, "Spawn in coordinated groups", category: "DiD Mechanized Spawner")]
 	protected bool m_bCoordinatedSpawn;
 
@@ -33,11 +30,7 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	override void Prepare(AFM_DiDZoneComponent owner)
 	{
 		super.Prepare(owner);
-
-		m_iWaveIntervalSeconds = Math.Ceil(m_iWaveIntervalSeconds * m_fDelayMultiplier);
-
-		PrintFormat("AFM_DiDMechanizedSpawnerComponent: Mechanized spawner initialized with %1s interval",
-			m_iWaveIntervalSeconds, LogLevel.DEBUG);
+		PrintFormat("AFM_DiDMechanizedSpawnerComponent: Mechanized spawner initialized", LogLevel.DEBUG);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -49,9 +42,6 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	//!   +1.0  if budget ratio > 0.6                   (still have plenty — escalate)
 	//!   +1.5  if defenders > 5                        (many defenders = armor-favourable)
 	//!   -0.1  if m_bRequireMinAI and threshold not met (precondition not satisfied)
-	//!
-	//! The director respects CanSpawnNow() so the mechanized cooldown (wave interval ×
-	//! m_fDelayMultiplier) is already enforced before ScoreRequest is called.
 	//------------------------------------------------------------------------------------------------
 	override float ScoreRequest(AFM_DiDBattlefieldState state)
 	{

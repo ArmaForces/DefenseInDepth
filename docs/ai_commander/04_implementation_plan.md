@@ -21,7 +21,7 @@ Before building new features, strip out legacy patterns that would otherwise nee
 - `AFM_DiDInfantrySpawnerComponent` — remove overridden `Process()`
 - `AFM_DiDZoneComponent` — remove legacy `m_aSpawners` array, `HandleLegacySpawners()`, any direct spawner `Process()` calls. Director is always required.
 - `AFM_DiDWaveZoneComponent` — remove `GetRemainingTickets()` and any other references to the per-spawner ticket system. Audit for any remaining ticket-related fields on this class before marking complete.
-- `AFM_DiDWaveSpawnerComponent` — remove `IsActive()` / `IsInActiveRange()` wave range gating (wave difficulty is now handled by the director directly, not per-spawner filters)
+- `AFM_DiDWaveSpawnerComponent` — remove `IsActive()` /  `IsInActiveRange()` wave range gating (wave difficulty is now handled by the director directly, not per-spawner filters)
 
 **Remove from `AFM_DiDSpawnerComponent`:**
 - `m_aAIWaypoints` field and its collection in `Prepare()` — replaced by route collection in A3

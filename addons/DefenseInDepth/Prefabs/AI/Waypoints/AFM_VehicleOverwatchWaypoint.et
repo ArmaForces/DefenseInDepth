@@ -1,0 +1,21 @@
+AFM_VehicleOverwatchEntity {
+ ID "7F6766D89F4E4807"
+ components {
+  MeshObject "5E7F899840474AAF" {
+   Object "{16D18A4925ADB872}system/wbdata/MaterialEditor/MaterialSphere.xob"
+   Materials {
+    MaterialAssignClass "44A807D4B6D2459B" {
+     SourceMaterial "DummyMaterial"
+     AssignedMaterial "{0058962187F9321A}system/wbdata/Gizmo3D/gizmo3D.emat"
+    }
+   }
+  }
+  Hierarchy "75C25D612D2D448A" {
+  }
+ }
+ Type "Overwatch"
+ Title "Waypoint overwatch"
+ AIBehaviorTree "{B3B5C3DEED39F11D}AI/BehaviorTrees/Waypoints/WP_Scout.bt"
+ AIBehaviorTreeMoveTo "{A3755C1F88DED8D6}AI/BehaviorTrees/Waypoints/WP_Move.bt"
+ Autocomplete 0
+}

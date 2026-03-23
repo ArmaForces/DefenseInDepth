@@ -29,12 +29,6 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	[Attribute("1", UIWidgets.EditBox, "Random variance applied to spawn count per wave (actual = base ± variance)", category: "DiD Spawner")]
 	protected int m_iSpawnCountVariance;
 
-	[Attribute("0", UIWidgets.CheckBox, "Use ticket system (limits total spawns)", category: "DiD Spawner")]
-	protected bool m_bUseTickets;
-
-	[Attribute("0", UIWidgets.EditBox, "Max tickets for spawning (0 = unlimited, only used if tickets enabled)", category: "DiD Spawner")]
-	protected int m_iMaxTickets;
-
 	[Attribute("1", UIWidgets.EditBox, "Budget points consumed per spawned unit (used when zone has a budget)", category: "DiD Budget")]
 	protected int m_iPointCostPerUnit;
 
@@ -43,7 +37,9 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	protected ref array<SCR_AIWaypoint> m_aAIWaypoints = {};
 	protected ref array<AIGroup> m_aSpawnedAIGroups = {};
 	protected WorldTimestamp m_fLastSpawnTime;
-	protected int m_iRemainingTickets;
+	protected int m_iRemainingTickets = 0;
+	//! True once SetRemainingTickets() has been called — signals ticket-mode is active for this wave.
+	protected bool m_bTicketModeActive = false;
 
 	//------------------------------------------------------------------------------------------------
 	// Prepare method - called by owner zone component (or director) on start
@@ -51,12 +47,6 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	void Prepare(AFM_DiDZoneComponent owner)
 	{
 		m_Zone = owner;
-
-		if (m_bUseTickets)
-		{
-			m_iRemainingTickets = m_iMaxTickets;
-			PrintFormat("AFM_DiDSpawnerComponent: Tickets enabled with %1 tickets", m_iMaxTickets, LogLevel.DEBUG);
-		}
 
 		IEntity child = GetChildren();
 		while (child)
@@ -103,7 +93,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		if (state != EAFMZoneState.ACTIVE && state != EAFMZoneState.FROZEN)
 			return;
 
-		if (m_bUseTickets && m_iRemainingTickets <= 0)
+		if (m_bTicketModeActive && m_iRemainingTickets <= 0)
 			return;
 
 		ChimeraWorld world = GetGame().GetWorld();
@@ -270,7 +260,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	//------------------------------------------------------------------------------------------------
 	protected void SpawnSingleGroup()
 	{
-		if (m_bUseTickets && GetRemainingTickets() <= 0)
+		if (m_bTicketModeActive && m_iRemainingTickets <= 0)
 		{
 			PrintFormat("AFM_DiDSpawnerComponent: No tickets remaining, cannot spawn", LogLevel.DEBUG);
 			return;
@@ -384,7 +374,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 
 	void ConsumeTickets(int ticketCount)
 	{
-		if (!m_bUseTickets || m_iRemainingTickets <= 0)
+		if (m_iRemainingTickets <= 0)
 			return;
 
 		m_iRemainingTickets = m_iRemainingTickets - ticketCount;
@@ -399,6 +389,8 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	void SetRemainingTickets(int tickets)
 	{
 		m_iRemainingTickets = tickets;
+		if (tickets > 0)
+			m_bTicketModeActive = true;
 		PrintFormat("AFM_DiDSpawnerComponent: Tickets set to %1", tickets, LogLevel.DEBUG);
 	}
 
@@ -407,9 +399,9 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		return true;
 	}
 
-	//! Returns true if this spawner uses the ticket system.
+	//! Returns true once ticket-mode has been activated via SetRemainingTickets() (used by wave zone).
 	bool IsTicketBased()
 	{
-		return m_bUseTickets;
+		return m_bTicketModeActive;
 	}
 }

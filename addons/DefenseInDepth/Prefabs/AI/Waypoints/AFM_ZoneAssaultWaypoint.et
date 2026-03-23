@@ -1,0 +1,22 @@
+AFM_ZoneAssaultWaypointEntity {
+ ID "57821F4D0CD5443C"
+ components {
+  MeshObject "64FFF9B3A3B443D1" {
+   Object "{16D18A4925ADB872}system/wbdata/MaterialEditor/MaterialSphere.xob"
+   Materials {
+    MaterialAssignClass "46849BC5A25743BA" {
+     SourceMaterial "DummyMaterial"
+     AssignedMaterial "{0058962187F9321A}system/wbdata/Gizmo3D/gizmo3D.emat"
+    }
+   }
+  }
+  Hierarchy "64FFF9B3A3B443D2" {
+  }
+ }
+ Type "Assault"
+ Title "Waypoint assault"
+ AIBehaviorTree "{573614D962C311BB}AI/BehaviorTrees/Waypoints/WP_SearchAndDestroy.bt"
+ AIBehaviorTreeMoveTo "{A3755C1F88DED8D6}AI/BehaviorTrees/Waypoints/WP_Move.bt"
+ CompletionRadius 50
+ Autocomplete 0
+}

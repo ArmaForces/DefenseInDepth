@@ -1,0 +1,22 @@
+AFM_StagingPointEntity {
+ ID "F990EDBC4D3E413E"
+ components {
+  MeshObject "378A5EF1B9AA44FE" {
+   Object "{16D18A4925ADB872}system/wbdata/MaterialEditor/MaterialSphere.xob"
+   Materials {
+    MaterialAssignClass A1C1837AB46448FF {
+     SourceMaterial "DummyMaterial"
+     AssignedMaterial "{0058962187F9321A}system/wbdata/Gizmo3D/gizmo3D.emat"
+    }
+   }
+  }
+  Hierarchy A072B918480C43B0 {
+  }
+ }
+ Type "Staging"
+ Title "Waypoint staging"
+ AIBehaviorTree "{4583783F882CEAB6}AI/BehaviorTrees/Waypoints/WP_Wait.bt"
+ AIBehaviorTreeMoveTo "{A3755C1F88DED8D6}AI/BehaviorTrees/Waypoints/WP_Move.bt"
+ CompletionRadius 25
+ Autocomplete 0
+}

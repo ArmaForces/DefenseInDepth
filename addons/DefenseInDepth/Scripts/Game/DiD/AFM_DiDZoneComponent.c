@@ -122,11 +122,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 				// Legacy mode: spawners are direct children of the zone
 				case AFM_DiDMechanizedSpawnerComponent:
 				case AFM_DiDInfantrySpawnerComponent:
-				case AFM_DiDMortarSpawnerComponent:
 				case AFM_DiDWaveSpawnerComponent:
 					AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(e);
 					m_aSpawners.Insert(spawner);
-					break;
+				break;
 				case AFM_SupplyCacheEntity:
 					m_SupplyCache = SCR_ResourceComponent.Cast(e.FindComponent(SCR_ResourceComponent));
 					break;
@@ -149,16 +148,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 		if (!m_PlayerSpawnPoint)
 			PrintFormat("AFM_DiDZoneComponent %1: Missing player spawnpoint, zone wont work properly!", m_sZoneName, level: LogLevel.ERROR);
 
-		// In director mode the director owns the spawners — no direct spawners on zone is expected
-		bool hasSpawners = m_Director || m_aSpawners.Count() > 0;
-		if (!hasSpawners)
+		if (!m_Director && m_aSpawners.Count() == 0)
 			PrintFormat("AFM_DiDZoneComponent %1: No spawner components found, AI will not spawn!", m_sZoneName, level: LogLevel.WARNING);
 
-		// Legacy mode: initialize spawners directly
+		// Wave zone mode: initialize direct spawner children (used by AFM_DiDWaveZoneComponent)
 		foreach (AFM_DiDSpawnerComponent s : m_aSpawners)
-		{
 			s.Prepare(this);
-		}
 
 		if (!AFM_DiDZoneSystem.GetInstance().RegisterZone(this))
 			PrintFormat("AFM_DiDZoneComponent %1: Failed to register zone!", m_sZoneName, LogLevel.ERROR);
@@ -166,9 +161,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 			PrintFormat("AFM_DiDZoneComponent %1: Zone registered", m_sZoneName);
 
 		if (m_Director)
-			PrintFormat("AFM_DiDZoneComponent %1: Director mode active", m_sZoneName);
-		else
-			PrintFormat("AFM_DiDZoneComponent %1: Legacy spawner mode active (%2 spawners)", m_sZoneName, m_aSpawners.Count());
+			PrintFormat("AFM_DiDZoneComponent %1: Director active", m_sZoneName);
 
 		AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
 		if (!gamemode)
@@ -376,20 +369,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 			}
 		}
 
-		// Director mode: central decision cycle
-		// Legacy mode: each spawner manages its own timing
+		// Director runs the decision cycle
 		if (m_Director)
-		{
 			m_Director.Process();
-		}
-		else
-		{
-			foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
-			{
-				if (spawner)
-					spawner.Process();
-			}
-		}
 
 		// Ticket exhaustion: notify once then accelerate zone timer
 		if (!m_bTicketsExhaustedNotified && AreAllSpawnerTicketsExhausted())

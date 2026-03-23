@@ -1,5 +1,23 @@
+SCR_AIGroup : "{0C9A82FEAB4794D7}Prefabs/Groups/OPFOR/Group_USSR_LessArmored.et" {
+ coords 1267.928 38.581 2847.804
+}
+SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
+ coords 1229.72 39 2725.653
+}
+AFM_StagingPointEntity : "{12C793FDAD299F1C}Prefabs/AI/Waypoints/AFM_StagingPointWaypoint.et" {
+ coords 1251.559 39 2727.942
+}
+SCR_AIGroup : "{30ED11AA4F0D41E5}Prefabs/Groups/OPFOR/Group_USSR_FireGroup.et" {
+ coords 1281.689 37.781 2852.083
+}
+AFM_ZoneAssaultWaypointEntity : "{5486C59C74086B03}Prefabs/AI/Waypoints/AFM_ZoneAssaultWaypoint.et" {
+ coords 1249.807 39 2730.683
+}
 GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
  coords 1756.535 39 2890.292
+}
+AFM_LighthouseEntity : "{B79DD5F41076E0C7}Prefabs/AI/Waypoints/AFM_LighthouseWaypoint.et" {
+ coords 1252.639 39 2726.574
 }
 $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
  zone_3 {
@@ -936,16 +954,12 @@ $grp AFM_DiDZoneEntity : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
     coords 473.05 0 122.264
    }
-   AFM_DiDMortarSpawnerComponent : "{F040102F1843F7C1}Prefabs/Spawners/AFM_MortarSpawner.et" {
-    coords -15.041 0 5.242
-    angles 0 79.337 0
-    {
-     AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
-      coords 3.044 0 3.19
-      angles 0 7.042 0
-     }
-    }
-   }
   }
  }
+}
+SCR_AIGroup : "{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et" {
+ coords 1292.619 37.75 2860.839
+}
+AFM_VehicleOverwatchEntity : "{E8133452FFB18799}Prefabs/AI/Waypoints/AFM_VehicleOverwatchWaypoint.et" {
+ coords 1250.57 39 2729.252
 }
