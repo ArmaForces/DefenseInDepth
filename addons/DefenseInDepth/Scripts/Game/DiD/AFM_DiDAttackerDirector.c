@@ -41,6 +41,8 @@ class AFM_DiDAttackerDirector: GenericEntity
 	protected AFM_DiDZoneArtillery m_pArtillery;
 	protected WorldTimestamp m_fLastDecisionTime;
 	protected bool m_bInitialized = false;
+	protected ref array<ref AFM_DiDGroupEntry> m_aGroupRegistry = {};
+	protected int m_iDecisionTick = 0;
 
 	//------------------------------------------------------------------------------------------------
 	//! Called by AFM_DiDZoneComponent.LateInit() after all artillery spawn points are collected.
@@ -120,14 +122,36 @@ class AFM_DiDAttackerDirector: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Returns total active AI count: spawner AI + mortar crew.
+	//! Registers a freshly spawned group in the central registry.
+	//! Called by spawner components immediately after a successful spawn.
+	void RegisterGroup(AIGroup group, AFM_DiDZoneComponent zone, AFM_DiDApproachRoute route, EAFMUnitType unitType)
+	{
+		if (!group)
+			return;
+
+		AFM_DiDGroupEntry entry = new AFM_DiDGroupEntry();
+		entry.m_Group = group;
+		entry.m_AssignedZone = zone;
+		entry.m_AssignedRoute = route;
+		entry.m_eUnitType = unitType;
+		entry.m_iSpawnTick = m_iDecisionTick;
+		entry.m_iAliveCount = group.GetAgentsCount();
+		m_aGroupRegistry.Insert(entry);
+
+		PrintFormat("AFM_DiDAttackerDirector: Registered %1 group — %2 agents, tick %3, registry size %4",
+			typename.EnumToString(EAFMUnitType, unitType), entry.m_iAliveCount,
+			m_iDecisionTick, m_aGroupRegistry.Count(), LogLevel.DEBUG);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns total active AI count: registry alive counts + mortar crew.
 	int GetActiveAICount()
 	{
 		int count = 0;
-		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		foreach (AFM_DiDGroupEntry entry : m_aGroupRegistry)
 		{
-			if (spawner)
-				count += spawner.GetActiveAICount();
+			if (entry && entry.m_Group)
+				count += entry.m_iAliveCount;
 		}
 		if (m_pArtillery)
 			count += m_pArtillery.GetCrewCount();
@@ -145,14 +169,27 @@ class AFM_DiDAttackerDirector: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Cleans up all AI spawned by this director's spawners and the mortar.
+	//! Cleans up all AI tracked by the registry and the mortar.
 	void Cleanup()
 	{
-		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		foreach (AFM_DiDGroupEntry entry : m_aGroupRegistry)
 		{
-			if (spawner)
-				spawner.Cleanup();
+			if (!entry || !entry.m_Group)
+				continue;
+
+			array<AIAgent> agents = {};
+			entry.m_Group.GetAgents(agents);
+			foreach (AIAgent agent : agents)
+			{
+				if (!agent)
+					continue;
+				IEntity ent = agent.GetControlledEntity();
+				if (ent)
+					SCR_EntityHelper.DeleteEntityAndChildren(ent);
+			}
 		}
+		m_aGroupRegistry.Clear();
+
 		if (m_pArtillery)
 			m_pArtillery.Cleanup();
 	}
@@ -160,6 +197,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 	//------------------------------------------------------------------------------------------------
 	protected void RunDecisionCycle(WorldTimestamp now)
 	{
+		m_iDecisionTick++;
 		AFM_DiDBattlefieldState state = BuildBattlefieldState(now);
 
 		// --- Spawner selection ---

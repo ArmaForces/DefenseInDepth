@@ -157,6 +157,10 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 		if (assaultWP)
 			crew.AddWaypoint(assaultWP);
 
+		AFM_DiDAttackerDirector director = m_Zone.GetDirector();
+		if (director)
+			director.RegisterGroup(crew, m_Zone, route, EAFMUnitType.MECHANIZED);
+
 		// Consume budget immediately — vehicle spawned, cost is committed
 		if (m_Zone && m_Zone.GetBudget())
 			m_Zone.GetBudget().Consume(m_iPointCostPerUnit);

@@ -627,6 +627,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return m_aArtillerySpawnPoints;
 	}
 
+	//! The attacker director for this zone, or null if running in wave-zone mode
+	AFM_DiDAttackerDirector GetDirector()
+	{
+		return m_Director;
+	}
+
 	//! Approach routes defined on this zone — shared by all spawner children
 	array<ref AFM_DiDApproachRoute> GetApproachRoutes()
 	{

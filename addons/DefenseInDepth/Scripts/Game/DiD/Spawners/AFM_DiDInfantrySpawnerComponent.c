@@ -93,6 +93,10 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 		if (assaultWP)
 			group.AddWaypoint(assaultWP);
 
+		AFM_DiDAttackerDirector director = m_Zone.GetDirector();
+		if (director)
+			director.RegisterGroup(group, m_Zone, route, EAFMUnitType.INFANTRY);
+
 		PrintFormat("AFM_DiDInfantrySpawnerComponent: Spawned infantry group %1", groupPrefab, LogLevel.DEBUG);
 	}
 }
