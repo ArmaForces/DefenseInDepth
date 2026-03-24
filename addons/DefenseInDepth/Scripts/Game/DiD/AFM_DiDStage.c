@@ -44,6 +44,9 @@ class AFM_DiDStage: GenericEntity
 	[Attribute("0", UIWidgets.EditBox, "Attacker points budget (0 = unlimited)", category: "DiD Budget")]
 	protected int m_iPointsBudget;
 
+	[Attribute("4", UIWidgets.EditBox, "Reference player count for budget scaling. Budget is multiplied by clamp(players/ref, 0.5, 4.0) — 100% at reference count, 50% floor, 400% cap at 16 players with ref 4. Set to 0 to disable scaling.", category: "DiD Budget")]
+	protected int m_iReferencePlayerCount;
+
 	[Attribute("0.5", UIWidgets.EditBox, "Fraction of remaining budget rolled over to next stage on failure (0.0–1.0)", category: "DiD Budget")]
 	protected float m_fBudgetRolloverFraction;
 
@@ -147,8 +150,20 @@ class AFM_DiDStage: GenericEntity
 
 		if (m_iPointsBudget > 0)
 		{
-			m_Budget = new AFM_DiDAttackerBudget(m_iPointsBudget);
-			PrintFormat("AFM_DiDStage %1: Budget initialized with %2 pts", m_iStageIndex, m_iPointsBudget);
+			int scaledBudget = m_iPointsBudget;
+
+			// H2: scale budget by live player count relative to the configured reference
+			if (m_iReferencePlayerCount > 0 && !m_aZones.IsEmpty())
+			{
+				int aliveCount = m_aZones[0].GetDefenderCount();
+				float modifier = Math.Clamp(aliveCount / Math.Max(1.0, m_iReferencePlayerCount), 0.5, 4.0);
+				scaledBudget = Math.Round(m_iPointsBudget * modifier);
+				PrintFormat("AFM_DiDStage %1: Player count %2 / ref %3 → modifier %4 → budget %5 pts (base %6)",
+					m_iStageIndex, aliveCount, m_iReferencePlayerCount, modifier, scaledBudget, m_iPointsBudget);
+			}
+
+			m_Budget = new AFM_DiDAttackerBudget(scaledBudget);
+			PrintFormat("AFM_DiDStage %1: Budget initialized with %2 pts", m_iStageIndex, scaledBudget);
 		}
 
 		foreach (AFM_DiDZoneComponent zone : m_aZones)
@@ -344,6 +359,11 @@ class AFM_DiDStage: GenericEntity
 	int GetPointsBudget()
 	{
 		return m_iPointsBudget;
+	}
+
+	int GetReferencePlayerCount()
+	{
+		return m_iReferencePlayerCount;
 	}
 
 	float GetBudgetRolloverFraction()
