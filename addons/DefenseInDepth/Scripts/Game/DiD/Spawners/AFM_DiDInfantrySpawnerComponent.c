@@ -95,6 +95,8 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 		if (!group)
 			return;
 
+		ApplyAutonomousDistance(group);
+
 		// Infantry chain: staging → approach → zone assault
 		// Waypoints are spawned at marker GetOrigin() and tracked in the registry entry for cleanup.
 		ref array<IEntity> routeWPs = {};

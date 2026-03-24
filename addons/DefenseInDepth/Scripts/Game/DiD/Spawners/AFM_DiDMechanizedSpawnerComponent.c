@@ -167,6 +167,8 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 		if (!crew)
 			return;
 
+		ApplyAutonomousDistance(crew);
+
 		if (route.m_VehicleOverwatch)
 		{
 			SCR_AIWaypoint suppressWP = director.SpawnSuppressWaypointAt(route.m_VehicleOverwatch.GetOrigin());

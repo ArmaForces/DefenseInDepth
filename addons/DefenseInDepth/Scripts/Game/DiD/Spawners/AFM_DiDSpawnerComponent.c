@@ -41,6 +41,10 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	//! True once SetRemainingTickets() has been called — signals ticket-mode is active for this wave.
 	protected bool m_bTicketModeActive = false;
 
+	//! Attack phase and aggression captured at TriggerSpawn time — used in ApplyAutonomousDistance.
+	protected EAFMAttackPhase m_eSpawnPhase = EAFMAttackPhase.PROBE;
+	protected float m_fSpawnAggression = 0.0;
+
 	//------------------------------------------------------------------------------------------------
 	//------------------------------------------------------------------------------------------------
 	// Prepare method - called by owner zone component (or director) on start
@@ -124,10 +128,14 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	//------------------------------------------------------------------------------------------------
 	// Director mode: spawn immediately and reset the cooldown timer.
 	// count is computed by AFM_DiDAttackerDirector.ComputeGroupCount() from the battlefield state.
+	// phase and aggression are stored as fields so SpawnSingleGroup overrides can read them via
+	// ApplyAutonomousDistance() without needing extra parameters.
 	//------------------------------------------------------------------------------------------------
-	void TriggerSpawn(WorldTimestamp now, int count)
+	void TriggerSpawn(WorldTimestamp now, int count, EAFMAttackPhase phase, float aggression = 0.0)
 	{
 		m_fLastSpawnTime = now;
+		m_eSpawnPhase = phase;
+		m_fSpawnAggression = aggression;
 		SpawnWave(count);
 	}
 
@@ -289,8 +297,38 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		if (waypoint)
 			group.AddWaypoint(waypoint);
 
+		ApplyAutonomousDistance(group);
+
 		m_aSpawnedAIGroups.Insert(group);
 		PrintFormat("AFM_DiDSpawnerComponent: Spawned AI group %1 at %2", groupPrefab, spawnPoint.GetOrigin().ToString(), LogLevel.DEBUG);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Applies SetMaxAutonomousDistance to the group using the phase/aggression captured at TriggerSpawn.
+	//! Call this once after every successful AIGroup spawn in SpawnSingleGroup overrides.
+	protected void ApplyAutonomousDistance(AIGroup group)
+	{
+		if (!group)
+			return;
+		SCR_AIGroupUtilityComponent util = SCR_AIGroupUtilityComponent.Cast(group.FindComponent(SCR_AIGroupUtilityComponent));
+		if (!util)
+			return;
+		util.SetMaxAutonomousDistance(AutonomousDistance(m_eSpawnPhase, m_fSpawnAggression));
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns autonomous patrol radius for a spawned group based on attack phase and aggression (0–1).
+	//! PROBE  = 150 m  — cautious advance, groups stay close to spawn
+	//! ASSAULT = 300 m — committed attack, groups push forward
+	//! FINAL   = lerp(300, 500, aggression) — desperate push scales with director aggression
+	protected float AutonomousDistance(EAFMAttackPhase phase, float aggression)
+	{
+		if (phase == EAFMAttackPhase.PROBE)
+			return 150.0;
+		if (phase == EAFMAttackPhase.ASSAULT)
+			return 300.0;
+		// FINAL: scale between 300 and 500 based on aggression
+		return Math.Lerp(300.0, 500.0, Math.Clamp(aggression, 0.0, 1.0));
 	}
 
 	//------------------------------------------------------------------------------------------------

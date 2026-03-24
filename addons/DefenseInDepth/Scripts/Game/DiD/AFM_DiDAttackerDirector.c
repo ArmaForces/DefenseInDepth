@@ -48,6 +48,9 @@ class AFM_DiDAttackerDirector: GenericEntity
 	protected ref array<ref AFM_DiDGroupEntry> m_aGroupRegistry = {};
 	protected int m_iDecisionTick = 0;
 
+	//! Phase tracked across cycles so G3 can detect transitions and re-apply autonomous distance.
+	protected EAFMAttackPhase m_ePreviousPhase = EAFMAttackPhase.PROBE;
+
 	//------------------------------------------------------------------------------------------------
 	//! Called by AFM_DiDStage.LateInit() after all zone children are collected.
 	//! Links this director to its stage; scans own children for spawners and artillery.
@@ -607,6 +610,20 @@ class AFM_DiDAttackerDirector: GenericEntity
 
 		AFM_DiDBattlefieldState state = BuildBattlefieldState(now);
 
+		// G2: apply fire-rate scaling to all live groups every cycle
+		ApplyFireRateAll(state);
+
+		// G3: on phase transition, re-apply autonomous distance to all existing groups
+		if (state.m_ePhase != m_ePreviousPhase)
+		{
+			PrintFormat("AFM_DiDAttackerDirector: Phase transition %1 → %2 — re-applying autonomous distance to %3 group(s)",
+				typename.EnumToString(EAFMAttackPhase, m_ePreviousPhase),
+				typename.EnumToString(EAFMAttackPhase, state.m_ePhase),
+				m_aGroupRegistry.Count());
+			ApplyAutonomousDistanceAll(state);
+			m_ePreviousPhase = state.m_ePhase;
+		}
+
 		// --- Package path (takes priority over single-spawner pick during stalls) ---
 		if (ShouldIssuePackage(state))
 		{
@@ -654,7 +671,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 				PrintFormat("AFM_DiDAttackerDirector: Triggering %1 x%2 groups (score=%3, cost=%4pts, phase=%5)",
 					chosen.m_Spawner.Type().ToString(), groupCount, chosen.m_fScore, chosen.m_iCost,
 					state.m_ePhase, level: LogLevel.NORMAL);
-				chosen.m_Spawner.TriggerSpawn(now, groupCount);
+				chosen.m_Spawner.TriggerSpawn(now, groupCount, state.m_ePhase, m_fAggression);
 			}
 		}
 		else
@@ -871,6 +888,10 @@ class AFM_DiDAttackerDirector: GenericEntity
 			package.m_Route.m_fMechanizedTravelTicks,
 			package.m_Artillery != null);
 
+		// Store phase/aggression on the package so SpawnMechanized can forward them to TriggerSpawn.
+		package.m_ePhase = state.m_ePhase;
+		package.m_fAggression = m_fAggression;
+
 		AFM_DiDAttackerBudget budget = m_pStage.GetBudget();
 		if (budget)
 			budget.Consume(package.m_iTotalCost);
@@ -878,7 +899,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 		if (package.m_Artillery && package.m_Artillery.IsMortarActive())
 			package.m_Artillery.TriggerMission(state, now);
 
-		package.m_InfantrySpawner.TriggerSpawn(now, 1);
+		package.m_InfantrySpawner.TriggerSpawn(now, 1, state.m_ePhase, m_fAggression);
 
 		if (package.m_MechanizedSpawner)
 		{
@@ -886,7 +907,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 			int delayMs = Math.Max(0, Math.Round(travelDiff * m_iDecisionIntervalSeconds * 1000));
 
 			if (delayMs <= 0)
-				package.m_MechanizedSpawner.TriggerSpawn(now, 1);
+				package.m_MechanizedSpawner.TriggerSpawn(now, 1, state.m_ePhase, m_fAggression);
 			else
 				GetGame().GetCallqueue().CallLater(SpawnMechanized, delayMs, false, package);
 		}
@@ -902,8 +923,72 @@ class AFM_DiDAttackerDirector: GenericEntity
 
 		ChimeraWorld world = GetGame().GetWorld();
 		WorldTimestamp now = world.GetServerTimestamp();
-		package.m_MechanizedSpawner.TriggerSpawn(now, 1);
+		package.m_MechanizedSpawner.TriggerSpawn(now, 1, package.m_ePhase, package.m_fAggression);
 		PrintFormat("AFM_DiDAttackerDirector: Package — mechanized element spawned (staggered)");
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! G2: Apply SetFireRateCoef to every live group in the registry each decision cycle.
+	//!
+	//! Formula: lerp(0.8, 1.2, phaseNorm) * lerp(0.9, 1.1, aggression)
+	//!   phaseNorm: PROBE=0.0, ASSAULT=0.5, FINAL=1.0
+	//!   Result range: ~0.72 (PROBE, aggression=0) to ~1.32 (FINAL, aggression=1)
+	protected void ApplyFireRateAll(AFM_DiDBattlefieldState state)
+	{
+		float phaseNorm;
+		if (state.m_ePhase == EAFMAttackPhase.PROBE)
+			phaseNorm = 0.0;
+		else if (state.m_ePhase == EAFMAttackPhase.ASSAULT)
+			phaseNorm = 0.5;
+		else
+			phaseNorm = 1.0;
+
+		float fireRate = Math.Lerp(0.8, 1.2, phaseNorm) * Math.Lerp(0.9, 1.1, Math.Clamp(m_fAggression, 0.0, 1.0));
+
+		foreach (AFM_DiDGroupEntry entry : m_aGroupRegistry)
+		{
+			if (!entry || entry.m_bPendingRemoval || !entry.m_Group)
+				continue;
+
+			SCR_AIGroup scrGroup = SCR_AIGroup.Cast(entry.m_Group);
+			if (!scrGroup)
+				continue;
+
+			SCR_AIGroupUtilityComponent util = scrGroup.GetGroupUtilityComponent();
+			if (util)
+				util.SetFireRateCoef(fireRate);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! G3: Re-apply SetMaxAutonomousDistance to every live group on a phase transition.
+	//! New groups get the right distance from TriggerSpawn; this corrects existing ones.
+	//!
+	//! Distance values mirror AutonomousDistance() in AFM_DiDSpawnerComponent:
+	//!   PROBE=150, ASSAULT=300, FINAL=lerp(300,500,aggression)
+	protected void ApplyAutonomousDistanceAll(AFM_DiDBattlefieldState state)
+	{
+		float dist;
+		if (state.m_ePhase == EAFMAttackPhase.PROBE)
+			dist = 150.0;
+		else if (state.m_ePhase == EAFMAttackPhase.ASSAULT)
+			dist = 300.0;
+		else
+			dist = Math.Lerp(300.0, 500.0, Math.Clamp(m_fAggression, 0.0, 1.0));
+
+		foreach (AFM_DiDGroupEntry entry : m_aGroupRegistry)
+		{
+			if (!entry || entry.m_bPendingRemoval || !entry.m_Group)
+				continue;
+
+			SCR_AIGroup scrGroup = SCR_AIGroup.Cast(entry.m_Group);
+			if (!scrGroup)
+				continue;
+
+			SCR_AIGroupUtilityComponent util = scrGroup.GetGroupUtilityComponent();
+			if (util)
+				util.SetMaxAutonomousDistance(dist);
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------

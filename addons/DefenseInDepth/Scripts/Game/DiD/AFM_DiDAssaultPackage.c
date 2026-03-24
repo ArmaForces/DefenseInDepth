@@ -36,6 +36,13 @@ class AFM_DiDAssaultPackage
 	//! Total budget cost: infantry cost + mechanized cost (+ 0 for artillery, paid separately).
 	int m_iTotalCost;
 
+	//! Attack phase at the time the package was built — forwarded to TriggerSpawn on the delayed
+	//! mechanized call so SetMaxAutonomousDistance receives the correct value.
+	EAFMAttackPhase m_ePhase;
+
+	//! Director aggression at build time — forwarded alongside m_ePhase.
+	float m_fAggression;
+
 	//------------------------------------------------------------------------------------------------
 	void AFM_DiDAssaultPackage(
 		AFM_DiDSpawnerComponent infantrySpawner,
