@@ -40,6 +40,9 @@ class AFM_DiDAttackerDirector: GenericEntity
 	[Attribute("0.75", UIWidgets.EditBox, "Aggression 0.0-1.0: scales score of costly options (0=conservative, 1=reckless)", category: "DiD Director")]
 	protected float m_fAggression;
 
+	[Attribute("0.7", UIWidgets.EditBox, "Base probability (0.0-1.0) that a decision cycle issues a spawn. Scales up late in the stage. Lower = more idle cycles.", category: "DiD Director")]
+	protected float m_fBaseSpendProbability;
+
 	protected AFM_DiDStage m_pStage;
 	protected ref array<AFM_DiDSpawnerComponent> m_aSpawners = {};
 	protected AFM_DiDStageArtillery m_pArtillery;
@@ -50,6 +53,10 @@ class AFM_DiDAttackerDirector: GenericEntity
 
 	//! Phase tracked across cycles so G3 can detect transitions and re-apply autonomous distance.
 	protected EAFMAttackPhase m_ePreviousPhase = EAFMAttackPhase.PROBE;
+
+	//! I1: cycles remaining where spawner/package selection is suppressed after a heavy FINAL-phase spend.
+	//! Artillery still evaluates during quiet ticks.
+	protected int m_iQuietTicksRemaining = 0;
 
 	//------------------------------------------------------------------------------------------------
 	//! Called by AFM_DiDStage.LateInit() after all zone children are collected.
@@ -624,14 +631,40 @@ class AFM_DiDAttackerDirector: GenericEntity
 			m_ePreviousPhase = state.m_ePhase;
 		}
 
+		// Artillery always evaluates — unaffected by quiet ticks and probability gate
+		EvaluateArtillery(state, now);
+
+		// I1: post-heavy-push quiet interval — suppress spawner/package selection for N ticks
+		if (m_iQuietTicksRemaining > 0)
+		{
+			m_iQuietTicksRemaining--;
+			PrintFormat("AFM_DiDAttackerDirector: Quiet tick — %1 remaining", m_iQuietTicksRemaining, LogLevel.DEBUG);
+			return;
+		}
+
+		// I2: time-based spend probability gate — later in stage = more likely to spend
+		float timeUrgency = 1.0 - state.m_fTimeRatio;
+		float spendMultiplier = Math.Lerp(0.8, 1.4, timeUrgency);
+		float effectiveProbability = Math.Min(1.0, m_fBaseSpendProbability * spendMultiplier);
+		if (s_AIRandomGenerator.RandFloat01() > effectiveProbability)
+		{
+			PrintFormat("AFM_DiDAttackerDirector: Spend gated this cycle (prob=%1, urgency=%2)", effectiveProbability, timeUrgency, LogLevel.DEBUG);
+			return;
+		}
+
+		AFM_DiDAttackerBudget budget = m_pStage.GetBudget();
+		int remainingBefore = 0;
+		if (budget)
+			remainingBefore = budget.GetRemaining();
+
 		// --- Package path (takes priority over single-spawner pick during stalls) ---
 		if (ShouldIssuePackage(state))
 		{
 			AFM_DiDAssaultPackage package = BuildBestPackage(state, now);
-			AFM_DiDAttackerBudget packageBudget = m_pStage.GetBudget();
-			if (package && (!packageBudget || packageBudget.CanAfford(package.m_iTotalCost)))
+			if (package && (!budget || budget.CanAfford(package.m_iTotalCost)))
 			{
 				ExecutePackage(package, state, now);
+				TriggerQuietIfHeavySpend(state, package.m_iTotalCost, remainingBefore);
 				return;
 			}
 		}
@@ -651,7 +684,6 @@ class AFM_DiDAttackerDirector: GenericEntity
 			int cost = spawner.GetPointCostPerUnit();
 
 			// Skip if budget can't cover this spawn
-			AFM_DiDAttackerBudget budget = m_pStage.GetBudget();
 			if (budget && !budget.CanAfford(cost))
 				continue;
 
@@ -672,38 +704,13 @@ class AFM_DiDAttackerDirector: GenericEntity
 					chosen.m_Spawner.Type().ToString(), groupCount, chosen.m_fScore, chosen.m_iCost,
 					state.m_ePhase, level: LogLevel.NORMAL);
 				chosen.m_Spawner.TriggerSpawn(now, groupCount, state.m_ePhase, m_fAggression);
+				TriggerQuietIfHeavySpend(state, chosen.m_iCost * groupCount, remainingBefore);
 			}
 		}
 		else
 		{
 			PrintFormat("AFM_DiDAttackerDirector: No viable spawner candidates (phase=%1, budget=%2%%)",
 				state.m_ePhase, state.m_fBudgetRatio * 100, level: LogLevel.WARNING);
-		}
-
-		// --- Artillery evaluation (independent of spawner selection) ---
-		if (!m_pArtillery)
-			return;
-
-		if (m_pArtillery.IsMortarActive() && m_pArtillery.IsReadyForMission(now))
-		{
-			float artScore = m_pArtillery.ScoreArtilleryMission(state);
-			if (artScore > 0)
-				m_pArtillery.TriggerMission(state, now);
-		}
-		else if (!m_pArtillery.IsMortarActive() && m_pArtillery.CanRespawn())
-		{
-			float respawnScore = m_pArtillery.ScoreRespawn(state);
-			if (respawnScore > 0)
-			{
-				AFM_DiDAttackerBudget budget = m_pStage.GetBudget();
-				int respawnCost = m_pArtillery.GetRespawnCost();
-				if (!budget || budget.CanAfford(respawnCost))
-				{
-					if (budget)
-						budget.Consume(respawnCost);
-					m_pArtillery.TriggerRespawn(now);
-				}
-			}
 		}
 	}
 
@@ -925,6 +932,51 @@ class AFM_DiDAttackerDirector: GenericEntity
 		WorldTimestamp now = world.GetServerTimestamp();
 		package.m_MechanizedSpawner.TriggerSpawn(now, 1, package.m_ePhase, package.m_fAggression);
 		PrintFormat("AFM_DiDAttackerDirector: Package — mechanized element spawned (staggered)");
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! I1: Triggers a quiet interval when a FINAL-phase cycle spends more than half the remaining budget.
+	//! Quiet length: lerp(3, 1, aggression) — aggressive directors recover faster.
+	protected void TriggerQuietIfHeavySpend(AFM_DiDBattlefieldState state, int spentThisCycle, int remainingBefore)
+	{
+		if (state.m_ePhase != EAFMAttackPhase.FINAL)
+			return;
+		if (remainingBefore <= 0 || spentThisCycle <= remainingBefore * 0.5)
+			return;
+
+		m_iQuietTicksRemaining = Math.Round(Math.Lerp(3, 1, Math.Clamp(m_fAggression, 0.0, 1.0)));
+		PrintFormat("AFM_DiDAttackerDirector: Heavy FINAL-phase spend (%1 of %2 budget) — quiet for %3 tick(s)",
+			spentThisCycle, remainingBefore, m_iQuietTicksRemaining);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Artillery evaluation extracted so it runs every cycle regardless of I1/I2 gates.
+	protected void EvaluateArtillery(AFM_DiDBattlefieldState state, WorldTimestamp now)
+	{
+		if (!m_pArtillery)
+			return;
+
+		if (m_pArtillery.IsMortarActive() && m_pArtillery.IsReadyForMission(now))
+		{
+			float artScore = m_pArtillery.ScoreArtilleryMission(state);
+			if (artScore > 0)
+				m_pArtillery.TriggerMission(state, now);
+		}
+		else if (!m_pArtillery.IsMortarActive() && m_pArtillery.CanRespawn())
+		{
+			float respawnScore = m_pArtillery.ScoreRespawn(state);
+			if (respawnScore > 0)
+			{
+				AFM_DiDAttackerBudget budget = m_pStage.GetBudget();
+				int respawnCost = m_pArtillery.GetRespawnCost();
+				if (!budget || budget.CanAfford(respawnCost))
+				{
+					if (budget)
+						budget.Consume(respawnCost);
+					m_pArtillery.TriggerRespawn(now);
+				}
+			}
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------
