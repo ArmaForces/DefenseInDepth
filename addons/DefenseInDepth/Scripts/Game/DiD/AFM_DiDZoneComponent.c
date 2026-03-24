@@ -54,6 +54,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected int m_iStallTicks = 0;
 	protected float m_fLastCaptureProgress = 0.0;
 
+	//! J1: highest capture progress reached this activation — resets when near-miss recovery triggers.
+	protected float m_fCaptureHighWaterMark = 0.0;
+	//! J1: ticks remaining where the director suppresses sending groups to this zone.
+	//! Set when defenders rally from a near-capture (high-water > 0.7 drops below 0.3).
+	protected int m_iRecoveryTicksRemaining = 0;
+
 	//! Stage this zone belongs to — set by AFM_DiDStage.LateInit() via SetStage().
 	//! Null for stand-alone wave zones that don't use a stage.
 	protected AFM_DiDStage m_pStage;
@@ -436,6 +442,17 @@ class AFM_DiDZoneComponent: ScriptComponent
 
 		m_fCaptureProgress = Math.Clamp(m_fCaptureProgress, 0.0, 1.0);
 
+		// J1: near-miss detection — track peak and detect defender rallies
+		if (m_fCaptureProgress > m_fCaptureHighWaterMark)
+			m_fCaptureHighWaterMark = m_fCaptureProgress;
+
+		if (m_fCaptureHighWaterMark > 0.7 && m_fCaptureProgress < 0.3 && m_iRecoveryTicksRemaining == 0)
+		{
+			m_iRecoveryTicksRemaining = 2;
+			m_fCaptureHighWaterMark = 0.0;
+			PrintFormat("AFM_DiDZoneComponent %1: Near-miss recovery — director paused for 2 ticks", m_sZoneName);
+		}
+
 		// Stall detection — consecutive ticks with no meaningful change
 		if (Math.AbsFloat(m_fCaptureProgress - m_fLastCaptureProgress) < 0.001)
 			m_iStallTicks++;
@@ -548,6 +565,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 		m_fCaptureProgress = 0.0;
 		m_iStallTicks = 0;
 		m_fLastCaptureProgress = 0.0;
+		m_fCaptureHighWaterMark = 0.0;
+		m_iRecoveryTicksRemaining = 0;
 
 		// Budget is owned and created by the parent stage — no per-zone budget creation.
 
@@ -672,6 +691,19 @@ class AFM_DiDZoneComponent: ScriptComponent
 	int GetStallTicks()
 	{
 		return m_iStallTicks;
+	}
+
+	//! J1: number of director ticks remaining where this zone is suppressed after a near-miss rally.
+	int GetRecoveryTicksRemaining()
+	{
+		return m_iRecoveryTicksRemaining;
+	}
+
+	//! J1: called by the director each decision cycle to tick down the recovery counter.
+	void DecrementRecoveryTicks()
+	{
+		if (m_iRecoveryTicksRemaining > 0)
+			m_iRecoveryTicksRemaining--;
 	}
 
 	//! Total defense time in seconds — used by director for time ratio calculation

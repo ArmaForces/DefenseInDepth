@@ -507,6 +507,14 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		return true;
 	}
 
+	//! J1: returns true when this spawner's zone is in near-miss recovery — director should skip it.
+	bool IsZoneInRecovery()
+	{
+		if (!m_Zone)
+			return false;
+		return m_Zone.GetRecoveryTicksRemaining() > 0;
+	}
+
 	//! Returns true once ticket-mode has been activated via SetRemainingTickets() (used by wave zone).
 	bool IsTicketBased()
 	{

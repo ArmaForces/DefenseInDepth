@@ -603,6 +603,13 @@ class AFM_DiDAttackerDirector: GenericEntity
 		// Tick route pressure before any spawn decisions
 		UpdateRoutePressure();
 
+		// J1: tick down near-miss recovery counters on all zones
+		foreach (AFM_DiDZoneComponent zone : m_pStage.GetZones())
+		{
+			if (zone)
+				zone.DecrementRecoveryTicks();
+		}
+
 		// Remove wiped groups flagged by OnAgentLifeStateChanged — iterate in reverse to allow safe removal
 		for (int i = m_aGroupRegistry.Count() - 1; i >= 0; i--)
 		{
@@ -620,7 +627,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 		// G2: apply fire-rate scaling to all live groups every cycle
 		ApplyFireRateAll(state);
 
-		// G3: on phase transition, re-apply autonomous distance to all existing groups
+		// G3 + J2: on phase transition, re-apply autonomous distance and broadcast radio message
 		if (state.m_ePhase != m_ePreviousPhase)
 		{
 			PrintFormat("AFM_DiDAttackerDirector: Phase transition %1 → %2 — re-applying autonomous distance to %3 group(s)",
@@ -629,6 +636,11 @@ class AFM_DiDAttackerDirector: GenericEntity
 				m_aGroupRegistry.Count());
 			ApplyAutonomousDistanceAll(state);
 			m_ePreviousPhase = state.m_ePhase;
+
+			// J2: notify all clients via radio
+			AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
+			if (gamemode)
+				gamemode.NotifyPhaseChanged(state.m_ePhase);
 		}
 
 		// Artillery always evaluates — unaffected by quiet ticks and probability gate
@@ -675,6 +687,10 @@ class AFM_DiDAttackerDirector: GenericEntity
 		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
 		{
 			if (!spawner || !spawner.CanSpawnNow(now))
+				continue;
+
+			// J1: skip spawner if its zone is in near-miss recovery
+			if (spawner.IsZoneInRecovery())
 				continue;
 
 			float score = spawner.ScoreRequest(state);
@@ -847,11 +863,15 @@ class AFM_DiDAttackerDirector: GenericEntity
 		AFM_DiDInfantrySpawnerComponent infantrySpawner = infantryPool.GetRandomElement();
 		AFM_DiDMechanizedSpawnerComponent mechanizedSpawner = mechanizedPool.GetRandomElement();
 
-		// Collect all off-cooldown routes across active zones, then pick one at random
+		// Collect all off-cooldown routes across active non-recovering zones, then pick one at random
 		ref array<AFM_DiDApproachRoute> routePool = {};
 		foreach (AFM_DiDZoneComponent zone : m_pStage.GetZones())
 		{
 			if (zone.IsZoneFinished())
+				continue;
+
+			// J1: skip zones in near-miss recovery — give defenders breathing room
+			if (zone.GetRecoveryTicksRemaining() > 0)
 				continue;
 
 			foreach (AFM_DiDApproachRoute r : zone.GetApproachRoutes())
