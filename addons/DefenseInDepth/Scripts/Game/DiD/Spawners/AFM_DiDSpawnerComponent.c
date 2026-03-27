@@ -46,8 +46,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	protected float m_fSpawnAggression = 0.0;
 
 	//------------------------------------------------------------------------------------------------
-	//------------------------------------------------------------------------------------------------
-	// Prepare method - called by owner zone component (or director) on start
+	// Called by the director on init to bind this spawner to its zone and collect child entities.
 	//------------------------------------------------------------------------------------------------
 	void Prepare(AFM_DiDZoneComponent owner)
 	{
@@ -507,7 +506,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		return true;
 	}
 
-	//! J1: returns true when this spawner's zone is in near-miss recovery — director should skip it.
+	//! Returns true when this spawner's zone is in near-miss recovery — director should skip it.
 	bool IsZoneInRecovery()
 	{
 		if (!m_Zone)

@@ -54,9 +54,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected int m_iStallTicks = 0;
 	protected float m_fLastCaptureProgress = 0.0;
 
-	//! J1: highest capture progress reached this activation — resets when near-miss recovery triggers.
+	//! Highest capture progress reached this activation — resets when near-miss recovery triggers.
 	protected float m_fCaptureHighWaterMark = 0.0;
-	//! J1: ticks remaining where the director suppresses sending groups to this zone.
+	//! Ticks remaining where the director suppresses sending groups to this zone.
 	//! Set when defenders rally from a near-capture (high-water > 0.7 drops below 0.3).
 	protected int m_iRecoveryTicksRemaining = 0;
 
@@ -442,7 +442,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 
 		m_fCaptureProgress = Math.Clamp(m_fCaptureProgress, 0.0, 1.0);
 
-		// J1: near-miss detection — track peak and detect defender rallies
+		// Near-miss detection — track peak and detect defender rallies
 		if (m_fCaptureProgress > m_fCaptureHighWaterMark)
 			m_fCaptureHighWaterMark = m_fCaptureProgress;
 
@@ -693,13 +693,13 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return m_iStallTicks;
 	}
 
-	//! J1: number of director ticks remaining where this zone is suppressed after a near-miss rally.
+	//! Number of director ticks remaining where this zone is suppressed after a near-miss rally.
 	int GetRecoveryTicksRemaining()
 	{
 		return m_iRecoveryTicksRemaining;
 	}
 
-	//! J1: called by the director each decision cycle to tick down the recovery counter.
+	//! Called by the director each decision cycle to tick down the recovery counter.
 	void DecrementRecoveryTicks()
 	{
 		if (m_iRecoveryTicksRemaining > 0)

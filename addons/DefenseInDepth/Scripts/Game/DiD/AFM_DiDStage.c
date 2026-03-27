@@ -23,7 +23,7 @@
 //! LateInit() is deferred 5500ms to ensure zone child entities (and their 5000ms LateInit)
 //! have already populated their fields before the director is initialised.
 //!
-//! Runtime field m_fAIMajorityHeldSeconds is ticked by ProcessZones() (E3).
+//! Runtime field m_fAIMajorityHeldSeconds is ticked by ProcessZones().
 //------------------------------------------------------------------------------------------------
 class AFM_DiDStageClass: GenericEntityClass
 {
@@ -57,7 +57,7 @@ class AFM_DiDStage: GenericEntity
 	protected bool m_bInitialized = false;
 
 	//! Counts up while AI holds majority (> 50% of zones captured); resets when defenders retake majority.
-	//! Ticked by ProcessZones() — E3 win condition.
+	//! Ticked by ProcessZones().
 	float m_fAIMajorityHeldSeconds = 0.0;
 
 	//------------------------------------------------------------------------------------------------
@@ -152,7 +152,7 @@ class AFM_DiDStage: GenericEntity
 		{
 			int scaledBudget = m_iPointsBudget;
 
-			// H2: scale budget by live player count relative to the configured reference
+			// Scale budget by live player count relative to the configured reference
 			if (m_iReferencePlayerCount > 0 && !m_aZones.IsEmpty())
 			{
 				int aliveCount = m_aZones[0].GetDefenderCount();
@@ -254,7 +254,7 @@ class AFM_DiDStage: GenericEntity
 			return EAFMZoneState.FINISHED_HELD;
 		}
 
-		// E3: if AI holds majority, tick timer; sustained majority = stage lost
+		// If AI holds majority, tick timer; sustained majority = stage lost
 		AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
 		if (IsMajorityCaptured())
 		{

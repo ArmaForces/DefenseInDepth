@@ -7,7 +7,7 @@
 //! m_iTotalCost is computed at construction time as the sum of all component costs.
 //! The director checks budget.CanAfford(m_iTotalCost) before executing.
 //!
-//! Execution order (F3):
+//! Execution order:
 //!   1. Artillery fires immediately (if m_Artillery is set)
 //!   2. Infantry spawns immediately
 //!   3. Mechanized spawns after a delay so it arrives at the same time as infantry

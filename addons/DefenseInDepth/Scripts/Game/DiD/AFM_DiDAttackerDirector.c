@@ -51,10 +51,10 @@ class AFM_DiDAttackerDirector: GenericEntity
 	protected ref array<ref AFM_DiDGroupEntry> m_aGroupRegistry = {};
 	protected int m_iDecisionTick = 0;
 
-	//! Phase tracked across cycles so G3 can detect transitions and re-apply autonomous distance.
+	//! Phase tracked across cycles to detect transitions and re-apply autonomous distance.
 	protected EAFMAttackPhase m_ePreviousPhase = EAFMAttackPhase.PROBE;
 
-	//! I1: cycles remaining where spawner/package selection is suppressed after a heavy FINAL-phase spend.
+	//! Cycles remaining where spawner/package selection is suppressed after a heavy FINAL-phase spend.
 	//! Artillery still evaluates during quiet ticks.
 	protected int m_iQuietTicksRemaining = 0;
 
@@ -603,7 +603,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 		// Tick route pressure before any spawn decisions
 		UpdateRoutePressure();
 
-		// J1: tick down near-miss recovery counters on all zones
+		// Tick down near-miss recovery counters on all zones
 		foreach (AFM_DiDZoneComponent zone : m_pStage.GetZones())
 		{
 			if (zone)
@@ -624,10 +624,10 @@ class AFM_DiDAttackerDirector: GenericEntity
 
 		AFM_DiDBattlefieldState state = BuildBattlefieldState(now);
 
-		// G2: apply fire-rate scaling to all live groups every cycle
+		// Apply fire-rate scaling to all live groups every cycle
 		ApplyFireRateAll(state);
 
-		// G3 + J2: on phase transition, re-apply autonomous distance and broadcast radio message
+		// On phase transition, re-apply autonomous distance and broadcast radio message
 		if (state.m_ePhase != m_ePreviousPhase)
 		{
 			PrintFormat("AFM_DiDAttackerDirector: Phase transition %1 → %2 — re-applying autonomous distance to %3 group(s)",
@@ -637,7 +637,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 			ApplyAutonomousDistanceAll(state);
 			m_ePreviousPhase = state.m_ePhase;
 
-			// J2: notify all clients via radio
+			// Notify all clients via radio
 			AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
 			if (gamemode)
 				gamemode.NotifyPhaseChanged(state.m_ePhase);
@@ -646,7 +646,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 		// Artillery always evaluates — unaffected by quiet ticks and probability gate
 		EvaluateArtillery(state, now);
 
-		// I1: post-heavy-push quiet interval — suppress spawner/package selection for N ticks
+		// Post-heavy-push quiet interval — suppress spawner/package selection for N ticks
 		if (m_iQuietTicksRemaining > 0)
 		{
 			m_iQuietTicksRemaining--;
@@ -654,7 +654,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 			return;
 		}
 
-		// I2: time-based spend probability gate — later in stage = more likely to spend
+		// Time-based spend probability gate — later in stage = more likely to spend
 		float timeUrgency = 1.0 - state.m_fTimeRatio;
 		float spendMultiplier = Math.Lerp(0.8, 1.4, timeUrgency);
 		float effectiveProbability = Math.Min(1.0, m_fBaseSpendProbability * spendMultiplier);
@@ -689,7 +689,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 			if (!spawner || !spawner.CanSpawnNow(now))
 				continue;
 
-			// J1: skip spawner if its zone is in near-miss recovery
+			// Skip spawner if its zone is in near-miss recovery
 			if (spawner.IsZoneInRecovery())
 				continue;
 
@@ -870,7 +870,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 			if (zone.IsZoneFinished())
 				continue;
 
-			// J1: skip zones in near-miss recovery — give defenders breathing room
+			// Skip zones in near-miss recovery — give defenders breathing room
 			if (zone.GetRecoveryTicksRemaining() > 0)
 				continue;
 
@@ -955,7 +955,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! I1: Triggers a quiet interval when a FINAL-phase cycle spends more than half the remaining budget.
+	//! Triggers a quiet interval when a FINAL-phase cycle spends more than half the remaining budget.
 	//! Quiet length: lerp(3, 1, aggression) — aggressive directors recover faster.
 	protected void TriggerQuietIfHeavySpend(AFM_DiDBattlefieldState state, int spentThisCycle, int remainingBefore)
 	{
@@ -1000,7 +1000,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! G2: Apply SetFireRateCoef to every live group in the registry each decision cycle.
+	//! Applies SetFireRateCoef to every live group in the registry each decision cycle.
 	//!
 	//! Formula: lerp(0.8, 1.2, phaseNorm) * lerp(0.9, 1.1, aggression)
 	//!   phaseNorm: PROBE=0.0, ASSAULT=0.5, FINAL=1.0
@@ -1033,7 +1033,7 @@ class AFM_DiDAttackerDirector: GenericEntity
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! G3: Re-apply SetMaxAutonomousDistance to every live group on a phase transition.
+	//! Re-applies SetMaxAutonomousDistance to every live group on a phase transition.
 	//! New groups get the right distance from TriggerSpawn; this corrects existing ones.
 	//!
 	//! Distance values mirror AutonomousDistance() in AFM_DiDSpawnerComponent:

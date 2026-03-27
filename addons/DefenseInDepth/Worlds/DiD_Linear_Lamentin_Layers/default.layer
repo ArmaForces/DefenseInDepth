@@ -20,6 +20,23 @@ SCR_AIWorld : "{70CCCF16487C927F}Prefabs/AI/SCR_AIWorld_Eden.et" {
     }
    }
   }
+  SCR_AISettingsComponent "{512CCCD0856CB4B9}" {
+   m_fWeaponFiredReactionDistance 145
+   m_fSuppressedWeaponFiredAudibleDistance 10
+   m_bInvestigate 0
+   m_eCombatMode RED
+   m_eCombatMovementType FIRETEAM
+   m_iCombatRangeDistanceModifier -24
+   m_iCombatStayInCoverDurationModifier -5
+   m_iCombatMoveToNextPositionDelayModifier 11
+   m_fPerceptionSafe 0.2
+   m_fPerceptionVigilant 1
+   m_fPerceptionAlerted 1.5
+   m_fPerceptionThreatened 2
+   m_fAimAccuracyErrorModifier -1
+   m_fGlobalWeaponFiredReactionDistance 145
+   m_eGlobalCombatMode RED
+  }
  }
  coords 1291.717 37.535 6031.231
 }
@@ -28,4 +45,7 @@ PerceptionManager PerceptionManager1 : "{028DAEAD63E056BE}Prefabs/World/Game/Per
 }
 AFM_GameModeDiD AFM_GameMode_DiD1 : "{E508D7FF014D49F1}Prefabs/MP/Modes/AFM_GameMode_DiD.et" {
  coords 1390.949 46.043 6040.119
+}
+MusicManager : "{A867D3EE4A35D38F}Prefabs/Sounds/Music/MusicManager_Campaign_Kolguyev.et" {
+ coords 1527.662 55.26 5954.292
 }
