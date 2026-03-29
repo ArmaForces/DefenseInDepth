@@ -69,9 +69,10 @@ class AFM_DiDAttackerDirector: GenericEntity
 
 		array<AFM_DiDZoneComponent> zones = stage.GetZones();
 		// Primary zone used as the spawner context (approach routes, assault waypoint, etc.)
+		// Picked at random so the initial attack direction varies each game.
 		AFM_DiDZoneComponent primaryZone = null;
 		if (!zones.IsEmpty())
-			primaryZone = zones[0];
+			primaryZone = zones.GetRandomElement();
 
 		// Scan own children: spawners + optional artillery
 		IEntity child = GetChildren();

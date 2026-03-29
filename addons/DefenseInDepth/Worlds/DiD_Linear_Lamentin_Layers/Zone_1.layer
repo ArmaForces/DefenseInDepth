@@ -12,6 +12,7 @@ GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_Bu
 }
 AFM_DiDStage : "{C832C711EB5B39AF}Prefabs/MP/AFM_DiDStagePrefab.et" {
  coords 1503.977 55.273 5912.164
+ m_iPointsBudget 240
  {
   AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
    coords 8.047 1.77 -21.573
