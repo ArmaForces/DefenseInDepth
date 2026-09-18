@@ -1,4 +1,4 @@
-SCR_MapEntity MapEntity_Everon1 : "{E1B88C66BF6CA1F9}Prefabs/World/Game/MapEntity_Everon.et" {
+SCR_MapEntity MapEntity_Everon1 : "{E1B88C66BF6CA1F9}Prefabs/World/Game/Eden/MapEntity_Everon.et" {
  coords 1371.211 44.404 6063.403
 }
 SCR_AIWorld : "{70CCCF16487C927F}Prefabs/AI/SCR_AIWorld_Eden.et" {

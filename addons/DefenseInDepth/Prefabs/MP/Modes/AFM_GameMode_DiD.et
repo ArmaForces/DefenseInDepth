@@ -91,7 +91,11 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
    m_fDuration 0
    m_bDisableControls 0
   }
+  SCR_ReconnectComponent "{5A02809D5E8ABE42}" {
+   Enabled 0
+  }
   SCR_RespawnSystemComponent "{56B2B4793051E7C9}" {
+   Enabled 0
    m_SpawnLogic SCR_SpawnLogic "{66AAF4E352EDE121}" {
    }
   }
@@ -107,8 +111,7 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
   }
   SCR_XPHandlerComponent "{66D34C57D4D10ACA}" {
   }
-  SCR_ReconnectComponent "{5A02809D5E8ABE42}" {
-   Enabled 0
+  PS_DummyRespawnSystemComponent "{6A63111CED9FB3E9}" {
   }
  }
  coords 1390.949 46.043 6040.119

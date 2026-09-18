@@ -205,7 +205,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			ResourceName prefabToSpawn = playableComponent.GetNextRespawn(false);
 			if (prefabToSpawn != "")
 			{
-				PS_RespawnData respawnData = new PS_RespawnData(playableComponent, prefabToSpawn);
+				PS_RespawnData respawnData = new PS_RespawnData(playableComponent, prefabToSpawn, "");
 				
 				if (sp)
 					respawnData.m_aSpawnTransform[3] = sp.GetOrigin();
