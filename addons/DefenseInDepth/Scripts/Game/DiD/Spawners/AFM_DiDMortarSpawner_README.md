@@ -54,6 +54,20 @@ Intelligent mortar fire support system that uses Monte Carlo sampling to dynamic
 | `m_fMinTargetDistance` | float | 100 | Minimum range from mortar |
 | `m_fMaxTargetDistance` | float | 800 | Maximum range from mortar |
 | `m_bDebugVisualization` | bool | true | Show debug visualization |
+| `m_fInitialDispersion` | float | 80 | Scatter (m) of the first salvo on a new target area; rounds land 50–100% of it from the aim point |
+| `m_fMinDispersion` | float | 20 | Scatter (m) once fire has walked in; rounds land anywhere within it |
+| `m_fDispersionStep` | float | 0.5 | Scatter multiplier for each consecutive salvo on the same area |
+| `m_fSameTargetRadius` | float | 50 | Aim points this close (m) to the previous one count as the same area |
+| `m_fFriendlyFireRadius` | float | 30 | Rounds never aim or land this close (m) to attacker AI |
+
+### Accuracy and bracketing
+The AI crew fires an exact ballistic solution, so all spread comes from this component. Each salvo is split into single-shot waypoints, each scattered around the aim point:
+
+1. A new target area gets `m_fInitialDispersion`: the first rounds are clear near misses, which warn the defenders.
+2. Each following salvo on the same area multiplies the scatter by `m_fDispersionStep`, down to `m_fMinDispersion`.
+3. If the defenders move more than `m_fSameTargetRadius`, bracketing starts again.
+
+A new salvo is only planned once the previous one has been fired, or after two update intervals if the crew is stuck.
 
 ### Tuning Guide
 
