@@ -26,7 +26,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	[Attribute("1", UIWidgets.Auto, desc: "Stop the timer while attackers outnumber defenders inside the zone?", category: "DiD")]
 	protected bool m_bStopTimerOnRedforSuperiority;
 	
-	[Attribute("1", UIWidgets.Auto, desc: "Stop the AI spawners when redfor presence is higher than blufor?", category: "DiD")]
+	[Attribute("1", UIWidgets.Auto, desc: "Pause infantry and mechanized spawners while the zone is contested (timer frozen)? Mortars and helicopters keep operating", category: "DiD")]
 	protected bool m_bStopSpawnersOnRedforSuperiority;
 	
 	[Attribute("1", UIWidgets.EditBox, "Zone index (1 to N), 1 is played first, N is the last zone", category: "DiD")]
@@ -38,7 +38,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	[Attribute("600", UIWidgets.EditBox, "Time in seconds to defend zone", category: "DiD")]
 	protected int m_iDefenseTimeSeconds;
 	
-	[Attribute("50", UIWidgets.EditBox, "Max number of AI groups", category: "DiD")]
+	[Attribute("0", UIWidgets.EditBox, "Max AI soldiers across all spawners of this zone (0 = no zone-wide limit, only each spawner's own limit applies)", category: "DiD")]
 	protected int m_iMaxAICount;
 	
 	protected PolylineShapeEntity m_PolylineEntity;
@@ -341,14 +341,27 @@ class AFM_DiDZoneComponent: ScriptComponent
 			}
 		}
 		
-		// Delegate spawning to spawner components
+		// Delegate spawning to spawner components. While contested, reinforcements pause but fire support continues.
+		bool spawnersPaused = AreSpawnersPaused();
 		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
 		{
-			if (spawner)
-				spawner.Process();
+			if (!spawner)
+				continue;
+
+			if (spawnersPaused && spawner.HasSpawnWaves())
+				continue;
+
+			spawner.Process();
 		}
-		
+
 		return m_eZoneState;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Infantry and mechanized spawners are paused while attackers hold the zone
+	bool AreSpawnersPaused()
+	{
+		return m_bStopSpawnersOnRedforSuperiority && m_eZoneState == EAFMZoneState.FROZEN;
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -480,6 +493,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//! \return false when no spawner sends timed waves
 	bool GetNextSpawnWaveTime(out WorldTimestamp nextTime)
 	{
+		if (AreSpawnersPaused())
+			return false;
+
 		WorldTimestamp now = GetCurrentTimestamp();
 		bool found = false;
 		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
@@ -536,7 +552,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return world.GetServerTimestamp();
 	}
 	
-	protected int GetZoneAILimit()
+	//! Zone-wide AI limit, 0 when only each spawner's own limit applies
+	int GetMaxAICount()
 	{
 		return m_iMaxAICount;
 	}

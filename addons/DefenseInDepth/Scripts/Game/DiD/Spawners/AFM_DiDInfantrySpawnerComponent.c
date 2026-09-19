@@ -97,7 +97,7 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 		AIGroup group = SpawnAI(groupPrefab, spawnPoint, waypoint);
 		if (group)
 		{
-			m_aSpawnedAIGroups.Insert(group);
+			TrackSpawnedGroup(group);
 			PrintFormat("AFM_DiDInfantrySpawnerComponent: Spawned infantry group %1", groupPrefab, LogLevel.DEBUG);
 		}
 	}

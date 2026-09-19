@@ -36,6 +36,12 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	protected ref array<AIGroup> m_aSpawnedAIGroups = {};
 	protected WorldTimestamp m_fLastSpawnTime;
 	protected int m_iRemainingTickets;
+	protected ref map<AIGroup, WorldTimestamp> m_mGroupSpawnTimes = new map<AIGroup, WorldTimestamp>();
+
+	// Groups still spawning members count with their planned size for at most this long
+	protected static const int PENDING_GROUP_TIMEOUT_SECONDS = 30;
+	protected static const int UNCONSCIOUSNESS_RETRY_MS = 500;
+	protected static const int UNCONSCIOUSNESS_MAX_ATTEMPTS = 20;
 	
 	//------------------------------------------------------------------------------------------------
 	// Prepare method - called by owner zone component on start
@@ -166,7 +172,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	//! Get the current count of active AI groups
+	//! Get the current count of AI in groups spawned by this spawner, including soldiers still spawning
 	//------------------------------------------------------------------------------------------------
 	int GetActiveAICount()
 	{
@@ -175,10 +181,63 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		{
 			AIGroup group = m_aSpawnedAIGroups[i];
 			if (!group)
+			{
+				m_aSpawnedAIGroups.Remove(i);
 				continue;
-			count += group.GetAgentsCount();
+			}
+			count += GetGroupAICount(group);
 		}
 		return count;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Soldiers of a group, counting its planned size while members are still being spawned.
+	//! Group members appear over several frames, so without this the AI cap wouldn't hold within one wave.
+	protected int GetGroupAICount(notnull AIGroup group)
+	{
+		int agents = group.GetAgentsCount();
+
+		SCR_AIGroup scrGroup = SCR_AIGroup.Cast(group);
+		if (!scrGroup || scrGroup.IsExpandComplete())
+			return agents;
+
+		// A group that never finishes spawning must not block the cap forever
+		WorldTimestamp spawnTime;
+		if (!m_mGroupSpawnTimes.Find(group, spawnTime) || GetCurrentTimestamp().DiffSeconds(spawnTime) > PENDING_GROUP_TIMEOUT_SECONDS)
+			return agents;
+
+		return Math.Max(agents, GetPlannedGroupSize(group));
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Number of soldiers the group will have once fully spawned
+	protected int GetPlannedGroupSize(notnull AIGroup group)
+	{
+		SCR_AIGroup scrGroup = SCR_AIGroup.Cast(group);
+		if (scrGroup && scrGroup.m_aUnitPrefabSlots)
+			return Math.Max(group.GetAgentsCount(), scrGroup.m_aUnitPrefabSlots.Count());
+
+		return group.GetAgentsCount();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Register a spawned group so it counts towards the AI cap and is removed on cleanup
+	protected void TrackSpawnedGroup(notnull AIGroup group)
+	{
+		m_aSpawnedAIGroups.Insert(group);
+		m_mGroupSpawnTimes.Set(group, GetCurrentTimestamp());
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! True when this spawner's cap or the zone-wide cap is reached
+	protected bool IsAICapReached()
+	{
+		int activeAI = m_Zone.GetActiveAICount();
+		if (activeAI >= m_iMaxAICount)
+			return true;
+
+		int zoneCap = m_Zone.GetMaxAICount();
+		return zoneCap > 0 && activeAI >= zoneCap;
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -196,20 +255,20 @@ class AFM_DiDSpawnerComponent: GenericEntity
 			return;
 		}
 		
-		if (m_Zone.GetActiveAICount() >= m_iMaxAICount)
+		if (IsAICapReached())
 		{
-			PrintFormat("AFM_DiDSpawnerComponent: Max AI count reached (%1/%2)", GetActiveAICount(), m_iMaxAICount, LogLevel.DEBUG);
+			PrintFormat("AFM_DiDSpawnerComponent: Max AI count reached (%1/%2)", m_Zone.GetActiveAICount(), m_iMaxAICount, level: LogLevel.DEBUG);
 			return;
 		}
-		
+
 		int spawnCount = GetSpawnCountForWave();
-		PrintFormat("AFM_DiDSpawnerComponent: Spawning wave with %1 groups", spawnCount, LogLevel.DEBUG);
-		
+		PrintFormat("AFM_DiDSpawnerComponent: Spawning wave with %1 groups", spawnCount, level: LogLevel.DEBUG);
+
 		for (int i = 0; i < spawnCount; i++)
 		{
-			if (m_Zone.GetActiveAICount() >= m_iMaxAICount)
+			if (IsAICapReached())
 				break;
-			
+
 			SpawnSingleGroup();
 		}
 	}
@@ -234,7 +293,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		AIGroup group = SpawnAI(groupPrefab, spawnPoint, waypoint);
 		if (group)
 		{
-			m_aSpawnedAIGroups.Insert(group);
+			TrackSpawnedGroup(group);
 			PrintFormat("AFM_DiDSpawnerComponent: Spawned AI group %1 at %2", groupPrefab, spawnPoint.GetOrigin().ToString(), LogLevel.DEBUG);
 		}
 		else
@@ -267,6 +326,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 			}
 		}
 		m_aSpawnedAIGroups.Clear();
+		m_mGroupSpawnTimes.Clear();
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -285,29 +345,44 @@ class AFM_DiDSpawnerComponent: GenericEntity
 			return null;
 		
 		aigroup.AddWaypoint(waypoint);
-		GetGame().GetCallqueue().CallLater(DisableAIUnconsciousness, 500, false, aigroup);
+
+		// Charge tickets for the full group now; its members spawn over the next frames
+		ConsumeTickets(GetPlannedGroupSize(aigroup));
+
+		GetGame().GetCallqueue().CallLater(DisableAIUnconsciousness, UNCONSCIOUSNESS_RETRY_MS, false, aigroup, 0);
 		return aigroup;
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
-	protected void DisableAIUnconsciousness(AIGroup group)
+	//! Applied to members present now, repeated until the group has finished spawning
+	protected void DisableAIUnconsciousness(AIGroup group, int attempt)
 	{
+		if (!group)
+			return;
+
 		array<AIAgent> agents = {};
 		group.GetAgents(agents);
-		
-		foreach(AIAgent agent: agents)
+
+		foreach (AIAgent agent : agents)
 		{
+			if (!agent)
+				continue;
+
 			IEntity agentEntity = agent.GetControlledEntity();
+			if (!agentEntity)
+				continue;
+
 			SCR_CharacterDamageManagerComponent damageMgr = SCR_CharacterDamageManagerComponent.Cast(
-				agentEntity.FindComponent(SCR_CharacterDamageManagerComponent
-			));
+				agentEntity.FindComponent(SCR_CharacterDamageManagerComponent)
+			);
 			if (!damageMgr)
 				continue;
 			damageMgr.SetPermitUnconsciousness(false, true);
 		}
-		
-		//TODO: Fix me - workaround for late group init
-		ConsumeTickets(agents.Count());
+
+		SCR_AIGroup scrGroup = SCR_AIGroup.Cast(group);
+		if (scrGroup && !scrGroup.IsExpandComplete() && attempt < UNCONSCIOUSNESS_MAX_ATTEMPTS)
+			GetGame().GetCallqueue().CallLater(DisableAIUnconsciousness, UNCONSCIOUSNESS_RETRY_MS, false, group, attempt + 1);
 	}
 	
 	//------------------------------------------------------------------------------------------------

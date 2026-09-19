@@ -26,7 +26,10 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	
 	[Attribute("", UIWidgets.Auto, desc: "Vehicle prefabs to spawn", category: "DiD Mechanized Spawner")]
 	protected ref array<ResourceName> m_aVehiclePrefabs;
-	
+
+	[Attribute("2", UIWidgets.EditBox, "Maximum vehicles from this spawner alive at the same time", category: "DiD Mechanized Spawner")]
+	protected int m_iMaxActiveVehicles;
+
 	protected ref array<IEntity> m_aSpawnedVehicles = {};
 	
 	//------------------------------------------------------------------------------------------------
@@ -57,27 +60,62 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 		}
 		
 		int spawnCount = GetSpawnCountForWave();
-		PrintFormat("AFM_DiDSpawnerComponent: Spawning wave with %1 groups", spawnCount, LogLevel.DEBUG);
-		
+		PrintFormat("AFM_DiDMechanizedSpawnerComponent: Spawning wave with %1 vehicles", spawnCount, level: LogLevel.DEBUG);
+
 		for (int i = 0; i < spawnCount; i++)
 		{
-			if (m_Zone.GetActiveAICount() >= m_iMaxAICount)
+			if (IsAICapReached())
 				break;
-			
+
+			if (CountActiveVehicles() >= m_iMaxActiveVehicles)
+			{
+				PrintFormat("AFM_DiDMechanizedSpawnerComponent: Vehicle limit reached (%1)", m_iMaxActiveVehicles, level: LogLevel.DEBUG);
+				break;
+			}
+
 			SpawnSingleGroup();
 		}
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
-	override protected void Cleanup()
+	override void Cleanup()
 	{
+		// Removes the crews, including those who got out of their vehicle
 		super.Cleanup();
-		foreach(IEntity entity: m_aSpawnedVehicles)
+
+		foreach (IEntity entity : m_aSpawnedVehicles)
 		{
 			if (!entity)
 				continue;
 			SCR_EntityHelper.DeleteEntityAndChildren(entity);
 		}
+		m_aSpawnedVehicles.Clear();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Vehicles from this spawner that still exist and aren't destroyed
+	protected int CountActiveVehicles()
+	{
+		int count = 0;
+		for (int i = m_aSpawnedVehicles.Count() - 1; i >= 0; i--)
+		{
+			Vehicle vehicle = Vehicle.Cast(m_aSpawnedVehicles[i]);
+			if (!vehicle)
+			{
+				// Deleted: forget it. Wrecks stay listed so cleanup removes them.
+				if (!m_aSpawnedVehicles[i])
+					m_aSpawnedVehicles.Remove(i);
+				continue;
+			}
+
+			SCR_DamageManagerComponent damageManager = vehicle.GetDamageManager();
+			if (damageManager && damageManager.IsDestroyed())
+				continue;
+
+			count++;
+		}
+
+		return count;
 	}
 	
 	
@@ -123,6 +161,9 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 		if (!cm)
 			return;
 		
+		// Track the crew so it counts towards the AI cap and is removed on cleanup
 		AIGroup crew = m_crewConfig.SpawnCrew(cm, m_aAIWaypoints.GetRandomElement());
+		if (crew)
+			TrackSpawnedGroup(crew);
 	}
 }

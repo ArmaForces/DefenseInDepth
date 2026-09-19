@@ -147,16 +147,37 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	// Zone system callbacks
 	//------------------------------------------------------------------------------------------------
 	
+	//! Fired when a zone enters its prepare phase, when its attack starts and when a wave is cleared
 	protected void OnZoneChanged()
 	{
 		UpdateLocalGameState();
 		// Respawn dead players when zone changes
 		GetGame().GetCallqueue().CallLater(RespawnAllSpectators, 1000 * 5);
 
-		RPC_DoProgressToNextZone(m_iCurrentZone);
-		Rpc(RPC_DoProgressToNextZone, m_iCurrentZone);
+		// Wave clears have their own hint (OnWaveCompleted)
+		if (m_bIsWarmup)
+		{
+			RPC_DoProgressToNextZone(m_iZoneNumber);
+			Rpc(RPC_DoProgressToNextZone, m_iZoneNumber);
+		}
+		else if (IsActiveZoneInState(EAFMZoneState.ACTIVE))
+		{
+			RPC_DoAttackStarted(m_iZoneNumber);
+			Rpc(RPC_DoAttackStarted, m_iZoneNumber);
+		}
+
 		OnMatchSituationChanged();
 		Replication.BumpMe();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected bool IsActiveZoneInState(EAFMZoneState state)
+	{
+		if (!m_ZoneSystem)
+			return false;
+
+		AFM_DiDZoneComponent zone = m_ZoneSystem.GetActiveZone();
+		return zone && zone.GetZoneState() == state;
 	}
 	
 	protected void OnZoneUpdate()
@@ -291,6 +312,18 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		);
 	}
 	
+	//! Broadcast: prepare phase is over, the enemy attack begins
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoAttackStarted(int zoneIndex)
+	{
+		SCR_HintManagerComponent.GetInstance().ShowCustom(
+			string.Format("Zone %1: the enemy attack has begun!", zoneIndex),
+			"",
+			10,
+			false
+		);
+	}
+
 	//! Broadcast: wave cleared in a wave zone
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
 	protected void RPC_DoWaveCompleted(int currentWave, int totalWaves)
