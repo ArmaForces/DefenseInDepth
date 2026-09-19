@@ -327,7 +327,7 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		for (int i = 0; i < SCATTER_ATTEMPTS; i++)
 		{
 			vector candidate = s_AIRandomGenerator.GenerateRandomPointInRadius(minRadius, dispersion, aimPoint);
-			if (IsNearAnyPosition(candidate, attackerPositions, m_fFriendlyFireRadius))
+			if (AFM_DiDTargetingHelper.IsNearAnyPosition(candidate, attackerPositions, m_fFriendlyFireRadius))
 				continue;
 
 			candidate[1] = GetGame().GetWorld().GetSurfaceY(candidate[0], candidate[2]);
@@ -350,37 +350,8 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		if (!attackerFaction)
 			return;
 
-		FactionKey attackerKey = attackerFaction.GetFactionKey();
-
-		array<AIAgent> agents = {};
-		GetGame().GetAIWorld().GetAIAgents(agents);
-		foreach (AIAgent agent : agents)
-		{
-			SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(agent.GetControlledEntity());
-			if (!character || character.GetFactionKey() != attackerKey)
-				continue;
-
-			SCR_DamageManagerComponent damageManager = character.GetDamageManager();
-			if (!damageManager || damageManager.IsDestroyed())
-				continue;
-
-			outPositions.Insert(character.GetOrigin());
-		}
-	}
-
-	//------------------------------------------------------------------------------------------------
-	protected bool IsNearAnyPosition(vector pos, notnull array<vector> positions, float radius)
-	{
-		float radiusSq = radius * radius;
-		foreach (vector other : positions)
-		{
-			float dx = pos[0] - other[0];
-			float dz = pos[2] - other[2];
-			if (dx * dx + dz * dz <= radiusSq)
-				return true;
-		}
-
-		return false;
+		// Helicopter crews overhead shouldn't block shelling the ground below them
+		AFM_DiDTargetingHelper.GetAIPositions(attackerFaction, outPositions, true);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -434,7 +405,7 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 				continue;
 
 			// Don't aim at areas held by own troops
-			if (IsNearAnyPosition(samplePos, attackerPositions, m_fFriendlyFireRadius))
+			if (AFM_DiDTargetingHelper.IsNearAnyPosition(samplePos, attackerPositions, m_fFriendlyFireRadius))
 				continue;
 
 			// Count targets around this sample point

@@ -92,6 +92,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 				case AFM_DiDInfantrySpawnerComponent:
 				case AFM_DiDMortarSpawnerComponent:
 				case AFM_DiDWaveSpawnerComponent:
+				case AFM_DiDHeliSpawnerComponent:
 					AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(e);
 					m_aSpawners.Insert(spawner);
 					break;
@@ -199,7 +200,11 @@ class AFM_DiDZoneComponent: ScriptComponent
 			SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(agentEntity);
 			if (!character || character.GetFactionKey() != m_RedforFaction.GetFactionKey())
 				continue;
-			
+
+			// Helicopter crews flying over the zone don't hold it
+			if (AFM_DiDTargetingHelper.IsInHelicopter(character))
+				continue;
+
 			vector pos = character.GetOrigin();
 			if (Math2D.IsPointInPolygon(m_aZonePolylinePoints2D, pos[0], pos[2]))
 				count++;
@@ -407,6 +412,11 @@ class AFM_DiDZoneComponent: ScriptComponent
 	PolylineShapeEntity GetPolylineEntity()
 	{
 		return m_PolylineEntity;
+	}
+
+	SCR_ResourceComponent GetSupplyCache()
+	{
+		return m_SupplyCache;
 	}
 	
 	SCR_Faction GetDefenderFaction()

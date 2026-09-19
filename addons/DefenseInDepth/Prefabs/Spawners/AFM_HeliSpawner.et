@@ -1,0 +1,17 @@
+AFM_DiDHeliSpawnerComponent {
+ ID "6A66A84517772099"
+ components {
+  SCR_EditableEntityVisibilityChildComponent "{6A66A845FDF781DB}" {
+  }
+  Hierarchy "{6A66A845F336EBA8}" {
+  }
+ }
+ coords 1507.855 55.665 5906.332
+ m_aAIGroupPrefabs {
+  "{B10210712040A7C9}Prefabs/Groups/OPFOR/REAPER_USSR_HelicopterCrew.et"
+ }
+ m_aHelicopterPrefabs {
+  "{3C6B3ED0C3AC30D5}Prefabs/Vehicles/Helicopters/Mi8MT/Mi8MT_armed_gunship_HE.et"
+ }
+ m_fBreakOffHealth 0.7
+}
