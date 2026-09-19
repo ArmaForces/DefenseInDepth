@@ -144,6 +144,12 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	{
 		return m_fLastSpawnTime.PlusSeconds(m_iWaveIntervalSeconds);
 	}
+
+	//! True if this spawner sends enemies in timed waves (GetNextSpawnTime is meaningful)
+	bool HasSpawnWaves()
+	{
+		return true;
+	}
 	
 	//------------------------------------------------------------------------------------------------
 	//! Calculate how many AI groups to spawn this wave

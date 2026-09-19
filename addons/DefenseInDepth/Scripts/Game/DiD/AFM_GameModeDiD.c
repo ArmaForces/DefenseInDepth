@@ -36,7 +36,32 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected int m_iCurrentZone = 0;
-	
+
+	// HUD status line
+	[RplProp(onRplName: "OnMatchSituationChanged")]
+	protected int m_iZoneNumber = 0;
+
+	[RplProp(onRplName: "OnMatchSituationChanged")]
+	protected int m_iZoneCount = 0;
+
+	[RplProp(onRplName: "OnMatchSituationChanged")]
+	protected int m_iWave = 0;
+
+	[RplProp(onRplName: "OnMatchSituationChanged")]
+	protected int m_iWaveCount = 0;	// 0 outside wave zones
+
+	[RplProp(onRplName: "OnMatchSituationChanged")]
+	protected int m_iEnemiesRemaining = -1;	// -1 when spawns are unlimited
+
+	[RplProp(onRplName: "OnMatchSituationChanged")]
+	protected bool m_bIsContested = false;
+
+	[RplProp(onRplName: "OnMatchSituationChanged")]
+	protected bool m_bHasNextSpawnWave = false;
+
+	[RplProp(onRplName: "OnMatchSituationChanged")]
+	protected WorldTimestamp m_NextSpawnWaveTimestamp;
+
 	//------------------------------------------------------------------------------------------------
 	ScriptInvoker GetOnMatchSituationChanged()
 	{
@@ -173,6 +198,30 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		m_iAttackersRemaining = m_ZoneSystem.GetRedforScore();
 		m_iDefendersRemaining = m_ZoneSystem.GetBluforScore();
 		m_fTimeoutTimestamp = m_ZoneSystem.GetZoneTimeoutTimestamp();
+		m_bIsContested = m_ZoneSystem.IsContested();
+		m_iZoneCount = m_ZoneSystem.GetMaxZoneIndex();
+
+		AFM_DiDZoneComponent zone = m_ZoneSystem.GetActiveZone();
+		if (!zone)
+			return;
+
+		m_iZoneNumber = zone.GetZoneIndex();
+		m_iEnemiesRemaining = zone.GetEnemiesRemaining();
+
+		// Spawners only send waves while the zone is being fought over
+		EAFMZoneState state = zone.GetZoneState();
+		m_bHasNextSpawnWave = false;
+		if (state == EAFMZoneState.ACTIVE || state == EAFMZoneState.FROZEN)
+			m_bHasNextSpawnWave = zone.GetNextSpawnWaveTime(m_NextSpawnWaveTimestamp);
+
+		m_iWave = 0;
+		m_iWaveCount = 0;
+		AFM_DiDWaveZoneComponent waveZone = AFM_DiDWaveZoneComponent.Cast(zone);
+		if (waveZone)
+		{
+			m_iWave = waveZone.GetCurrentWave();
+			m_iWaveCount = waveZone.GetTotalWaves();
+		}
 	}
 
 	
@@ -311,6 +360,46 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	bool IsWarmup()
 	{
 		return m_bIsWarmup;
+	}
+
+	int GetZoneNumber()
+	{
+		return m_iZoneNumber;
+	}
+
+	int GetZoneCount()
+	{
+		return m_iZoneCount;
+	}
+
+	int GetWave()
+	{
+		return m_iWave;
+	}
+
+	//! 0 outside wave zones
+	int GetWaveCount()
+	{
+		return m_iWaveCount;
+	}
+
+	//! -1 when spawns are unlimited
+	int GetEnemiesRemaining()
+	{
+		return m_iEnemiesRemaining;
+	}
+
+	//! Attackers hold the majority inside the zone and the timer is stopped
+	bool IsContested()
+	{
+		return m_bIsContested;
+	}
+
+	//! \return false when no timed enemy wave is coming
+	bool GetNextSpawnWaveTime(out WorldTimestamp nextTime)
+	{
+		nextTime = m_NextSpawnWaveTimestamp;
+		return m_bHasNextSpawnWave;
 	}
 	
 	bool ShowUI()

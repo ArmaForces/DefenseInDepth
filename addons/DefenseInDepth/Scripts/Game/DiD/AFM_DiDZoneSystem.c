@@ -318,6 +318,20 @@ class AFM_DiDZoneSystem: GameSystem
 		);
 	}
 	
+	//! Attackers hold the majority inside the zone, so the timer is stopped
+	bool IsContested()
+	{
+		if (!m_ActiveZone)
+			return false;
+
+		return m_ActiveZone.GetZoneState() == EAFMZoneState.FROZEN;
+	}
+
+	AFM_DiDZoneComponent GetActiveZone()
+	{
+		return m_ActiveZone;
+	}
+
 	bool IsWarmup()
 	{
 		if (!m_ActiveZone)

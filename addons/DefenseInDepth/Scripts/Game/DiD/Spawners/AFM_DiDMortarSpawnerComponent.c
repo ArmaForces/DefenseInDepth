@@ -127,6 +127,12 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		// Mortars spawn individually
 		return 1;
 	}
+
+	//------------------------------------------------------------------------------------------------
+	override bool HasSpawnWaves()
+	{
+		return false;
+	}
 	
 	//------------------------------------------------------------------------------------------------
 	override protected void SpawnSingleGroup()

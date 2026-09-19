@@ -5,6 +5,7 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 	protected static const int DISPLAY_VICTORY_TIMER_BEFORE_S = 10 * 60; //ten minutes
 	protected static const int SIZE_NORMAL = 20;
 	protected static const int SIZE_WINNER = 24;
+	protected static const int STATUS_FONT_SIZE = 16;
 	
 	protected bool m_bInitDone;
 	protected bool m_bPeriodicRefresh;
@@ -121,9 +122,10 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 			else
 				m_wCountdown.SetColor(Color.FromInt(Color.RED));
 			m_bPeriodicRefresh = true;
-			
-			
-			m_wFlavour.SetVisible(false);
+
+			m_wFlavour.SetText(BuildStatusText(serverTimestamp, isWarmup));
+			m_wFlavour.SetDesiredFontSize(STATUS_FONT_SIZE);
+			m_wFlavour.SetVisible(true);
 			m_wLeftScore.SetDesiredFontSize(SIZE_NORMAL);
 			m_wRightScore.SetDesiredFontSize(SIZE_NORMAL);
 			m_wWinScoreSideRight.SetColor(Color.FromInt(Color.WHITE));
@@ -151,6 +153,55 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 		}
 	}
 	
+	//------------------------------------------------------------------------------------------------
+	//! e.g. "Zone 2/3 | Wave 3/5 | Enemies left: 24 | Next enemy wave: 0:45"
+	protected string BuildStatusText(WorldTimestamp serverTimestamp, bool isWarmup)
+	{
+		array<string> parts = {};
+
+		int zoneCount = m_Campaign.GetZoneCount();
+		if (zoneCount > 0)
+			parts.Insert(string.Format("Zone %1/%2", m_Campaign.GetZoneNumber(), zoneCount));
+
+		int waveCount = m_Campaign.GetWaveCount();
+		if (waveCount > 0)
+			parts.Insert(string.Format("Wave %1/%2", m_Campaign.GetWave(), waveCount));
+
+		if (isWarmup)
+		{
+			parts.Insert("Prepare your defenses");
+		}
+		else
+		{
+			int enemiesRemaining = m_Campaign.GetEnemiesRemaining();
+			if (enemiesRemaining >= 0)
+				parts.Insert(string.Format("Enemies left: %1", enemiesRemaining));
+			else
+				parts.Insert(string.Format("Enemies in zone: %1", m_Campaign.GetAttackersRemaining()));
+
+			if (m_Campaign.IsContested())
+				parts.Insert("<color rgba='255,64,64,255'>CONTESTED</color>");
+
+			WorldTimestamp nextWave;
+			if (m_Campaign.GetNextSpawnWaveTime(nextWave))
+			{
+				float seconds = Math.Max(0, Math.Ceil(nextWave.DiffMilliseconds(serverTimestamp) / 1000));
+				string shownTime = SCR_FormatHelper.GetTimeFormatting(seconds, ETimeFormatParam.DAYS | ETimeFormatParam.HOURS, ETimeFormatParam.DAYS | ETimeFormatParam.HOURS | ETimeFormatParam.MINUTES);
+				parts.Insert("Next enemy wave: " + shownTime);
+			}
+		}
+
+		string text;
+		foreach (int i, string part : parts)
+		{
+			if (i > 0)
+				text += "   |   ";
+			text += part;
+		}
+
+		return text;
+	}
+
 	//------------------------------------------------------------------------------------------------
 	protected void UpdateHUD()
 	{

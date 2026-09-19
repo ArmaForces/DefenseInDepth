@@ -309,20 +309,22 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 		return tickets;
 	}
 	
+	//! Tickets not yet spawned plus AI still alive
+	override int GetEnemiesRemaining()
+	{
+		return GetRedforScore() + GetActiveAICount();
+	}
+
 	override WorldTimestamp GetZoneEndTime()
 	{
 		if (m_eZoneState != EAFMZoneState.ACTIVE)
 			return super.GetZoneEndTime();
-		
+
 		//TODO: Fix me - dirty hack
-		WorldTimestamp t = GetCurrentTimestamp().PlusSeconds(1000);
-		
-		foreach(AFM_DiDSpawnerComponent spawner: m_aSpawners)
-		{
-			WorldTimestamp spawnTimestamp = spawner.GetNextSpawnTime();
-			if (spawner.IsActive() && t.Greater(spawnTimestamp))
-				t = spawnTimestamp;
-		}
-		return t;
+		WorldTimestamp t;
+		if (GetNextSpawnWaveTime(t))
+			return t;
+
+		return GetCurrentTimestamp().PlusSeconds(1000);
 	}
 }

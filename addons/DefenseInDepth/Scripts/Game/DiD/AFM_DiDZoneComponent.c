@@ -23,7 +23,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	[Attribute("DidZone", UIWidgets.Auto, desc: "Zone name", category: "DiD")]
 	protected string m_sZoneName;
 	
-	[Attribute("1", UIWidgets.Auto, desc: "Stop the timer when redfor presence is higher than blufor?", category: "DiD")]
+	[Attribute("1", UIWidgets.Auto, desc: "Stop the timer while attackers outnumber defenders inside the zone?", category: "DiD")]
 	protected bool m_bStopTimerOnRedforSuperiority;
 	
 	[Attribute("1", UIWidgets.Auto, desc: "Stop the AI spawners when redfor presence is higher than blufor?", category: "DiD")]
@@ -161,27 +161,57 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return remainingPlayers;
 	}
 	
+	//------------------------------------------------------------------------------------------------
+	//! Living defender players standing inside the zone polygon
+	int GetDefenderCountInsideZone()
+	{
+		if (!m_BluforFaction || !EnsureZonePolygon())
+			return 0;
+
+		array<vector> playerPositions = {};
+		AFM_DiDTargetingHelper.GetPlayerPositions(m_BluforFaction, playerPositions);
+
+		int count = 0;
+		foreach (vector pos : playerPositions)
+		{
+			if (Math2D.IsPointInPolygon(m_aZonePolylinePoints2D, pos[0], pos[2]))
+				count++;
+		}
+
+		return count;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Build the 2D polygon cache once - polyline shape does not move at runtime
+	protected bool EnsureZonePolygon()
+	{
+		if (!m_PolylineEntity)
+			return false;
+
+		if (m_aZonePolylinePoints2D)
+			return true;
+
+		m_aZonePolylinePoints2D = new array<float>();
+		vector zonePos = m_PolylineEntity.GetOrigin();
+		array<vector> points3d = {};
+		m_PolylineEntity.GetPointsPositions(points3d);
+		foreach (vector p : points3d)
+		{
+			m_aZonePolylinePoints2D.Insert(p[0] + zonePos[0]);
+			m_aZonePolylinePoints2D.Insert(p[2] + zonePos[2]);
+		}
+
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	int GetAICountInsideZone()
 	{
 		WorldTimestamp timeStart = GetCurrentTimestamp();
-	
-		if (!m_PolylineEntity)
+
+		if (!EnsureZonePolygon())
 			return -1;
-		
-		// Build 2D polygon cache once - polyline shape does not move at runtime
-		if (!m_aZonePolylinePoints2D)
-		{
-			m_aZonePolylinePoints2D = new array<float>();
-			vector zonePos = m_PolylineEntity.GetOrigin();
-			array<vector> points3d = {};
-			m_PolylineEntity.GetPointsPositions(points3d);
-			foreach (vector p : points3d)
-			{
-				m_aZonePolylinePoints2D.Insert(p[0] + zonePos[0]);
-				m_aZonePolylinePoints2D.Insert(p[2] + zonePos[2]);
-			}
-		}
-		
+
 		array<AIAgent> agents = {};
 		GetGame().GetAIWorld().GetAIAgents(agents);
 		
@@ -297,14 +327,15 @@ class AFM_DiDZoneComponent: ScriptComponent
 			return m_eZoneState;
 		}
 		
-		//freeze/unfreeze zone
+		// Freeze the timer only while attackers hold the majority inside the zone
 		if (m_bStopTimerOnRedforSuperiority)
 		{
-			if (attackerCount > defenderCount && m_eZoneState == EAFMZoneState.ACTIVE)
+			int defendersInside = GetDefenderCountInsideZone();
+			if (attackerCount > defendersInside && m_eZoneState == EAFMZoneState.ACTIVE)
 			{
 				FreezeZone();
 			}
-			else if (attackerCount <= defenderCount && m_eZoneState == EAFMZoneState.FROZEN)
+			else if (attackerCount <= defendersInside && m_eZoneState == EAFMZoneState.FROZEN)
 			{
 				UnfreezeZone();
 			}
@@ -444,6 +475,39 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return GetZoneIndex();
 	}
 		
+	//------------------------------------------------------------------------------------------------
+	//! Earliest upcoming spawn of an active wave spawner (clamped to now when overdue)
+	//! \return false when no spawner sends timed waves
+	bool GetNextSpawnWaveTime(out WorldTimestamp nextTime)
+	{
+		WorldTimestamp now = GetCurrentTimestamp();
+		bool found = false;
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			if (!spawner || !spawner.IsActive() || !spawner.HasSpawnWaves())
+				continue;
+
+			WorldTimestamp spawnTime = spawner.GetNextSpawnTime();
+			if (spawnTime.Less(now))
+				spawnTime = now;
+
+			if (!found || spawnTime.Less(nextTime))
+			{
+				nextTime = spawnTime;
+				found = true;
+			}
+		}
+
+		return found;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Enemies left to fight in this zone, or -1 when spawns are unlimited
+	int GetEnemiesRemaining()
+	{
+		return -1;
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//! Get total active AI count across all spawners
 	//------------------------------------------------------------------------------------------------
