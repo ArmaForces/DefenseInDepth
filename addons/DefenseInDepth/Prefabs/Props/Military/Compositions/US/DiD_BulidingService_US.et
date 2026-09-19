@@ -4,6 +4,11 @@ GenericEntity : "{7649AC4689618998}Prefabs/Props/Military/Compositions/US/Buildi
   SCR_CampaignBuildingProviderComponent "{5EBCED04D0321687}" {
    m_bAnyFactionCanUse 1
    m_iRank RENEGADE
+   m_aBudgetsToEvaluate {
+    SCR_CampaignBuildingMaxValueBudgetToEvaluateData "{5EFAB309E9D51D29}" {
+     m_eBudget VEHICLES
+    }
+   }
    m_aAvailableTraits {
     TRAIT_FORTIFICATION THEME_MILITARY
    }
@@ -25,4 +30,6 @@ GenericEntity : "{7649AC4689618998}Prefabs/Props/Military/Compositions/US/Buildi
    }
   }
  }
+ coords 1528.273 56.44 5923.732
+ angles 0 -106.458 0
 }
