@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------------------------
-//! Mortar fire support spawner - spawns mortar teams with intelligent target selection
-//! Uses Monte Carlo sampling to find optimal fire positions within the zone
+//! Mortar fire support spawner - spawns a mortar team that shells the densest group of players,
+//! walking its fire in over consecutive salvos
 //------------------------------------------------------------------------------------------------
 class AFM_DiDMortarSpawnerComponentClass: AFM_DiDSpawnerComponentClass
 {
@@ -18,11 +18,11 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 	[Attribute("30", UIWidgets.EditBox, "Fire mission update interval (seconds)", category: "DiD Mortar Spawner")]
 	protected int m_iFireMissionUpdateInterval;
 	
-	[Attribute("10", UIWidgets.EditBox, "Number of sample points for Monte Carlo targeting (higher = more accurate, slower)", category: "DiD Mortar Spawner")]
+	[Attribute("10", UIWidgets.EditBox, "Attempts to find a random spot in the zone for harassing fire when no player can be targeted", category: "DiD Mortar Spawner")]
 	protected int m_iMonteCarloSamples;
-	
-	[Attribute("50", UIWidgets.EditBox, "Radius (meters) around each sample point to check for targets", category: "DiD Mortar Spawner")]
-	protected float m_fSampleRadius;
+
+	[Attribute("40", UIWidgets.EditBox, "Players within this distance (meters) of each other count as one group; the mortar aims at the centre of the largest one", category: "DiD Mortar Spawner")]
+	protected float m_fTargetGroupRadius;
 	
 	[Attribute("100", UIWidgets.EditBox, "Minimum distance from mortar to target (meters)", category: "DiD Mortar Spawner")]
 	protected float m_fMinTargetDistance;
@@ -33,16 +33,16 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 	[Attribute("1", UIWidgets.CheckBox, "Enable debug visualization of sample points", category: "DiD Mortar Spawner")]
 	protected bool m_bDebugVisualization;
 
-	[Attribute("80", UIWidgets.EditBox, "Scatter (meters) of the first salvo on a new target area. Rounds land between half and full scatter from the aim point", category: "DiD Mortar Accuracy")]
+	[Attribute("60", UIWidgets.EditBox, "Scatter (meters) of the first salvo on a new target area. Rounds land between half and full scatter from the aim point", category: "DiD Mortar Accuracy")]
 	protected float m_fInitialDispersion;
 
-	[Attribute("20", UIWidgets.EditBox, "Scatter (meters) once fire has walked in. Rounds land anywhere within this radius", category: "DiD Mortar Accuracy")]
+	[Attribute("12", UIWidgets.EditBox, "Scatter (meters) once fire has walked in. Rounds land anywhere within this radius", category: "DiD Mortar Accuracy")]
 	protected float m_fMinDispersion;
 
 	[Attribute("0.5", UIWidgets.EditBox, "Scatter multiplier for each consecutive salvo on the same target area", category: "DiD Mortar Accuracy")]
 	protected float m_fDispersionStep;
 
-	[Attribute("50", UIWidgets.EditBox, "Aim points closer than this (meters) to the previous aim point count as the same target area", category: "DiD Mortar Accuracy")]
+	[Attribute("75", UIWidgets.EditBox, "Aim points closer than this (meters) to the previous aim point count as the same target area", category: "DiD Mortar Accuracy")]
 	protected float m_fSameTargetRadius;
 
 	[Attribute("30", UIWidgets.EditBox, "Rounds never land closer than this (meters) to attacker AI", category: "DiD Mortar Accuracy")]
@@ -68,8 +68,8 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		ChimeraWorld world = GetGame().GetWorld();
 		m_fLastTargetUpdate = world.GetServerTimestamp();
 		
-		PrintFormat("AFM_DiDMortarSpawnerComponent: Mortar spawner initialized with %1 MC samples, %2m radius",
-			m_iMonteCarloSamples, m_fSampleRadius, level: LogLevel.DEBUG);
+		PrintFormat("AFM_DiDMortarSpawnerComponent: Mortar spawner initialized, target group radius %1m",
+			m_fTargetGroupRadius, level: LogLevel.DEBUG);
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -224,7 +224,7 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Plan a new salvo for a specific mortar using Monte Carlo target selection, replacing any rounds
+	//! Plan a new salvo for a specific mortar, replacing any rounds
 	//! not fired yet. Each round gets its own single-shot waypoint scattered around the aim point.
 	//! Consecutive salvos on the same area walk in from m_fInitialDispersion towards m_fMinDispersion.
 	//! \return true if a new salvo was assigned
@@ -237,7 +237,7 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		array<vector> attackerPositions = {};
 		GetAttackerPositions(attackerPositions);
 
-		// Find best target position using Monte Carlo sampling
+		// Aim at the densest group of players
 		vector aimPoint = FindBestTargetPosition(fireMission.m_SpawnPosition, attackerPositions);
 
 		if (aimPoint == vector.Zero)
@@ -361,138 +361,110 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Monte Carlo sampling to find best target position
-	//! Returns position with most defender units within sample radius, skipping points near attacker AI
+	//! Aim at the centre of the densest group of players, so consecutive salvos keep the same aim point
+	//! and the bracketing can walk in. Falls back to a random point in the zone when no players qualify.
 	//------------------------------------------------------------------------------------------------
 	protected vector FindBestTargetPosition(vector mortarPos, notnull array<vector> attackerPositions)
 	{
 		if (!m_Zone)
 			return vector.Zero;
-		
-		//TODO: Move below calculations to init (they need to happen only once)
-		// Get zone boundary for sampling
-		PolylineShapeEntity polyline = m_Zone.GetPolylineEntity();
-		if (!polyline)
-			return vector.Zero;
-		
+
 		array<vector> polylinePoints = {};
-		polyline.GetPointsPositions(polylinePoints);
-		
-		if (polylinePoints.Count() < 3)
+		vector polylineOrigin;
+		if (!GetZonePolyline(polylinePoints, polylineOrigin))
 			return vector.Zero;
-		
-		// Calculate zone bounds
+
+		// Players the mortar is allowed to fire at
+		array<vector> targets = {};
+		SCR_Faction defenderFaction = m_Zone.GetDefenderFaction();
+		if (defenderFaction)
+		{
+			array<vector> playerPositions = {};
+			AFM_DiDTargetingHelper.GetPlayerPositions(defenderFaction, playerPositions);
+
+			foreach (vector playerPos : playerPositions)
+			{
+				if (IsValidTargetPosition(playerPos, mortarPos, attackerPositions, polylinePoints, polylineOrigin))
+					targets.Insert(playerPos);
+			}
+		}
+
+		int groupSize;
+		vector groupCenter = AFM_DiDTargetingHelper.FindDensestGroupCenter(targets, m_fTargetGroupRadius, groupSize);
+		SetLastTargetCount(mortarPos, groupSize);
+
+		if (groupSize > 0)
+		{
+			groupCenter[1] = GetGame().GetWorld().GetSurfaceY(groupCenter[0], groupCenter[2]);
+
+			// The centre of a spread out group can sit on top of own troops; then shell one of them directly
+			if (IsValidTargetPosition(groupCenter, mortarPos, attackerPositions, polylinePoints, polylineOrigin))
+				return groupCenter;
+
+			return targets[0];
+		}
+
+		return FindRandomTargetPosition(mortarPos, attackerPositions, polylinePoints, polylineOrigin);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Harassing fire when no player can be targeted
+	protected vector FindRandomTargetPosition(vector mortarPos, notnull array<vector> attackerPositions, notnull array<vector> polylinePoints, vector polylineOrigin)
+	{
 		vector minBounds, maxBounds;
-		CalculateZoneBounds(polylinePoints, minBounds, maxBounds, polyline.GetOrigin());
-		
-		// Monte Carlo sampling
-		vector bestPosition = vector.Zero;
-		
-		//TODO: remove me - this is to make mortar fire at anything
-		int maxTargetCount = -1;
-		WorldTimestamp tStart = GetCurrentTimestamp();
+		CalculateZoneBounds(polylinePoints, minBounds, maxBounds, polylineOrigin);
+
 		for (int i = 0; i < m_iMonteCarloSamples; i++)
 		{
-			// Generate random point within zone bounds
 			vector samplePos = GenerateRandomPointInBounds(minBounds, maxBounds);
-			
-			// Debug visualization
+
 			if (m_bDebugVisualization)
 				DebugDrawSamplePoint(samplePos, 0, 0);
-			
-			// Check if point is actually inside the zone polygon
-			if (!IsPointInZone(samplePos, polylinePoints, polyline.GetOrigin()))
-				continue;
-			
-			// Check if within valid range from mortar
-			//float distToMortar = vector.Distance(mortarPos, samplePos);
-			float distToMortar = Math.Sqrt(Math.Pow(mortarPos[0] - samplePos[0],2) + Math.Pow(mortarPos[2] - samplePos[2], 2));
-			if (distToMortar < m_fMinTargetDistance || distToMortar > m_fMaxTargetDistance)
-				continue;
 
-			// Don't aim at areas held by own troops
-			if (AFM_DiDTargetingHelper.IsNearAnyPosition(samplePos, attackerPositions, m_fFriendlyFireRadius))
-				continue;
+			if (IsValidTargetPosition(samplePos, mortarPos, attackerPositions, polylinePoints, polylineOrigin))
+				return samplePos;
+		}
 
-			// Count targets around this sample point
-			int targetCount = CountDefendersInRadius(samplePos, m_fSampleRadius);
-			
-			// Debug visualization
-			if (m_bDebugVisualization)
-				DebugDrawSamplePoint(samplePos, targetCount, maxTargetCount);
-			
-			// Update best position if this sample has more targets
-			if (targetCount > maxTargetCount)
-			{
-				maxTargetCount = targetCount;
-				bestPosition = samplePos;
-			}
-		}
-		
-		// Store for reference
-		if (m_mFireMissions.Count() > 0)
-		{
-			// Find the fire mission we're updating (hacky, but works for now)
-			foreach (IEntity mortar, MortarFireMissionData fm : m_mFireMissions)
-			{
-				if (fm.m_SpawnPosition == mortarPos)
-				{
-					fm.m_LastTargetCount = maxTargetCount;
-					break;
-				}
-			}
-		}
-		WorldTimestamp end = GetCurrentTimestamp();
-		PrintFormat("AFM_DiDMortarSpawnerComponent: MC simulation took %1 ms", end.DiffMilliseconds(tStart), level: LogLevel.DEBUG);
-		return bestPosition;
+		return vector.Zero;
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
-	//! Count defender units within radius of position
-	//------------------------------------------------------------------------------------------------
-	protected int CountDefendersInRadius(vector centerPos, float radius)
+	//! Inside the zone, within the mortar's range and clear of own troops
+	protected bool IsValidTargetPosition(vector pos, vector mortarPos, notnull array<vector> attackerPositions, notnull array<vector> polylinePoints, vector polylineOrigin)
 	{
-		if (!m_Zone)
-			return 0;
-		
-		SCR_Faction defenderFaction = m_Zone.GetDefenderFaction();
-		if (!defenderFaction)
-			return 0;
-		
-		array<int> playerIds = {};
-		defenderFaction.GetPlayersInFaction(playerIds);
-		
-		int count = 0;
-		float radiusSq = radius * radius;
-		
-		foreach (int playerId : playerIds)
+		if (!IsPointInZone(pos, polylinePoints, polylineOrigin))
+			return false;
+
+		float distToMortar = vector.DistanceXZ(mortarPos, pos);
+		if (distToMortar < m_fMinTargetDistance || distToMortar > m_fMaxTargetDistance)
+			return false;
+
+		return !AFM_DiDTargetingHelper.IsNearAnyPosition(pos, attackerPositions, m_fFriendlyFireRadius);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected bool GetZonePolyline(notnull array<vector> outPoints, out vector outOrigin)
+	{
+		PolylineShapeEntity polyline = m_Zone.GetPolylineEntity();
+		if (!polyline)
+			return false;
+
+		polyline.GetPointsPositions(outPoints);
+		outOrigin = polyline.GetOrigin();
+		return outPoints.Count() >= 3;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void SetLastTargetCount(vector mortarPos, int targetCount)
+	{
+		foreach (IEntity mortar, MortarFireMissionData fireMission : m_mFireMissions)
 		{
-			PlayerController pc = GetGame().GetPlayerManager().GetPlayerController(playerId);
-			if (!pc)
-				continue;
-			
-			IEntity playerEntity = pc.GetControlledEntity();
-			if (!playerEntity)
-				continue;
-			
-			// Check if player is alive
-			SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(playerEntity);
-			if (!character)
-				continue;
-			
-			SCR_DamageManagerComponent damageManager = character.GetDamageManager();
-			if (!damageManager || damageManager.GetState() == EDamageState.DESTROYED)
-				continue;
-			
-			// Check distance (using squared distance for performance)
-			vector playerPos = playerEntity.GetOrigin();
-			float distSq = vector.DistanceSq(centerPos, playerPos);
-			
-			if (distSq <= radiusSq)
-				count++;
+			if (fireMission && fireMission.m_SpawnPosition == mortarPos)
+			{
+				fireMission.m_LastTargetCount = targetCount;
+				return;
+			}
 		}
-		
-		return count;
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -568,7 +540,7 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 			color = Color.Orange;
 		
 		// Draw sphere at sample point
-		Shape s = Shape.CreateSphere(color.PackToInt(), ShapeFlags.VISIBLE, pos, m_fSampleRadius);
+		Shape s = Shape.CreateSphere(color.PackToInt(), ShapeFlags.VISIBLE, pos, m_fTargetGroupRadius);
 	
 		m_aDebugShapes.Insert(s);
 	}

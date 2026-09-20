@@ -1,7 +1,7 @@
 # AFM_DiDMortarSpawnerComponent - AI Mortar Fire Support System
 
 ## Overview
-Intelligent mortar fire support system that uses Monte Carlo sampling to dynamically select optimal fire positions based on defender concentrations within the zone.
+Mortar fire support that shells the largest group of players in the zone and walks its fire in over consecutive salvos.
 
 ## Concept
 
@@ -10,12 +10,12 @@ Intelligent mortar fire support system that uses Monte Carlo sampling to dynamic
 - Random targeting is ineffective
 - Need to concentrate fire where defenders are clustered
 
-### The Solution: Monte Carlo Target Selection
-1. Generate N random sample points within the zone
-2. For each sample, count defenders within radius M
-3. Select the sample point with the highest defender concentration
-4. Create fire mission waypoint at that position
-5. Update periodically as battle evolves
+### The Solution: Target the Largest Group
+1. Take the positions of all living players in the zone that are in range and clear of own troops
+2. Find the player with the most teammates within `m_fTargetGroupRadius`
+3. Aim at the centre of that group, which keeps the aim point steady between salvos so fire can walk in
+4. Create single-shot waypoints scattered around it
+5. Update periodically as the battle evolves; with no valid player, fire a harassing round at a random spot in the zone
 
 ## Features
 
@@ -24,21 +24,16 @@ Intelligent mortar fire support system that uses Monte Carlo sampling to dynamic
 - Concentrates fire on largest groups
 - Updates missions periodically
 
-### ✅ Intelligent Sampling
-- Respects min/max range constraints
-- Only samples within zone boundaries  
-- Validates distance from mortar position
+### ✅ Valid targets only
+- Inside the zone boundary
+- Within the mortar's min/max range
+- Never within `m_fFriendlyFireRadius` of attacker AI
 
 ### ✅ Configurable Parameters
-- Sample count (accuracy vs performance)
-- Sample radius (area of effect consideration)
+- Group radius (how spread out a group may be)
+- Scatter and bracketing (how fast fire walks in)
 - Update interval (responsiveness vs performance)
 - Range constraints (realistic mortar capabilities)
-
-### ✅ Debug Visualization
-- Optional visual feedback of sample points
-- Color-coded by target density
-- Helps tune parameters
 
 ## Configuration
 
@@ -49,15 +44,15 @@ Intelligent mortar fire support system that uses Monte Carlo sampling to dynamic
 | `m_crewConfig` | AFM_CrewConfig | - | Crew configuration (gunner only typically) |
 | `m_aMortarPrefabs` | ResourceName[] | - | Mortar vehicle prefabs to spawn |
 | `m_iFireMissionUpdateInterval` | int | 30 | Seconds between target updates |
-| `m_iMonteCarloSamples` | int | 10 | Number of sample points |
-| `m_fSampleRadius` | float | 50 | Radius (m) to check around each sample |
+| `m_iMonteCarloSamples` | int | 10 | Attempts to find a random spot for harassing fire when no player can be targeted |
+| `m_fTargetGroupRadius` | float | 40 | Players this close (m) to each other count as one group; fire aims at the centre of the largest |
 | `m_fMinTargetDistance` | float | 100 | Minimum range from mortar |
 | `m_fMaxTargetDistance` | float | 800 | Maximum range from mortar |
 | `m_bDebugVisualization` | bool | true | Show debug visualization |
-| `m_fInitialDispersion` | float | 80 | Scatter (m) of the first salvo on a new target area; rounds land 50–100% of it from the aim point |
-| `m_fMinDispersion` | float | 20 | Scatter (m) once fire has walked in; rounds land anywhere within it |
+| `m_fInitialDispersion` | float | 60 | Scatter (m) of the first salvo on a new target area; rounds land 50–100% of it from the aim point |
+| `m_fMinDispersion` | float | 12 | Scatter (m) once fire has walked in; rounds land anywhere within it |
 | `m_fDispersionStep` | float | 0.5 | Scatter multiplier for each consecutive salvo on the same area |
-| `m_fSameTargetRadius` | float | 50 | Aim points this close (m) to the previous one count as the same area |
+| `m_fSameTargetRadius` | float | 75 | Aim points this close (m) to the previous one count as the same area |
 | `m_fFriendlyFireRadius` | float | 30 | Rounds never aim or land this close (m) to attacker AI |
 
 ### Accuracy and bracketing
@@ -70,16 +65,6 @@ The AI crew fires an exact ballistic solution, so all spread comes from this com
 A new salvo is only planned once the previous one has been fired, or after two update intervals if the crew is stuck.
 
 ### Tuning Guide
-
-#### Sample Count (`m_iMonteCarloSamples`)
-- **Low (5-10)**: Fast, less accurate, good for large zones
-- **Medium (10-20)**: Balanced, recommended
-- **High (20-50)**: Slow, very accurate, overkill for most cases
-
-#### Sample Radius (`m_fSampleRadius`)
-- **Small (20-30m)**: Pinpoint targeting, requires many samples
-- **Medium (50-70m)**: Balanced, catches small groups
-- **Large (100m+)**: Area targeting, may miss optimal spots
 
 #### Update Interval (`m_iFireMissionUpdateInterval`)
 - **Fast (15-30s)**: Responsive, more CPU load
@@ -98,27 +83,23 @@ SpawnSingleGroup()
   └─> Perform initial target selection
 ```
 
-### 2. Monte Carlo Target Selection
+### 2. Target Selection
 ```
 FindBestTargetPosition(mortarPos)
-  └─> Get zone polyline boundary
-  └─> Calculate zone bounding box
-  └─> FOR each Monte Carlo sample:
-       ├─> Generate random point in bounds
-       ├─> Check if inside zone polygon
-       ├─> Check if within range constraints
-       ├─> Count defenders in sample radius
-       └─> Track best sample (most targets)
-  └─> Return position with most targets
+  └─> Collect living player positions of the defender faction
+  └─> Keep those inside the zone, in range and clear of attacker AI
+  └─> Find the densest group of them (m_fTargetGroupRadius) and take its centre
+  └─> Centre blocked by own troops? Aim at one of the players instead
+  └─> No valid player? Random spot in the zone for harassing fire
 ```
 
 ### 3. Fire Mission Update
 ```
 UpdateFireMission(fireMission)
-  └─> Find best target via Monte Carlo
-  └─> Create defend waypoint at target
+  └─> Find the aim point
+  └─> Same area as last salvo? Halve the scatter, else reset it
   └─> Clear old waypoints from AI group
-  └─> Assign new waypoint
+  └─> Add one single-shot waypoint per round, each scattered around the aim point
   └─> Update tracking data
 ```
 
@@ -127,57 +108,10 @@ UpdateFireMission(fireMission)
 Process() [called every frame]
   └─> IF zone is ACTIVE:
        └─> IF update interval elapsed:
-            └─> UpdateAllFireMissions()
-                 └─> FOR each spawned mortar:
-                      └─> Run Monte Carlo sampling
-                      └─> Update waypoint
-```
-
-## Algorithm Details
-
-### Monte Carlo Sampling Pseudocode
-```
-function FindBestTarget(mortarPosition, zone):
-    bestPosition = null
-    maxTargets = 0
-    
-    for i = 1 to SAMPLE_COUNT:
-        // Generate random point
-        point = RandomPointInZone(zone)
-        
-        // Validate constraints
-        if not IsInPolygon(point, zone):
-            continue
-        
-        distance = Distance(mortarPosition, point)
-        if distance < MIN_RANGE or distance > MAX_RANGE:
-            continue
-        
-        // Count targets
-        targetCount = CountDefendersInRadius(point, SAMPLE_RADIUS)
-        
-        // Update best
-        if targetCount > maxTargets:
-            maxTargets = targetCount
-            bestPosition = point
-    
-    return bestPosition
-```
-
-### Target Counting
-```
-function CountDefendersInRadius(center, radius):
-    count = 0
-    
-    for each defender in zone:
-        if not defender.IsAlive():
-            continue
-        
-        distance = Distance(center, defender.position)
-        if distance <= radius:
-            count++
-    
-    return count
+            └─> IF the previous salvo has been fired:
+                 └─> UpdateAllFireMissions()
+                      └─> FOR each spawned mortar:
+                           └─> Pick aim point and plan the next salvo
 ```
 
 ## Usage Examples
@@ -193,17 +127,17 @@ function CountDefendersInRadius(center, radius):
 
 ### Configuration Example
 ```enscript
-// High-accuracy, slow updates (siege mortar)
-m_iMonteCarloSamples = 20
-m_fSampleRadius = 70
+// Slow, heavy fire that walks in over a long fight
 m_iFireMissionUpdateInterval = 60
-m_fMaxTargetDistance = 1200
+m_fTargetGroupRadius = 40
+m_fInitialDispersion = 80
+m_fMinDispersion = 12
 
-// Fast, responsive (light mortar)
-m_iMonteCarloSamples = 10
-m_fSampleRadius = 40
+// Fast and aggressive
 m_iFireMissionUpdateInterval = 20
-m_fMaxTargetDistance = 600
+m_fTargetGroupRadius = 30
+m_fInitialDispersion = 40
+m_fMinDispersion = 10
 ```
 
 ### Crew Config for Mortar
@@ -235,37 +169,14 @@ Zone Process Loop
                       ├─> Check if update interval elapsed
                       └─> UpdateAllFireMissions()
                            └─> FOR each mortar:
-                                ├─> Run Monte Carlo sampling
-                                ├─> Find best target
-                                └─> Update waypoint
+                                ├─> Find the largest player group
+                                ├─> Pick the scatter for this salvo
+                                └─> Add one waypoint per round
 ```
 
 ## Performance Considerations
 
-### CPU Impact
-- Monte Carlo sampling is O(N × M) where:
-  - N = number of samples
-  - M = number of defenders
-- Runs periodically (not every frame)
-- Impact scales with:
-  - Sample count
-  - Defender count
-  - Number of mortars
-  - Update frequency
-
-### Optimization Tips
-1. **Reduce samples**: 10 samples usually sufficient
-2. **Increase interval**: 30-60s is fine for most scenarios
-3. **Limit mortars**: 1-2 per zone max
-4. **Cache geometry**: Zone polyline doesn't change
-5. **Early exits**: Skip if no defenders in zone
-
-### Estimated Performance
-- **10 samples, 20 defenders**: ~0.1ms per update
-- **20 samples, 40 defenders**: ~0.4ms per update
-- **50 samples, 100 defenders**: ~2-3ms per update
-
-Update occurs every 30-60 seconds, so even heavy configs have minimal impact.
+Target selection costs one pass over the living players of the defender faction plus one pass over attacker AI positions, and runs once per update interval (not every frame). The random-spot fallback only runs when no player can be targeted.
 
 ## Advanced Customization
 
@@ -273,36 +184,14 @@ Update occurs every 30-60 seconds, so even heavy configs have minimal impact.
 Override to add more sophisticated targeting:
 
 ```enscript
-override protected vector FindBestTargetPosition(vector mortarPos)
+override protected vector FindBestTargetPosition(vector mortarPos, notnull array<vector> attackerPositions)
 {
-    // Custom scoring that considers:
-    // - Target density
-    // - Distance from mortar (prefer closer)
+    // Custom aim point that considers, for example:
+    // - Distance from the mortar (prefer closer)
     // - Terrain (prefer open areas)
-    // - Previous fire missions (avoid same spot)
-    
-    float bestScore = 0;
-    vector bestPos = vector.Zero;
-    
-    for (int i = 0; i < m_iMonteCarloSamples; i++)
-    {
-        vector samplePos = GenerateSample();
-        
-        int targets = CountDefendersInRadius(samplePos, m_fSampleRadius);
-        float distance = vector.Distance(mortarPos, samplePos);
-        float terrain = GetTerrainScore(samplePos);
-        float history = GetHistoryPenalty(samplePos);
-        
-        float score = (targets * 10.0) - (distance * 0.1) + terrain - history;
-        
-        if (score > bestScore)
-        {
-            bestScore = score;
-            bestPos = samplePos;
-        }
-    }
-    
-    return bestPos;
+    // - Previous fire missions (avoid the same spot)
+
+    return super.FindBestTargetPosition(mortarPos, attackerPositions);
 }
 ```
 
@@ -316,21 +205,7 @@ Account for defender movement:
 ```
 
 ### Danger Zone Avoidance
-Avoid friendly fire:
-
-```enscript
-override protected int CountDefendersInRadius(vector centerPos, float radius)
-{
-    int defenders = super.CountDefendersInRadius(centerPos, radius);
-    int friendlies = CountAttackersInRadius(centerPos, radius);
-    
-    // Heavy penalty for friendly fire risk
-    if (friendlies > 0)
-        return -100;
-    
-    return defenders;
-}
-```
+Own troops are already avoided: aim points and impact points are rejected within `m_fFriendlyFireRadius` of attacker AI. Override `IsValidTargetPosition` to add further rules.
 
 ## Debugging
 
@@ -395,5 +270,4 @@ Watch console for:
 - **Time-on-target**: Coordinate multiple tubes
 
 ## Credits
-- Monte Carlo sampling concept adapted from computational geometry
 - Integrated with ArmaForces Defense in Depth spawner system

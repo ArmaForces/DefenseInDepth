@@ -10,6 +10,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	[Attribute("USSR", UIWidgets.EditBox, "Attackers faction key", category: "DiD")]
 	protected FactionKey m_sAttackerFactionKey;	
 	
+	// Dead bodies are inserted into the garbage system on death; withdraw them shortly after
+	protected static const int BODY_WITHDRAW_DELAY_MS = 500;
+
+	// PS switches the player into the new body four frames after the respawn request
+	protected static const int RESPAWN_FINALIZE_DELAY_MS = 2000;
+
 	protected SCR_FactionManager m_FactionManager;
 	protected AFM_DiDZoneSystem m_ZoneSystem;
 	protected ref ScriptInvoker m_OnMatchSituationChanged;
@@ -246,17 +252,50 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	}
 
 	
+	//------------------------------------------------------------------------------------------------
+	//! Keep dead bodies out of the garbage system. Deleting a body unregisters its playable, and the
+	//! player would then be missing from the list below and never respawned at the next zone.
+	override protected void OnPlayerKilled(int playerId, IEntity playerEntity, IEntity killerEntity, notnull Instigator killer)
+	{
+		super.OnPlayerKilled(playerId, playerEntity, killerEntity, killer);
+
+		// The body is inserted into the garbage system on death, so withdraw it right after
+		GetGame().GetCallqueue().CallLater(KeepBody, BODY_WITHDRAW_DELAY_MS, false, playerEntity);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void KeepBody(IEntity body)
+	{
+		if (!body)
+			return;
+
+		SCR_GarbageSystem garbageSystem = SCR_GarbageSystem.GetByEntityWorld(body);
+		if (garbageSystem)
+			garbageSystem.Withdraw(body);
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected void RespawnAllSpectators()
 	{
 		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
 		array<PS_PlayableContainer> playableContainers = playableManager.GetPlayablesSorted();
 		AFM_PlayerSpawnPointEntity currentSpawnPoint = m_ZoneSystem.GetCurrentZonePlayerSpawnPoint();
-		
-		
+
+
 		foreach (PS_PlayableContainer container : playableContainers)
 		{
+			if (!container)
+				continue;
+
+			// A playable whose entity is already gone can't be respawned, and must not stop the others
 			PS_PlayableComponent pcomp = container.GetPlayableComponent();
+			if (!pcomp)
+				continue;
+
 			SCR_CharacterDamageManagerComponent damageManager = pcomp.GetCharacterDamageManagerComponent();
+			if (!damageManager)
+				continue;
+
 			EDamageState damageState = damageManager.GetState();
 			if (damageState == EDamageState.DESTROYED)
 			{
@@ -276,16 +315,48 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			if (prefabToSpawn != "")
 			{
 				PS_RespawnData respawnData = new PS_RespawnData(playableComponent, prefabToSpawn, "");
-				
+
 				if (sp)
 					respawnData.m_aSpawnTransform[3] = sp.GetOrigin();
-				
+
 				Respawn(playerId, respawnData);
+
+				// The player is switched into the new body a few frames later
+				GetGame().GetCallqueue().CallLater(OnPlayerRespawned, RESPAWN_FINALIZE_DELAY_MS, false, playerId, playableComponent.GetOwner());
 				return;
 			}
 		}
 
 		SwitchToInitialEntity(playerId);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Restore the rank the player earned and remove the body kept for this respawn
+	protected void OnPlayerRespawned(int playerId, IEntity oldBody)
+	{
+		RestorePlayerRank(playerId);
+
+		if (oldBody)
+			SCR_EntityHelper.DeleteEntityAndChildren(oldBody);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! A respawned character starts at the default rank: the PS framework spawns it directly, skipping
+	//! the vanilla spawn flow that applies the rank matching the player's XP.
+	protected void RestorePlayerRank(int playerId)
+	{
+		PlayerController playerController = GetGame().GetPlayerManager().GetPlayerController(playerId);
+		if (!playerController)
+			return;
+
+		SCR_PlayerXPHandlerComponent xpHandler = SCR_PlayerXPHandlerComponent.Cast(playerController.FindComponent(SCR_PlayerXPHandlerComponent));
+		if (!xpHandler)
+		{
+			PrintFormat("AFM_GameModeDiD: Player %1 has no XP handler, rank not restored", playerId, level: LogLevel.WARNING);
+			return;
+		}
+
+		xpHandler.UpdatePlayerRank(false);
 	}
 	
 	//! Broadcast: zone failure - shown before zone progression hint
