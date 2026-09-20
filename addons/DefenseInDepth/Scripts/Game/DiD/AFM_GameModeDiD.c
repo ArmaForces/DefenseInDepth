@@ -14,6 +14,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	protected static const int BODY_WITHDRAW_DELAY_MS = 500;
 
 	// PS switches the player into the new body four frames after the respawn request
+	protected static const int RANK_RESTORE_FIRST_DELAY_MS = 300;
 	protected static const int RESPAWN_FINALIZE_DELAY_MS = 2000;
 
 	protected SCR_FactionManager m_FactionManager;
@@ -322,7 +323,13 @@ class AFM_GameModeDiD: PS_GameModeCoop
 				Respawn(playerId, respawnData);
 
 				// The player is switched into the new body a few frames later
-				GetGame().GetCallqueue().CallLater(OnPlayerRespawned, RESPAWN_FINALIZE_DELAY_MS, false, playerId, playableComponent.GetOwner());
+				IEntity oldBody = playableComponent.GetOwner();
+				SCR_ECharacterRank previousRank = SCR_CharacterRankComponent.GetCharacterRank(oldBody);
+				
+				// Restore the rank as soon as the player holds the new body, then again in case anything
+				// reads or overwrites it while the respawn finishes
+				GetGame().GetCallqueue().CallLater(RestorePlayerRank, RANK_RESTORE_FIRST_DELAY_MS, false, playerId, previousRank);
+				GetGame().GetCallqueue().CallLater(OnPlayerRespawned, RESPAWN_FINALIZE_DELAY_MS, false, playerId, oldBody, previousRank);
 				return;
 			}
 		}
@@ -332,31 +339,51 @@ class AFM_GameModeDiD: PS_GameModeCoop
 
 	//------------------------------------------------------------------------------------------------
 	//! Restore the rank the player earned and remove the body kept for this respawn
-	protected void OnPlayerRespawned(int playerId, IEntity oldBody)
+	protected void OnPlayerRespawned(int playerId, IEntity oldBody, SCR_ECharacterRank previousRank)
 	{
-		RestorePlayerRank(playerId);
+		RestorePlayerRank(playerId, previousRank);
 
 		if (oldBody)
 			SCR_EntityHelper.DeleteEntityAndChildren(oldBody);
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! A respawned character starts at the default rank: the PS framework spawns it directly, skipping
-	//! the vanilla spawn flow that applies the rank matching the player's XP.
-	protected void RestorePlayerRank(int playerId)
+	//! A respawned character starts at the rank of its prefab: the PS framework spawns it directly and
+	//! skips the vanilla spawn flow that applies the rank matching the player's XP. Carry the rank of the
+	//! previous body over, then let the XP handler raise it further if it can.
+	protected void RestorePlayerRank(int playerId, SCR_ECharacterRank previousRank)
 	{
 		PlayerController playerController = GetGame().GetPlayerManager().GetPlayerController(playerId);
 		if (!playerController)
-			return;
-
-		SCR_PlayerXPHandlerComponent xpHandler = SCR_PlayerXPHandlerComponent.Cast(playerController.FindComponent(SCR_PlayerXPHandlerComponent));
-		if (!xpHandler)
 		{
-			PrintFormat("AFM_GameModeDiD: Player %1 has no XP handler, rank not restored", playerId, level: LogLevel.WARNING);
+			PrintFormat("AFM_GameModeDiD: No player controller for player %1, rank not restored", playerId, level: LogLevel.WARNING);
 			return;
 		}
 
-		xpHandler.UpdatePlayerRank(false);
+		IEntity character = playerController.GetControlledEntity();
+		if (!character)
+		{
+			PrintFormat("AFM_GameModeDiD: Player %1 controls no entity, rank not restored", playerId, level: LogLevel.WARNING);
+			return;
+		}
+
+		SCR_CharacterRankComponent rankComponent = SCR_CharacterRankComponent.GetCharacterRankComponent(character);
+		if (!rankComponent)
+		{
+			PrintFormat("AFM_GameModeDiD: Player %1 respawned into an entity without a rank component", playerId, level: LogLevel.WARNING);
+			return;
+		}
+
+		SCR_ECharacterRank spawnedRank = SCR_CharacterRankComponent.GetCharacterRank(character);
+		if (previousRank > spawnedRank)
+			rankComponent.SetCharacterRank(previousRank, true);
+
+		SCR_PlayerXPHandlerComponent xpHandler = SCR_PlayerXPHandlerComponent.Cast(playerController.FindComponent(SCR_PlayerXPHandlerComponent));
+		if (xpHandler)
+			xpHandler.UpdatePlayerRank(false);
+
+		PrintFormat("AFM_GameModeDiD: Player %1 respawned with rank %2 (previous %3, spawned %4, XP handler present: %5)",
+			playerId, SCR_CharacterRankComponent.GetCharacterRank(character), previousRank, spawnedRank, xpHandler != null);
 	}
 	
 	//! Broadcast: zone failure - shown before zone progression hint
