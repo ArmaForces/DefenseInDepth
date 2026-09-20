@@ -6,12 +6,19 @@ AFM_DiDHeliSpawnerComponent {
   Hierarchy "{6A66A845F336EBA8}" {
   }
  }
- coords 1507.855 55.665 5906.332
+ coords 471.883 47.281 -147.944
  m_aAIGroupPrefabs {
   "{B10210712040A7C9}Prefabs/Groups/OPFOR/REAPER_USSR_HelicopterCrew.et"
  }
  m_aHelicopterPrefabs {
   "{3C6B3ED0C3AC30D5}Prefabs/Vehicles/Helicopters/Mi8MT/Mi8MT_armed_gunship_HE.et"
  }
+ m_iFirstSortieDelay 60
+ m_iMinWaveNumber 3
+ m_fCruiseSpeed 200
+ m_fAttackSpeed 140
+ m_fAttackRadius 200
  m_fBreakOffHealth 0.7
+ m_bRocketsAllowed 0
+ m_bPlayersOnly 0
 }

@@ -883,7 +883,6 @@ AFM_DiDZoneEntity zone1 {
   }
   AFM_DiDHeliSpawnerComponent : "{DFD7DF164B791F0F}Prefabs/Spawners/AFM_HeliSpawner.et" {
    coords 471.883 47.281 -147.944
-   m_iFirstSortieDelay 5
    {
     $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
      {

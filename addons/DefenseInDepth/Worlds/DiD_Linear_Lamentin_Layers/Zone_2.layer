@@ -746,6 +746,17 @@ AFM_DiDZoneEntity zone2 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
     }
    }
   }
+  AFM_DiDCowabungaComponent : "{82F093D3102C27A2}Prefabs/Spawners/AFM_Cowabunga.et" {
+   coords -19.195 -1.108 55.105
+   m_iMaxActivations 2
+   m_iDurationSeconds 0
+   {
+    AFM_SpawnPointEntity zone_1_sp_21 : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     coords 170.482 16.185 -116.007
+     angles 0 -76.831 0
+    }
+   }
+  }
   AFM_DiDInfantrySpawnerComponent : "{A93E8199BD60FD8A}Prefabs/Spawners/AFM_DidInfantrySpawner.et" {
    coords 38.776 3.583 25.999
    m_iWaveIntervalSeconds 60
@@ -790,6 +801,9 @@ AFM_DiDZoneEntity zone2 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
   AFM_DiDHeliSpawnerComponent : "{DFD7DF164B791F0F}Prefabs/Spawners/AFM_HeliSpawner.et" {
    coords 591.239 59.983 -247.805
    m_iFirstSortieDelay 5
+   m_iMaxSorties 5
+   m_iMinWaveNumber -1
+   m_bRocketsAllowed 1
    {
     $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
      {

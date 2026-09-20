@@ -276,6 +276,61 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Players without a living body: dead, or holding no playable at all
+	void GetSpectatorPlayerIds(notnull array<int> outPlayerIds)
+	{
+		outPlayerIds.Clear();
+
+		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
+		if (!playableManager)
+			return;
+
+		array<int> playerIds = {};
+		GetGame().GetPlayerManager().GetPlayers(playerIds);
+
+		foreach (int playerId : playerIds)
+		{
+			RplId playableId = playableManager.GetPlayableByPlayer(playerId);
+			if (playableId == RplId.Invalid())
+			{
+				outPlayerIds.Insert(playerId);
+				continue;
+			}
+
+			PS_PlayableContainer container = playableManager.GetPlayableById(playableId);
+			if (!container || container.GetDamageState() == EDamageState.DESTROYED)
+				outPlayerIds.Insert(playerId);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Put a player into a playable, used for respawns and for the attacker squad
+	void SwitchPlayerToPlayable(int playerId, RplId playableId)
+	{
+		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
+		if (!playableManager)
+			return;
+
+		playableManager.SetPlayerPlayable(playerId, playableId);
+		playableManager.ForceSwitch(playerId);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Broadcast a hint to every player
+	void ShowHint(string message, int duration = 10)
+	{
+		RPC_DoShowHint(message, duration);
+		Rpc(RPC_DoShowHint, message, duration);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoShowHint(string message, int duration)
+	{
+		SCR_HintManagerComponent.GetInstance().ShowCustom(message, "", duration, false);
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected void RespawnAllSpectators()
 	{
 		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();

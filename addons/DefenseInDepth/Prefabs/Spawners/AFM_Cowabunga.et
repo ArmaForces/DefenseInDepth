@@ -1,0 +1,11 @@
+AFM_DiDCowabungaComponent {
+ ID "6A6926A0AEE214D9"
+ components {
+  Hierarchy "{6A6926A08C848EC9}" {
+  }
+ }
+ coords 1489.075 54.363 5937.33
+ m_iMaxSquadSize 0
+ m_iMaxActivations 3
+ m_sAnnouncement "COWABUNGA IT IS"
+}

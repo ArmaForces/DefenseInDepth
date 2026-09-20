@@ -93,6 +93,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 				case AFM_DiDMortarSpawnerComponent:
 				case AFM_DiDWaveSpawnerComponent:
 				case AFM_DiDHeliSpawnerComponent:
+				case AFM_DiDCowabungaComponent:
 					AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(e);
 					m_aSpawners.Insert(spawner);
 					break;

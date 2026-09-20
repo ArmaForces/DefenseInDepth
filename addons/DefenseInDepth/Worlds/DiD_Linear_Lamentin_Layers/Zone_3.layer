@@ -863,6 +863,9 @@ AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    coords 885.889 97.857 -349.42
    m_iFirstSortieDelay 5
    m_iSortieCooldown 120
+   m_iMaxSorties 10
+   m_fAttackRadius 100
+   m_bRocketsAllowed 1
    {
     $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
      {
