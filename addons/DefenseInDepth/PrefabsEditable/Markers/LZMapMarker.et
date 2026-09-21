@@ -31,7 +31,7 @@ PS_ManualMarker {
   Hierarchy "{6A6A77DF65BF36E3}" {
   }
  }
- coords 1064.769 13.426 6321.301
+ coords 1132.351 31.085 6264.922
  angles 0 90 0
  m_sImageSet "{E23427CAC80DA8B7}UI/Textures/Icons/icons_mapMarkersUI.imageset"
  m_sImageSetGlow "{67B3A6DC2D712B52}UI/Textures/Icons/icons_mapMarkersUI-glow.imageset"

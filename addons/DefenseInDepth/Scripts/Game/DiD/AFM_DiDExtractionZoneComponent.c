@@ -19,6 +19,9 @@ class AFM_DiDExtractionZoneComponent: AFM_DiDZoneComponent
 	[Attribute("Extraction lost: %1. Call another one", UIWidgets.Auto, desc: "Hint shown when the helicopter is lost before the players are out. %1 is the reason", category: "DiD Extraction Zone")]
 	protected string m_sAbortedHint;
 
+	[Attribute("Helicopter is down at %1. Get aboard and fly it out", UIWidgets.Auto, desc: "Hint shown when the helicopter has landed and the crew left it to the players. %1 is the landing zone name", category: "DiD Extraction Zone")]
+	protected string m_sHandoverHint;
+
 	[Attribute("15", UIWidgets.EditBox, "Seconds the call hint stays on screen", category: "DiD Extraction Zone")]
 	protected int m_iHintDurationSeconds;
 
@@ -71,6 +74,16 @@ class AFM_DiDExtractionZoneComponent: AFM_DiDZoneComponent
 
 		ShowHint(string.Format(m_sCalledHint, m_Extraction.GetLandingZoneName()));
 		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Called by the extraction component when the helicopter has landed and the crew has been despawned
+	void OnHelicopterHandedOver(string landingZoneName)
+	{
+		if (IsZoneFinished())
+			return;
+
+		ShowHint(string.Format(m_sHandoverHint, landingZoneName));
 	}
 
 	//------------------------------------------------------------------------------------------------
