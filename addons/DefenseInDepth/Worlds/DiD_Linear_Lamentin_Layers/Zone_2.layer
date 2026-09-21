@@ -855,15 +855,15 @@ AFM_DiDZoneEntity zone2 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    {
     $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
      zone_1_sp_15 {
-      coords -1.28 0.673 -15.105
+      coords 76.387 1.512 25.084
       angles 0 -76.831 0
      }
      zone_1_sp_16 {
-      coords 15.212 -4.476 87.454
+      coords 175.349 -4.01 146.274
       angles 0 -76.831 0
      }
      zone_1_sp_17 {
-      coords 32.68 -8.345 151.517
+      coords 18.068 -12.253 -250.171
       angles 0 -76.831 0
      }
     }

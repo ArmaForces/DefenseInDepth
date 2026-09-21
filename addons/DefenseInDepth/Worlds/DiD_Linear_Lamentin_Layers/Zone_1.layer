@@ -921,7 +921,7 @@ AFM_DiDZoneEntity zone1 {
    {
     $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
      zone_1_sp_12 {
-      coords 467.702 47.617 -160.056
+      coords 324.894 1.297 -703.829
       angles 0 -76.831 0
      }
      zone_1_sp_13 {

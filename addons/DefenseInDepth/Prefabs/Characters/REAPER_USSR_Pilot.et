@@ -1,0 +1,22 @@
+SCR_ChimeraCharacter : "{5346CF7E39A65A6B}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Base.et" {
+ ID "520EC961A090BE1E"
+ components {
+  ChimeraAIControlComponent "{520EA1D2DB109F34}" {
+   components {
+    PerceptionComponent "{54A2CBC75F06064B}" {
+     ForgetEnemyTime 180
+     ForgetDetectedTime 60
+     SensorsList {
+      EyesSensor "{520EA1D2DB109AAD}" {
+       MaxRange 1500
+      }
+      EarsSensor "{520EA1D2DB109AA9}" {
+       MaxRange 400
+      }
+     }
+    }
+   }
+  }
+ }
+ coords 1901.939 90.567 5575.836
+}

@@ -807,7 +807,7 @@ AFM_DiDZoneEntity : "{54DE363F12E79F7A}Prefabs/MP/AFM_DiDExtractionZonePrefab.et
     }
     $grp SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
      zone1_aiwp_1_def12 {
-      coords -308.903 8.383 189.121
+      coords -105.905 4.312 -45.894
       CompletionRadius 10
      }
      zone1_aiwp_1_def14 {
@@ -939,15 +939,15 @@ AFM_DiDZoneEntity : "{54DE363F12E79F7A}Prefabs/MP/AFM_DiDExtractionZonePrefab.et
    {
     $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
      zone_1_sp_18 {
-      coords 3.791 0.801 -2.298
+      coords 338.095 29.013 -240.143
       angles 0 -76.831 0
      }
      zone_1_sp_19 {
-      coords 0.213 2.772 -70.186
+      coords 437.057 23.491 -118.953
       angles 0 -76.831 0
      }
      zone_1_sp_20 {
-      coords -24.508 -3.894 78.018
+      coords 290.046 14.834 -471.508
       angles 0 -76.831 0
      }
     }
