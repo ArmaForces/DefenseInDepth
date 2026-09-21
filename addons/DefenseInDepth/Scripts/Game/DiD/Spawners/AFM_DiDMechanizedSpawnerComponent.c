@@ -62,6 +62,9 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	[Attribute("60", UIWidgets.EditBox, "Completion radius (meters) of the engage waypoint", category: "DiD Mechanized Tactics")]
 	protected float m_fEngageWaypointRadius;
 
+	[Attribute("{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et", UIWidgets.ResourceNamePicker, desc: "Waypoint driven to during overwatch. A move waypoint keeps the crew mounted; a defend waypoint orders them out of the vehicle", params: "et", category: "DiD Mechanized Tactics")]
+	protected ResourceName m_sOverwatchWaypointPrefab;
+
 	protected ref array<IEntity> m_aSpawnedVehicles = {};
 	protected ref map<AIGroup, ref AFM_MechanizedGroup> m_mGroups = new map<AIGroup, ref AFM_MechanizedGroup>();
 	protected WorldTimestamp m_fLastRetask;
@@ -108,7 +111,11 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 		for (int i = 0; i < spawnCount; i++)
 		{
 			if (IsAICapReached())
+			{
+				PrintFormat("AFM_DiDMechanizedSpawnerComponent: AI cap reached (%1 in zone), no vehicle spawned",
+					m_Zone.GetActiveAICount(), level: LogLevel.DEBUG);
 				break;
+			}
 
 			if (CountActiveVehicles() >= m_iMaxActiveVehicles)
 			{
@@ -125,8 +132,11 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	{
 		foreach (AIGroup group, AFM_MechanizedGroup mechanizedGroup : m_mGroups)
 		{
-			if (mechanizedGroup)
-				DeleteEngageWaypoint(mechanizedGroup);
+			if (!mechanizedGroup)
+				continue;
+
+			DeleteEngageWaypoint(mechanizedGroup);
+			DeleteOverwatchWaypoint(mechanizedGroup);
 		}
 		m_mGroups.Clear();
 
@@ -196,12 +206,32 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	//------------------------------------------------------------------------------------------------
 	override protected void SpawnSingleGroup()
 	{
-		if (m_aSpawnPoints.Count() == 0 || m_aAIWaypoints.Count() == 0 || m_aVehiclePrefabs.Count() == 0)
+		if (m_aSpawnPoints.IsEmpty())
+		{
+			PrintFormat("AFM_DiDMechanizedSpawnerComponent: No spawn points, no vehicles can be spawned", level: LogLevel.WARNING);
 			return;
-		
+		}
+
+		if (m_aVehiclePrefabs.IsEmpty())
+		{
+			PrintFormat("AFM_DiDMechanizedSpawnerComponent: No vehicle prefabs configured", level: LogLevel.WARNING);
+			return;
+		}
+
 		if (!m_crewConfig)
-			return; 
-		
+		{
+			PrintFormat("AFM_DiDMechanizedSpawnerComponent: No crew config, the vehicle would have nobody in it", level: LogLevel.WARNING);
+			return;
+		}
+
+		// Overwatch builds its own waypoint, so placed ones are optional. Without it the crew has
+		// nothing to drive at.
+		if (!m_bOverwatchTactics && m_aAIWaypoints.IsEmpty())
+		{
+			PrintFormat("AFM_DiDMechanizedSpawnerComponent: No waypoints and overwatch tactics are off, nowhere to send the crew", level: LogLevel.WARNING);
+			return;
+		}
+
 		IEntity vehicle = SpawnPrefab(m_aVehiclePrefabs.GetRandomElement(), m_aSpawnPoints.GetRandomElement());
 		if (!vehicle)
 			return;
@@ -211,7 +241,8 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 		if (!cm)
 			return;
 
-		SCR_AIWaypoint overwatch = PickOverwatchWaypoint();
+		SCR_AIWaypoint placed = PickOverwatchWaypoint();
+		SCR_AIWaypoint overwatch = CreateOverwatchWaypoint(placed, PickOverwatchPosition(placed));
 
 		// Track the crew so it counts towards the AI cap and is removed on cleanup
 		AIGroup crew = m_crewConfig.SpawnCrew(cm, overwatch);
@@ -219,7 +250,34 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 			return;
 
 		TrackSpawnedGroup(crew);
-		TrackMechanizedGroup(crew, vehicle, overwatch);
+		TrackMechanizedGroup(crew, vehicle, overwatch, overwatch != placed);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! The crew drives to the placed waypoint's position on a waypoint of our own, because a defend
+	//! waypoint sends everyone in a vehicle a GetOut message and the crew would fight on foot.
+	//! The placed waypoints are therefore only positions, whatever type the mission author used.
+	protected SCR_AIWaypoint CreateOverwatchWaypoint(SCR_AIWaypoint placed, vector pos)
+	{
+		if (!m_bOverwatchTactics)
+			return placed;
+
+		BaseWorld world = GetGame().GetWorld();
+
+		EntitySpawnParams spawnParams = new EntitySpawnParams();
+		spawnParams.TransformMode = ETransformMode.WORLD;
+		spawnParams.Transform[3] = pos;
+
+		SCR_AIWaypoint waypoint = SCR_AIWaypoint.Cast(GetGame().SpawnEntityPrefab(Resource.Load(m_sOverwatchWaypointPrefab), world, spawnParams));
+		if (!waypoint)
+		{
+			PrintFormat("AFM_DiDMechanizedSpawnerComponent: Failed to spawn overwatch waypoint %1, using the placed one",
+				m_sOverwatchWaypointPrefab, level: LogLevel.ERROR);
+			return placed;
+		}
+
+		waypoint.SetCompletionRadius(m_fOverwatchReachedRadius);
+		return waypoint;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -230,6 +288,9 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	//! to a random one while no player can be found, which is how the spawner behaved before.
 	protected SCR_AIWaypoint PickOverwatchWaypoint()
 	{
+		if (m_aAIWaypoints.IsEmpty())
+			return null;
+
 		if (!m_bOverwatchTactics)
 			return m_aAIWaypoints.GetRandomElement();
 
@@ -263,11 +324,50 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void TrackMechanizedGroup(notnull AIGroup group, IEntity vehicle, SCR_AIWaypoint overwatch)
+	//! Where the crew sets up: the chosen placed waypoint, or a standoff position short of the players
+	//! when the spawner has no placed waypoints at all
+	protected vector PickOverwatchPosition(SCR_AIWaypoint placed)
+	{
+		if (placed)
+			return placed.GetOrigin();
+
+		vector zoneCenter = GetZoneCenter();
+		vector target = FindPlayerGroupCenter();
+		if (target == vector.Zero)
+			return zoneCenter;
+
+		// Short of the players, on the line from the zone centre out to them
+		vector toTarget = target - zoneCenter;
+		toTarget[1] = 0;
+
+		float distance = toTarget.Length();
+		if (distance < 1)
+			return zoneCenter;
+
+		float standoff = Math.Max(0, distance - m_fOverwatchStandoff);
+		return zoneCenter + toTarget.Normalized() * standoff;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected vector GetZoneCenter()
+	{
+		if (!m_Zone)
+			return GetOrigin();
+
+		PolylineShapeEntity polyline = m_Zone.GetPolylineEntity();
+		if (polyline)
+			return AFM_DiDTargetingHelper.GetPolylineCenter(polyline);
+
+		return m_Zone.GetOwner().GetOrigin();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void TrackMechanizedGroup(notnull AIGroup group, IEntity vehicle, SCR_AIWaypoint overwatch, bool ownsOverwatch)
 	{
 		AFM_MechanizedGroup mechanizedGroup = new AFM_MechanizedGroup();
 		mechanizedGroup.m_Vehicle = vehicle;
 		mechanizedGroup.m_OverwatchWaypoint = overwatch;
+		mechanizedGroup.m_bOwnsOverwatchWaypoint = ownsOverwatch;
 		mechanizedGroup.m_OverwatchStart = GetCurrentTimestamp();
 		mechanizedGroup.m_bSuppresses = s_AIRandomGenerator.RandFloat01() < m_fSuppressShare;
 
@@ -369,6 +469,7 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 		}
 
 		DeleteEngageWaypoint(mechanizedGroup);
+		DeleteOverwatchWaypoint(mechanizedGroup);
 		mechanizedGroup.m_Waypoint = waypoint;
 		mechanizedGroup.m_vTarget = target;
 		mechanizedGroup.m_bHasTarget = true;
@@ -410,6 +511,18 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Only the copy this spawner made, never a placed waypoint shared with other groups
+	protected void DeleteOverwatchWaypoint(notnull AFM_MechanizedGroup mechanizedGroup)
+	{
+		if (!mechanizedGroup.m_bOwnsOverwatchWaypoint || !mechanizedGroup.m_OverwatchWaypoint)
+			return;
+
+		SCR_EntityHelper.DeleteEntityAndChildren(mechanizedGroup.m_OverwatchWaypoint);
+		mechanizedGroup.m_OverwatchWaypoint = null;
+		mechanizedGroup.m_bOwnsOverwatchWaypoint = false;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! Forget wiped out crews and delete the waypoints they were given
 	protected void PruneGroups()
 	{
@@ -423,8 +536,11 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 				continue;
 			}
 
-			if (mechanizedGroup)
-				DeleteEngageWaypoint(mechanizedGroup);
+			if (!mechanizedGroup)
+				continue;
+
+			DeleteEngageWaypoint(mechanizedGroup);
+			DeleteOverwatchWaypoint(mechanizedGroup);
 		}
 
 		m_mGroups = aliveGroups;
@@ -437,7 +553,8 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 class AFM_MechanizedGroup
 {
 	IEntity m_Vehicle;						// Used to tell when the overwatch position is reached
-	SCR_AIWaypoint m_OverwatchWaypoint;		// Placed waypoint, shared between groups, never deleted
+	SCR_AIWaypoint m_OverwatchWaypoint;		// Move waypoint at the placed position, so the crew stays mounted
+	bool m_bOwnsOverwatchWaypoint;			// False when it is a placed waypoint shared with other groups
 	SCR_AIWaypoint m_Waypoint;				// Waypoint this spawner created, deleted when replaced
 	bool m_bEngaging;
 	bool m_bSuppresses;						// Decided once: suppress rather than push onto the players
