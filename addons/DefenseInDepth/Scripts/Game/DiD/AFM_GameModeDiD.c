@@ -61,6 +61,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	protected int m_iEnemiesRemaining = -1;	// -1 when spawns are unlimited
 
 	[RplProp(onRplName: "OnMatchSituationChanged")]
+	protected int m_iTicketsRemaining = -1;	// -1 when no spawner of the zone uses tickets
+
+	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected bool m_bIsContested = false;
 
 	[RplProp(onRplName: "OnMatchSituationChanged")]
@@ -99,7 +102,37 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			return;
 		m_ZoneSystem.ForceEndPrepareStage();
 	}
-	
+
+	//! Called by AFM_CallExtractionAction. Ignored unless the active zone is an extraction zone.
+	void CallExtraction()
+	{
+		if (m_ZoneSystem)
+			DoCallExtraction();
+		else //no zone system - assume we are a proxy
+			Rpc(RPC_DoCallExtraction);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	void RPC_DoCallExtraction()
+	{
+		DoCallExtraction();
+	}
+
+	protected void DoCallExtraction()
+	{
+		if (!m_ZoneSystem)
+			return;
+
+		AFM_DiDExtractionZoneComponent zone = AFM_DiDExtractionZoneComponent.Cast(m_ZoneSystem.GetActiveZone());
+		if (!zone)
+		{
+			PrintFormat("AFM_GameModeDiD: Extraction called but the active zone is not an extraction zone", level: LogLevel.WARNING);
+			return;
+		}
+
+		zone.RequestExtraction();
+	}
+
 	override void EOnInit(IEntity owner)
 	{
 		super.EOnInit(owner);
@@ -235,6 +268,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 
 		m_iZoneNumber = zone.GetZoneIndex();
 		m_iEnemiesRemaining = zone.GetEnemiesRemaining();
+		m_iTicketsRemaining = zone.GetRemainingSpawnTickets();
 
 		// Spawners only send waves while the zone is being fought over
 		EAFMZoneState state = zone.GetZoneState();
@@ -573,6 +607,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	int GetEnemiesRemaining()
 	{
 		return m_iEnemiesRemaining;
+	}
+
+	//! Spawn tickets left in the active zone, or -1 when none of its spawners use tickets
+	int GetTicketsRemaining()
+	{
+		return m_iTicketsRemaining;
 	}
 
 	//! Attackers hold the majority inside the zone and the timer is stopped

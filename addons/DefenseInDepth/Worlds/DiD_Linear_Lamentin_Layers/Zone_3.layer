@@ -2,32 +2,23 @@ GenericEntity : "{45C675ED3CFBBEC5}Prefabs/Props/Military/Compositions/US/Arsena
  coords 1068.557 2.722 6016.626
  angles 0 -96.592 0
 }
-PS_ManualMarker : "{5CDEA09445852F9D}PrefabsEditable/Markers/SupportStationMarker.et" {
- coords 1069.093 2.719 6019.984
- angles 0 0 0
-}
-GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
- coords 1071.764 2.719 6018.605
- angles 0 -3.365 0
-}
-AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
+AFM_DiDZoneEntity : "{54DE363F12E79F7A}Prefabs/MP/AFM_DiDExtractionZonePrefab.et" {
  components {
-  AFM_DiDZoneComponent "{66B900F8E01E1100}" {
+  AFM_DiDExtractionZoneComponent "{6A6A77D49F64D9E1}" {
    m_sZoneName "Harbour"
-   m_bStopTimerOnRedforSuperiority 0
    m_iZoneIndex 3
    m_iPrepareTimeSeconds 900
    m_iDefenseTimeSeconds 300
   }
  }
- coords 1022.905 2.684 6026.365
+ coords 1023.064 2.687 6026.319
  {
   PolylineShapeEntity {
    components {
     Hierarchy "{66C928313DD257C3}" {
     }
    }
-   coords 63.495 0.164 -24.427
+   coords 63.336 0.161 -24.38
    Points {
     ShapePoint "{66C928317E62584F}" {
      Position 54.052 3.217 84.312
@@ -802,11 +793,14 @@ AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    }
   }
   AFM_DiDInfantrySpawnerComponent : "{A93E8199BD60FD8A}Prefabs/Spawners/AFM_DidInfantrySpawner.et" {
-   coords 31.668 0.138 16.239
+   coords 31.509 0.135 16.285
    m_iWaveIntervalSeconds 100
-   m_iSpawnCountPerWave 8
-   m_iMaxAICount 120
+   m_iSpawnCountPerWave 2
+   m_iMaxAICount 240
    m_fZoneLevelMultiplier 2
+   m_bUseTickets 1
+   m_iMaxTickets 180
+   m_fDefenderShare 0.1
    {
     $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
      {
@@ -857,10 +851,38 @@ AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    }
   }
   AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
-   coords 43.555 0.259 -4.312
+   coords 43.396 0.256 -4.266
+  }
+  AFM_DiDExtractionComponent : "{D531CA060629DC24}Prefabs/Spawners/AFM_ExtractionSpawner.et" {
+   coords 1.438 0 2.44
+   {
+    AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     coords 3763.35 24.693 5788.955
+    }
+    $grp AFM_DiDLandingZoneEntity : "{91DA6102CCD47FA8}Prefabs/MP/AFM_DiDLandingZonePrefab.et" {
+     {
+      coords -123.443 0.031 118.106
+     }
+     {
+      coords 53.016 0.094 14.327
+     }
+     {
+      coords -58.606 0.049 258.083
+     }
+     {
+      coords -109.716 -1.493 -39.554
+     }
+     {
+      coords 224.506 47.756 289.574
+     }
+     {
+      coords -25.609 -1.681 339.168
+     }
+    }
+   }
   }
   AFM_DiDHeliSpawnerComponent : "{DFD7DF164B791F0F}Prefabs/Spawners/AFM_HeliSpawner.et" {
-   coords 885.889 97.857 -349.42
+   coords 885.73 97.854 -349.374
    m_iFirstSortieDelay 5
    m_iSortieCooldown 120
    m_iMaxSorties 10
@@ -878,7 +900,7 @@ AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    }
   }
   AFM_DiDMortarSpawnerComponent : "{F040102F1843F7C1}Prefabs/Spawners/AFM_MortarSpawner.et" {
-   coords 227.774 30.794 32.813
+   coords 227.615 30.791 32.859
    m_iFireMissionUpdateInterval 30
    {
     $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
@@ -898,4 +920,30 @@ AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    }
   }
  }
+}
+PS_ManualMarker : "{5CDEA09445852F9D}PrefabsEditable/Markers/SupportStationMarker.et" {
+ coords 1069.093 2.719 6019.984
+ angles 0 0 0
+}
+GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
+ components {
+  ActionsManagerComponent "{5CB66A0F7D87DD32}" {
+   additionalActions {
+    AFM_CallExtractionAction "{6A6A77D2CC9EECA9}" {
+     ParentContextList {
+      "OpenFreeformBuilding"
+     }
+     UIInfo UIInfo "{6A6A77D2CC9EECF1}" {
+      Name "Call for extraction"
+     }
+     ActionTitle "Call for extraction"
+     VisibilityRange 10
+     Duration 1.5
+     "Sort Priority" 2
+    }
+   }
+  }
+ }
+ coords 1071.764 2.719 6018.605
+ angles 0 -3.365 0
 }

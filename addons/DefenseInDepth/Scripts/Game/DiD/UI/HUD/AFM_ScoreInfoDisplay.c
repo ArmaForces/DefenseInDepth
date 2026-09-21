@@ -88,7 +88,8 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 	//------------------------------------------------------------------------------------------------
 	protected void UpdateHUDValues()
 	{
-		int redforScore = m_Campaign.GetAttackersRemaining();
+		// The AI count inside the zone is already in the status line, so the flag shows what is left to come
+		int redforScore = m_Campaign.GetTicketsRemaining();
 		int bluforScore = m_Campaign.GetDefendersRemaining();
 		int gameOverScore = m_Campaign.GetCurrentZone();
 		

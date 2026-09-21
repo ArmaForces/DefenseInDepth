@@ -94,6 +94,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 				case AFM_DiDWaveSpawnerComponent:
 				case AFM_DiDHeliSpawnerComponent:
 				case AFM_DiDCowabungaComponent:
+				case AFM_DiDExtractionComponent:
 					AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(e);
 					m_aSpawners.Insert(spawner);
 					break;
@@ -523,6 +524,28 @@ class AFM_DiDZoneComponent: ScriptComponent
 	int GetEnemiesRemaining()
 	{
 		return -1;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Spawn tickets left across every spawner that uses them, or -1 when none of them do.
+	//! Named apart from the wave zone's own GetRemainingTickets, which counts active spawners only
+	//! and drives wave progression.
+	int GetRemainingSpawnTickets()
+	{
+		int total = -1;
+
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			if (!spawner || !spawner.UsesTickets())
+				continue;
+
+			if (total < 0)
+				total = 0;
+
+			total += spawner.GetRemainingTickets();
+		}
+
+		return total;
 	}
 
 	//------------------------------------------------------------------------------------------------

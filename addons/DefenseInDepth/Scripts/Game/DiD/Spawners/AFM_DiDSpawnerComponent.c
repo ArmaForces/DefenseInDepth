@@ -422,6 +422,12 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	{
 		return m_iRemainingTickets;
 	}
+
+	//! Does this spawner limit its total spawns with tickets?
+	bool UsesTickets()
+	{
+		return m_bUseTickets;
+	}
 	
 	//! Set remaining tickets (called by zone when starting waves)
 	void SetRemainingTickets(int tickets)
