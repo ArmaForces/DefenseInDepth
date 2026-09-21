@@ -28,6 +28,9 @@ PerceptionManager PerceptionManager1 : "{028DAEAD63E056BE}Prefabs/World/Game/Per
 }
 AFM_GameModeDiD AFM_GameMode_DiD1 : "{E508D7FF014D49F1}Prefabs/MP/Modes/AFM_GameMode_DiD.et" {
  components {
+  DCO_GlobalAIComponent "{684A9572EB976348}" {
+   m_eAISkillDefault EXPERT
+  }
   SCR_XPHandlerComponent "{66D34C57D4D10ACA}" {
    m_iVeterancyXPAwardThreshold 150
   }

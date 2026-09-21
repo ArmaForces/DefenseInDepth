@@ -2,9 +2,9 @@ Projectile : "{C0BDA86B5AA5648C}Prefabs/Weapons/Core/Ammo_Rocket_Base.et" {
  ID "DA5C6308000CDEF2"
  components {
   AICombatPropertiesComponent "{59C92CB0FD688D78}" {
-   UsedAgainst 0x1 0
+   UsedAgainst 0xf 0x10
    IndirectlyUsedAgainst 0x1 0
   }
  }
- coords 1487.293 57.487 5809.527
+ coords 1492.719 57.887 5811.176
 }

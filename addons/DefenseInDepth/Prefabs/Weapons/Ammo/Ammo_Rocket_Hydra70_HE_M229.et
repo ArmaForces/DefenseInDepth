@@ -1,0 +1,10 @@
+EjectableProjectile : "{ECD8628EBF7E5F6B}Prefabs/Weapons/Ammo/Ammo_Rocket_Hydra70.et" {
+ ID "DA5C6308000CDEF2"
+ components {
+  AICombatPropertiesComponent "{59C92CB0FD688D78}" {
+   UsedAgainst 0x1f 0
+   IndirectlyUsedAgainst 0x1 0
+  }
+ }
+ coords 1492.719 57.887 5811.176
+}
