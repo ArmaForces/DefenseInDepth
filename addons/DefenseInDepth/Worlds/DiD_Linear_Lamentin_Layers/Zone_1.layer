@@ -837,9 +837,31 @@ AFM_DiDZoneEntity zone1 {
       angles 0 -100.862 0
      }
     }
-    SCR_DefendWaypoint zone1_aiwp_1_def2 : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
-     coords -221.929 -22.955 131.933
-     CompletionRadius 80
+    $grp SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
+     zone1_aiwp_1_def3 {
+      coords -23.848 -1.497 -40.84
+      CompletionRadius 25
+     }
+     zone1_aiwp_1_def4 {
+      coords -79.84 -19.966 179.499
+      CompletionRadius 25
+     }
+     zone1_aiwp_1_def5 {
+      coords -205.172 -16.944 271.515
+      CompletionRadius 10
+     }
+     zone1_aiwp_1_def6 {
+      coords -282.237 -16.76 3.694
+      CompletionRadius 10
+     }
+     zone1_aiwp_1_def2 {
+      coords -129.709 -18.292 103.865
+      CompletionRadius 10
+     }
+     zone1_aiwp_1_def7 {
+      coords -172.129 -17.203 34.976
+      CompletionRadius 10
+     }
     }
    }
   }

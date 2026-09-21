@@ -757,6 +757,40 @@ AFM_DiDZoneEntity zone2 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
     }
    }
   }
+  AFM_DiDMechanizedSpawnerComponent : "{8E7842A8534F4260}Prefabs/Spawners/AFM_MechanizedSpawner.et" {
+   coords 365.213 19.955 22.102
+   m_iMaxActiveVehicles 4
+   {
+    $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     zone_1_sp_24 {
+      coords -31.73 -3.26 54.302
+      angles 0 -52.834 0
+     }
+     zone_1_sp_22 {
+      coords -11.023 13.619 -238.646
+      angles 0 -52.834 0
+     }
+    }
+    $grp SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
+     zone1_aiwp_1_def8 {
+      coords -258.238 6.987 110.44
+      CompletionRadius 10
+     }
+     zone1_aiwp_1_def9 {
+      coords -308.903 8.383 189.121
+      CompletionRadius 10
+     }
+     zone1_aiwp_1_def10 {
+      coords -379.254 -20.379 -42.284
+      CompletionRadius 10
+     }
+     zone1_aiwp_1_def11 {
+      coords -426.744 -24.758 74.991
+      CompletionRadius 10
+     }
+    }
+   }
+  }
   AFM_DiDInfantrySpawnerComponent : "{A93E8199BD60FD8A}Prefabs/Spawners/AFM_DidInfantrySpawner.et" {
    coords 38.776 3.583 25.999
    m_iWaveIntervalSeconds 60
