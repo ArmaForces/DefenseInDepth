@@ -184,6 +184,16 @@ class AFM_DiDZoneComponent: ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Is this world position inside the zone polygon?
+	bool IsPointInsideZone(vector pos)
+	{
+		if (!EnsureZonePolygon())
+			return false;
+
+		return Math2D.IsPointInPolygon(m_aZonePolylinePoints2D, pos[0], pos[2]);
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! Build the 2D polygon cache once - polyline shape does not move at runtime
 	protected bool EnsureZonePolygon()
 	{

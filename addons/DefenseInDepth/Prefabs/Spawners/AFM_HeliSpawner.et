@@ -21,4 +21,5 @@ AFM_DiDHeliSpawnerComponent {
  m_fBreakOffHealth 0.7
  m_bRocketsAllowed 0
  m_bPlayersOnly 0
+ m_fMaxAttackDistance 300
 }

@@ -838,6 +838,7 @@ AFM_DiDZoneEntity zone2 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    m_iMaxSorties 5
    m_iMinWaveNumber -1
    m_bRocketsAllowed 1
+   m_fMaxAttackDistance 300
    {
     $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
      {

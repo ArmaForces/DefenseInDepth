@@ -1,0 +1,14 @@
+GenericEntity : "{864A3A6CB580D9A5}Prefabs/Compositions/Slotted/SlotFlatSmall/TOWPlacement_S_US_01.et" {
+ ID "5282DCB5DFC8538F"
+ components {
+  SCR_EditableEntityComponent "{6186DB2D6434FA80}" {
+   m_UIInfo SCR_EditableEntityUIInfo "{5298E609432D192D}" {
+    m_EntityBudgetCost {
+     SCR_EntityBudgetValue "{6316F749079F0CCD}" {
+      m_BudgetType RANK_LIEUTENANT
+     }
+    }
+   }
+  }
+ }
+}

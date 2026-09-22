@@ -108,6 +108,18 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDSpawnerComponent
 	[Attribute("600", UIWidgets.EditBox, "Range (meters) from the waypoint for the option above (300-1000)", category: "DiD Heli Weapons")]
 	protected int m_iAttackRangeFromWaypoint;
 
+	[Attribute("0", UIWidgets.EditBox, "Furthest the helicopter engages (meters). 0 = the mod's own 540 m ceiling, which lets it fire from where it is barely visible", category: "DiD Heli Weapons")]
+	protected float m_fMaxAttackDistance;
+
+	[Attribute("150", UIWidgets.EditBox, "The helicopter only engages targets within this distance (meters) of the aim point it was sent to. 0 = engage anything it sees", category: "DiD Heli Weapons")]
+	protected float m_fStrikeAreaRadius;
+
+	[Attribute("40", UIWidgets.EditBox, "Players within this distance (meters) of each other count as one group; the helicopter is sent at the centre of the largest one", category: "DiD Heli Targeting")]
+	protected float m_fTargetGroupRadius;
+
+	[Attribute("50", UIWidgets.EditBox, "Never aim within this distance (meters) of attacker AI", category: "DiD Heli Targeting")]
+	protected float m_fFriendlyFireRadius;
+
 	[Attribute("0", UIWidgets.EditBox, "Supplies added to the zone's supply cache when the helicopter is shot down", category: "DiD Heli Spawner")]
 	protected int m_iSupplyRewardOnKill;
 
@@ -120,7 +132,6 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDSpawnerComponent
 	protected static const int BOARDING_TIMEOUT_SECONDS = 30;
 	protected static const int EGRESS_TIMEOUT_SECONDS = 240;
 	protected static const int WAYPOINT_TIMEOUT_SECONDS = 90;
-	protected static const float PLAYER_GROUP_RADIUS = 50;
 
 	protected ref AFM_HeliSortie m_Sortie;
 	protected ref array<IEntity> m_aLeftovers = {};	// Wrecks and emptied crew groups, deleted on cleanup
@@ -401,7 +412,10 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDSpawnerComponent
 				break;
 
 			case AFM_EHeliSortieState.EGRESS:
-				// The mod deletes helicopter and crew once this waypoint is reached
+				// Stop shooting on the way out, and let the mod delete helicopter and crew on arrival
+				if (m_Sortie.m_Controller)
+					m_Sortie.m_Controller.AFM_ClearStrikeArea();
+
 				AddWaypoint(waypoints, MOVE_WAYPOINT_PREFAB, m_Sortie.m_vEntryPoint, m_fCruiseSpeed, m_fCruiseHeight, true);
 				break;
 		}
@@ -510,6 +524,7 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDSpawnerComponent
 		if (m_bOnlyAttackCloseToWaypoint)
 			aiController.REAPER_SetOnlyAttackCloseToWaypoint(true, m_iAttackRangeFromWaypoint);
 		aiController.REAPER_SetLockVehicleForPlayers_S(true);
+		aiController.AFM_SetMaxAttackDistance(m_fMaxAttackDistance);
 
 		m_Sortie.m_Controller = aiController;
 	}
@@ -522,6 +537,7 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDSpawnerComponent
 	protected void CreateAttackWaypoints(notnull array<REAPER_AiHelicopterBaseWaypoint> outWaypoints)
 	{
 		vector center = FindAttackCenter();
+		ApplyStrikeArea(center);
 
 		vector toEntry = m_Sortie.m_vEntryPoint - center;
 		float baseYaw = Math.Atan2(toEntry[0], toEntry[2]);
@@ -624,22 +640,67 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDSpawnerComponent
 	// Targeting
 	//------------------------------------------------------------------------------------------------
 
-	//! Centre of the densest living player group, or the zone centre when no players are found
+	//! Aim point for the attack, picked the way the mortar spawner picks its fire mission: the centre of
+	//! the densest group of players that are inside the zone and clear of the attackers' own troops.
+	//! Falls back to the zone centre when no player qualifies.
 	protected vector FindAttackCenter()
 	{
+		if (!m_Zone)
+			return GetZoneCenter();
+
+		// Positions the helicopter must not drop rockets on top of
+		array<vector> attackerPositions = {};
+		SCR_Faction attackers = m_Zone.GetAttackerFaction();
+		if (attackers)
+			AFM_DiDTargetingHelper.GetAIPositions(attackers, attackerPositions, true);
+
+		array<vector> targets = {};
 		SCR_Faction defenders = m_Zone.GetDefenderFaction();
 		if (defenders)
 		{
 			array<vector> playerPositions = {};
 			AFM_DiDTargetingHelper.GetPlayerPositions(defenders, playerPositions);
 
-			int groupSize;
-			vector center = AFM_DiDTargetingHelper.FindDensestGroupCenter(playerPositions, PLAYER_GROUP_RADIUS, groupSize);
-			if (groupSize > 0)
-				return center;
+			foreach (vector playerPos : playerPositions)
+			{
+				if (IsValidTargetPosition(playerPos, attackerPositions))
+					targets.Insert(playerPos);
+			}
+		}
+
+		int groupSize;
+		vector groupCenter = AFM_DiDTargetingHelper.FindDensestGroupCenter(targets, m_fTargetGroupRadius, groupSize);
+		if (groupSize > 0)
+		{
+			// The centre of a spread out group can sit on top of own troops; then go for one player directly
+			if (IsValidTargetPosition(groupCenter, attackerPositions))
+				return groupCenter;
+
+			return targets[0];
 		}
 
 		return GetZoneCenter();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Inside the zone and clear of the attackers' own troops
+	protected bool IsValidTargetPosition(vector pos, notnull array<vector> attackerPositions)
+	{
+		if (!m_Zone.IsPointInsideZone(pos))
+			return false;
+
+		return !AFM_DiDTargetingHelper.IsNearAnyPosition(pos, attackerPositions, m_fFriendlyFireRadius);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Confine the helicopter's weapons to the aim point it was sent to, so it engages what is there
+	//! instead of the best target anywhere in its 540 m reach
+	protected void ApplyStrikeArea(vector center)
+	{
+		if (!m_Sortie || !m_Sortie.m_Controller)
+			return;
+
+		m_Sortie.m_Controller.AFM_SetStrikeArea(center, m_fStrikeAreaRadius);
 	}
 
 	//------------------------------------------------------------------------------------------------
