@@ -95,6 +95,14 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Set from the scenario header through the zone
+	void SetHuntPlayers(bool hunt)
+	{
+		m_bHuntPlayers = hunt;
+		PrintFormat("AFM_DiDInfantrySpawnerComponent: Hunting set to %1", hunt, level: LogLevel.DEBUG);
+	}
+
+	//------------------------------------------------------------------------------------------------
 	override void Cleanup()
 	{
 		foreach (AIGroup group, AFM_HuntingGroup huntingGroup : m_mHuntingGroups)

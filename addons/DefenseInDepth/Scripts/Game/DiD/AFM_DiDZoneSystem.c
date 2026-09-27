@@ -110,7 +110,7 @@ class AFM_DiDZoneSystem: GameSystem
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	//! eturn false when the starting zone has not registered itself yet
+	//! Return false when the starting zone has not registered itself yet
 	protected bool ActivateStartingZone()
 	{
 		if (!m_aZones.Contains(m_iStartingZoneIndex))

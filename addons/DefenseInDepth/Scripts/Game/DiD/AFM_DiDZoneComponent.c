@@ -77,6 +77,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected int m_iTicketPool;
 	protected int m_iTicketsRemaining;
 	
+	// Resolved scenario header settings, or null when the mission has no DiD header
+	protected ref AFM_DiDPhaseSettings m_PhaseSettings;
+	
 	// Cached 2D polyline points for zone boundary checks (world-space X/Z pairs)
 	protected ref array<float> m_aZonePolylinePoints2D = null;
 		
@@ -185,6 +188,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 		m_RedforFaction = gamemode.GetRedforFaction();
 		m_BluforFaction = gamemode.GetBluforFaction();
 
+		ApplyPhaseSettings();
+		
 		m_bInitialized = true;
 		PrintFormat("AFM_DiDZoneComponent %1: Initialized with %2 spawners", m_sZoneName, m_aSpawners.Count());
 	}
@@ -428,6 +433,97 @@ class AFM_DiDZoneComponent: ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	// Scenario header settings
+	//------------------------------------------------------------------------------------------------
+	
+	//! Take whatever the scenario overrides for this zone. Called at the end of LateInit, so it lands
+	//! before the zone is ever processed but after its spawners are known.
+	protected void ApplyPhaseSettings()
+	{
+		if (!AFM_DiDScenarioSettings.HasSettings())
+		{
+			PrintFormat("AFM_DiDZoneComponent %1: No scenario settings captured, keeping the values authored in the world",
+				m_sZoneName);
+			return;
+		}
+		
+		m_PhaseSettings = AFM_DiDScenarioSettings.ResolveForZone(m_iZoneIndex);
+		if (!m_PhaseSettings)
+			return;
+		
+		PrintFormat("AFM_DiDZoneComponent %1: Scenario '%2' resolved prepare %3",
+			m_sZoneName, AFM_DiDScenarioSettings.GetScenarioName(), m_PhaseSettings.m_iPrepareTimeSeconds);
+		
+		if (m_PhaseSettings.m_iPrepareTimeSeconds >= 0)
+			m_iPrepareTimeSeconds = m_PhaseSettings.m_iPrepareTimeSeconds;
+		
+		if (m_PhaseSettings.m_iDefenseTimeSeconds >= 0)
+			m_iDefenseTimeSeconds = m_PhaseSettings.m_iDefenseTimeSeconds;
+		
+		if (m_PhaseSettings.m_iFailureTimeSeconds >= 0)
+			m_iFailureTimeSeconds = m_PhaseSettings.m_iFailureTimeSeconds;
+		
+		if (m_PhaseSettings.m_iTicketsPerPlayer >= 0)
+			m_iTicketsPerPlayer = m_PhaseSettings.m_iTicketsPerPlayer;
+		
+		if (m_PhaseSettings.m_fTicketMultiplier > 0)
+			m_fTicketMultiplier = m_PhaseSettings.m_fTicketMultiplier;
+		
+		if (m_PhaseSettings.m_iMinTickets >= 0)
+			m_iMinTickets = m_PhaseSettings.m_iMinTickets;
+		
+		if (m_PhaseSettings.m_iMaxTickets >= 0)
+			m_iMaxTickets = m_PhaseSettings.m_iMaxTickets;
+		
+		if (m_PhaseSettings.m_iMaxAICount >= 0)
+			m_iMaxAICount = m_PhaseSettings.m_iMaxAICount;
+		
+		ApplyInfantryHunting();
+		
+		PrintFormat("AFM_DiDZoneComponent %1: Scenario settings applied - prepare %2 s, defend %3 s, contested %4 s, %5 tickets per player",
+			m_sZoneName, m_iPrepareTimeSeconds, m_iDefenseTimeSeconds, m_iFailureTimeSeconds, m_iTicketsPerPlayer);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Hunting lives on each infantry spawner rather than on the zone
+	protected void ApplyInfantryHunting()
+	{
+		if (m_PhaseSettings.m_eInfantryHunting == AFM_EToggle.DEFAULT)
+			return;
+		
+		bool hunt = m_PhaseSettings.m_eInfantryHunting == AFM_EToggle.ON;
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			AFM_DiDInfantrySpawnerComponent infantry = AFM_DiDInfantrySpawnerComponent.Cast(spawner);
+			if (infantry)
+				infantry.SetHuntPlayers(hunt);
+		}
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Does the scenario allow this spawner to run? Only ever disables spawners the world already has;
+	//! the header cannot add any.
+	bool IsSpawnerEnabled(notnull AFM_DiDSpawnerComponent spawner)
+	{
+		if (!m_PhaseSettings)
+			return true;
+		
+		if (AFM_DiDHeliSpawnerComponent.Cast(spawner))
+			return AFM_DiDPhaseSettings.IsEnabled(m_PhaseSettings.m_eHelicopters);
+		
+		if (AFM_DiDMechanizedSpawnerComponent.Cast(spawner))
+			return AFM_DiDPhaseSettings.IsEnabled(m_PhaseSettings.m_eMechanized);
+		
+		if (AFM_DiDMortarSpawnerComponent.Cast(spawner))
+			return AFM_DiDPhaseSettings.IsEnabled(m_PhaseSettings.m_eMortars);
+		
+		if (AFM_DiDCowabungaComponent.Cast(spawner))
+			return AFM_DiDPhaseSettings.IsEnabled(m_PhaseSettings.m_eCowabunga);
+		
+		return true;
+	}
+	
+	//------------------------------------------------------------------------------------------------
 	// Ticket pool
 	//------------------------------------------------------------------------------------------------
 	
@@ -664,6 +760,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 			// The attacker budget is spent. Enforced here because spawners override Process() and the
 			// infantry one does not chain to the base, so a check inside it would be skipped.
 			if (!HasTicketsRemaining() && spawner.CountsTowardsTicketPool())
+				continue;
+			
+			if (!IsSpawnerEnabled(spawner))
 				continue;
 
 			spawner.Process();
