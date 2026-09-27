@@ -36,9 +36,9 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 	[Attribute("COWABUNGA! The fallen have joined the attack!", UIWidgets.EditBox, "Announcement when the squad is sent in", category: "DiD Cowabunga")]
 	protected string m_sAnnouncement;
 
-	protected static const ResourceName DEFAULT_RIFLEMAN = "{47B0BA658525301A}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Rifleman_P.et";
-	protected static const ResourceName DEFAULT_MACHINE_GUNNER = "{951CA4F244097071}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_MG_P.et";
-	protected static const ResourceName DEFAULT_AT = "{BDA13DF416E8D9F6}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_AT_P.et";
+	protected static const ResourceName DEFAUALT = "{98EB9CDD85B8C92C}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Unarmed.et";
+	protected static const ResourceName DEFAULT_NI = "{2BC3C5A7294A3289}Prefabs/Characters/Factions/OPFOR/USSR_Army/Naval_Infantry/Character_USSR_NI_Unarmed.et";
+	protected static const ResourceName DEFAULT_KLMK = "{F67A91C100D6C222}Prefabs/Characters/Factions/OPFOR/USSR_Army/KLMK/Character_USSR_Unarmed_KLMK.et";
 
 	protected static const int ASSIGN_DELAY_MS = 500;
 	protected static const int ASSIGN_MAX_ATTEMPTS = 10;
@@ -93,22 +93,37 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 		}
 
 		if (m_Zone.GetZoneState() != EAFMZoneState.FROZEN)
-		{
-			m_bContestedSeen = false;
 			return;
-		}
 
+		if (m_iActivations >= m_iMaxActivations)
+			return;
+
+		if (GetContestedSeconds() < m_iFreezeSecondsBeforeTrigger)
+			return;
+
+		StartCowabunga();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Total time this zone has been contested, taken from the zone's own failure timer so the two
+	//! cannot disagree. Counts across separate pushes, not just one unbroken contest.
+	//!
+	//! Falls back to timing the current freeze when the zone's failure timer is disabled.
+	protected int GetContestedSeconds()
+	{
+		int remaining = m_Zone.GetRemainingFailureSeconds();
+		if (remaining >= 0)
+			return m_Zone.GetFailureTimeSeconds() - remaining;
+
+		WorldTimestamp now = GetCurrentTimestamp();
 		if (!m_bContestedSeen)
 		{
 			m_bContestedSeen = true;
 			m_ContestedSince = now;
-			return;
+			return 0;
 		}
 
-		if (now.DiffSeconds(m_ContestedSince) < m_iFreezeSecondsBeforeTrigger || m_iActivations >= m_iMaxActivations)
-			return;
-
-		StartCowabunga();
+		return now.DiffSeconds(m_ContestedSince);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -215,14 +230,13 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 		if (m_aSquadCharacterPrefabs && !m_aSquadCharacterPrefabs.IsEmpty())
 			return m_aSquadCharacterPrefabs[index % m_aSquadCharacterPrefabs.Count()];
 
-		// A rifle squad by default: riflemen with a machine gunner and an AT man
 		if (index == 1)
-			return DEFAULT_MACHINE_GUNNER;
+			return DEFAUALT;
 
 		if (index == 2)
-			return DEFAULT_AT;
+			return DEFAULT_NI;
 
-		return DEFAULT_RIFLEMAN;
+		return DEFAULT_KLMK;
 	}
 
 	//------------------------------------------------------------------------------------------------

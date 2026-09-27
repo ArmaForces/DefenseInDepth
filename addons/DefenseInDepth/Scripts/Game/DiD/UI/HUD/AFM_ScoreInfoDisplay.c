@@ -180,8 +180,20 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 			else
 				parts.Insert(string.Format("Enemies in zone: %1", m_Campaign.GetAttackersRemaining()));
 
+			// The contested countdown only exists while attackers hold the zone; it is hidden otherwise
 			if (m_Campaign.IsContested())
-				parts.Insert("<color rgba='255,64,64,255'>CONTESTED</color>");
+			{
+				int contestedLeft = m_Campaign.GetContestedSecondsLeft();
+				if (contestedLeft < 0)
+				{
+					parts.Insert("<color rgba='255,64,64,255'>CONTESTED</color>");
+				}
+				else
+				{
+					string lostIn = SCR_FormatHelper.GetTimeFormatting(contestedLeft, ETimeFormatParam.DAYS | ETimeFormatParam.HOURS, ETimeFormatParam.DAYS | ETimeFormatParam.HOURS | ETimeFormatParam.MINUTES);
+					parts.Insert(string.Format("<color rgba='255,64,64,255'>CONTESTED - zone lost in %1</color>", lostIn));
+				}
+			}
 
 			WorldTimestamp nextWave;
 			if (m_Campaign.GetNextSpawnWaveTime(nextWave))

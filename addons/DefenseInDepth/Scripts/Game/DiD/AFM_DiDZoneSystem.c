@@ -102,22 +102,27 @@ class AFM_DiDZoneSystem: GameSystem
 		
 		PrintFormat("AFM_DiDZoneSystem: Started zone system with %1 zones", m_aZones.Count());
 		
-		// Activate first zone in prepare phase
-		if (m_aZones.Contains(m_iStartingZoneIndex))
-		{
-			m_ActiveZone = m_aZones[m_iStartingZoneIndex];
-			m_ActiveZone.ActivateZone();
-			
-			if (m_OnZoneChanged)
-				m_OnZoneChanged.Invoke(m_iStartingZoneIndex);
-		} 
-		else
-		{
-			PrintFormat("AFM_DiDZoneSystem: Zone index %1 is invalid! Zone count: %2", 
-				m_iStartingZoneIndex, m_aZones.Count(), level:LogLevel.ERROR
-			);
-			StopZoneSystem();
-		}
+		// Activate first zone in prepare phase. Zones register themselves as they initialise, so the
+		// first one may not be there yet; ProcessZone picks it up as soon as it registers.
+		if (!ActivateStartingZone())
+			PrintFormat("AFM_DiDZoneSystem: Zone %1 has not registered yet (%2 known), waiting for it",
+				m_iStartingZoneIndex, m_aZones.Count(), level: LogLevel.WARNING);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! eturn false when the starting zone has not registered itself yet
+	protected bool ActivateStartingZone()
+	{
+		if (!m_aZones.Contains(m_iStartingZoneIndex))
+			return false;
+		
+		m_ActiveZone = m_aZones[m_iStartingZoneIndex];
+		m_ActiveZone.ActivateZone();
+		
+		if (m_OnZoneChanged)
+			m_OnZoneChanged.Invoke(m_iStartingZoneIndex);
+		
+		return true;
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -127,14 +132,20 @@ class AFM_DiDZoneSystem: GameSystem
 	protected void ProcessZone()
 	{
 		WorldTimestamp tStart = GetCurrentTimestamp();
+		
+		// The starting zone registered after the system started
 		if (!m_ActiveZone)
-		{	
-			PrintFormat("AFM_DiDZoneSystem: Invalid active zone!", level:LogLevel.ERROR);
-			return;
+		{
+			if (!ActivateStartingZone())
+				return;
 		}
 		
 		// Don't process zones that are already finished
 		if (m_ActiveZone.IsZoneFinished())
+			return;
+		
+		// Children and spawners are resolved a few seconds after the zone registers
+		if (!m_ActiveZone.IsInitialized())
 			return;
 		
 		EAFMZoneState previousState = m_ActiveZone.GetZoneState();

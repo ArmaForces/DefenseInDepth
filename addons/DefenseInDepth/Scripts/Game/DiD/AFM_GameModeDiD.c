@@ -17,6 +17,16 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	protected static const int RANK_RESTORE_FIRST_DELAY_MS = 300;
 	protected static const int RESPAWN_FINALIZE_DELAY_MS = 2000;
 
+	// Players arriving in a new zone are placed on rings around its spawn point
+	protected static const int SPAWN_RING_SIZE = 6;
+	protected static const float SPAWN_SPACING_M = 3.0;
+
+	// Let the new zone settle before moving anyone into it
+	protected static const int ZONE_TRANSFER_DELAY_MS = 5000;
+
+	// Zone the last transfer was made for, so survivors are only moved when the stage actually changes
+	protected int m_iLastTransferZoneIndex = -1;
+
 	protected SCR_FactionManager m_FactionManager;
 	protected AFM_DiDZoneSystem m_ZoneSystem;
 	protected ref ScriptInvoker m_OnMatchSituationChanged;
@@ -65,6 +75,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected bool m_bIsContested = false;
+
+	[RplProp(onRplName: "OnMatchSituationChanged")]
+	protected int m_iContestedSecondsLeft = -1;	// -1 when the zone cannot be lost by being held
 
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected bool m_bHasNextSpawnWave = false;
@@ -191,8 +204,15 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	protected void OnZoneChanged()
 	{
 		UpdateLocalGameState();
-		// Respawn dead players when zone changes
-		GetGame().GetCallqueue().CallLater(RespawnAllSpectators, 1000 * 5);
+
+		// OnZoneChanged also fires when the same zone goes from prepare to active and when a wave is
+		// cleared. Dead players are respawned every time, but survivors are only moved when the match
+		// has actually progressed to a different zone - otherwise everyone is teleported to the spawn
+		// point moments after the first zone starts.
+		bool zoneProgressed = m_iLastTransferZoneIndex >= 0 && m_iZoneNumber != m_iLastTransferZoneIndex;
+		m_iLastTransferZoneIndex = m_iZoneNumber;
+
+		GetGame().GetCallqueue().CallLater(RespawnAllSpectators, ZONE_TRANSFER_DELAY_MS, false, zoneProgressed);
 
 		// Wave clears have their own hint (OnWaveCompleted)
 		if (m_bIsWarmup)
@@ -269,6 +289,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		m_iZoneNumber = zone.GetZoneIndex();
 		m_iEnemiesRemaining = zone.GetEnemiesRemaining();
 		m_iTicketsRemaining = zone.GetRemainingSpawnTickets();
+		m_iContestedSecondsLeft = zone.GetRemainingFailureSeconds();
 
 		// Spawners only send waves while the zone is being fought over
 		EAFMZoneState state = zone.GetZoneState();
@@ -365,8 +386,11 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void RespawnAllSpectators()
+	//! Dead players get a new body at the new zone's spawn point; survivors keep theirs and are moved
+	//! there, so nobody is left behind in the stage that just ended.
+	protected void RespawnAllSpectators(bool moveSurvivors = false)
 	{
+		int spawnIndex = 0;
 		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
 		array<PS_PlayableContainer> playableContainers = playableManager.GetPlayablesSorted();
 		AFM_PlayerSpawnPointEntity currentSpawnPoint = m_ZoneSystem.GetCurrentZonePlayerSpawnPoint();
@@ -386,18 +410,84 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			if (!damageManager)
 				continue;
 
+			int playerId = playableManager.GetPlayerByPlayableRemembered(pcomp.GetRplId());
+			if (playerId == -1)
+				continue;
+
+			vector spawnPos = GetSpawnPosition(currentSpawnPoint, spawnIndex);
+
 			EDamageState damageState = damageManager.GetState();
 			if (damageState == EDamageState.DESTROYED)
 			{
-				int playerId = playableManager.GetPlayerByPlayableRemembered(pcomp.GetRplId());
-				if (playerId == -1)
-					continue;
-				RespawnPlayer(playerId, pcomp, currentSpawnPoint);
+				RespawnPlayer(playerId, pcomp, spawnPos);
+				spawnIndex++;
+				continue;
 			}
+
+			if (!moveSurvivors)
+				continue;
+
+			if (MoveSurvivorToSpawnPoint(pcomp, spawnPos))
+				spawnIndex++;
 		}
 	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Teleport a player who lived through the stage to the next zone, keeping body, loadout and rank.
+	//! Survivors are spread around the spawn point so they do not land on top of each other.
+	//! eturn true when the player was moved
+	protected bool MoveSurvivorToSpawnPoint(notnull PS_PlayableComponent playableComponent, vector spawnPos)
+	{
+		if (spawnPos == vector.Zero)
+			return false;
+
+		SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(playableComponent.GetOwner());
+		if (!character)
+			return false;
+
+		// Riding a vehicle into the next zone would drag the vehicle's occupants apart from it
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(character.GetCompartmentAccessComponent());
+		if (access && character.IsInVehicle())
+			access.GetOutVehicle(EGetOutType.TELEPORT, -1, ECloseDoorAfterActions.INVALID, false);
+
+		vector transform[4];
+		character.GetTransform(transform);
+		transform[3] = spawnPos;
+
+		character.Teleport(transform);
+
+		// Surviving a stage should not mean starting the next one wounded or unconscious
+		SCR_CharacterDamageManagerComponent damageManager = playableComponent.GetCharacterDamageManagerComponent();
+		if (damageManager)
+			damageManager.FullHeal();
+
+		PrintFormat("AFM_GameModeDiD: Moved and healed survivor at %1", transform[3], level: LogLevel.DEBUG);
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Rings around the spawn point, widening every SPAWN_RING_SIZE players, so nobody lands on top of
+	//! anybody else. Used for respawned players and moved survivors alike, from one shared counter.
+	protected vector GetSpawnPosition(AFM_PlayerSpawnPointEntity spawnPoint, int spawnIndex)
+	{
+		if (!spawnPoint)
+			return vector.Zero;
+
+		vector center = spawnPoint.GetOrigin();
+		if (spawnIndex <= 0)
+			return center;
+
+		int ring = 1 + spawnIndex / SPAWN_RING_SIZE;
+		int indexInRing = spawnIndex % SPAWN_RING_SIZE;
+		float angle = indexInRing * (Math.PI2 / SPAWN_RING_SIZE);
+		float radius = ring * SPAWN_SPACING_M;
+
+		vector pos = center + Vector(Math.Sin(angle) * radius, 0, Math.Cos(angle) * radius);
+		pos[1] = GetGame().GetWorld().GetSurfaceY(pos[0], pos[2]);
+		return pos;
+	}
 	
-	protected void RespawnPlayer(int playerId, PS_PlayableComponent playableComponent, AFM_PlayerSpawnPointEntity sp)
+	protected void RespawnPlayer(int playerId, PS_PlayableComponent playableComponent, vector spawnPos)
 	{
 		if (playableComponent)
 		{
@@ -406,8 +496,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			{
 				PS_RespawnData respawnData = new PS_RespawnData(playableComponent, prefabToSpawn, "");
 
-				if (sp)
-					respawnData.m_aSpawnTransform[3] = sp.GetOrigin();
+				if (spawnPos != vector.Zero)
+					respawnData.m_aSpawnTransform[3] = spawnPos;
 
 				Respawn(playerId, respawnData);
 
@@ -619,6 +709,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	bool IsContested()
 	{
 		return m_bIsContested;
+	}
+	
+	//! Contested seconds left before the zone falls, or -1 when it cannot be lost this way
+	int GetContestedSecondsLeft()
+	{
+		return m_iContestedSecondsLeft;
 	}
 
 	//! \return false when no timed enemy wave is coming

@@ -8,6 +8,7 @@ AFM_DiDZoneEntity : "{54DE363F12E79F7A}Prefabs/MP/AFM_DiDExtractionZonePrefab.et
    m_sZoneName "Harbour"
    m_iZoneIndex 3
    m_iPrepareTimeSeconds 900
+   m_iFailureTimeSeconds -1
   }
  }
  coords 1023.064 2.687 6026.319

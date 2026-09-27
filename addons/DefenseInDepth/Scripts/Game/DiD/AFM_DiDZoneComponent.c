@@ -40,6 +40,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	
 	[Attribute("0", UIWidgets.EditBox, "Max AI soldiers across all spawners of this zone (0 = no zone-wide limit, only each spawner's own limit applies)", category: "DiD")]
 	protected int m_iMaxAICount;
+
+	[Attribute("300", UIWidgets.EditBox, "Total seconds the zone may be contested before it is lost. Counts down only while attackers hold the majority and never resets, so repeated pushes add up. 0 = the zone cannot be lost this way", category: "DiD")]
+	protected int m_iFailureTimeSeconds;
 	
 	protected PolylineShapeEntity m_PolylineEntity;
 	protected AFM_PlayerSpawnPointEntity m_PlayerSpawnPoint;
@@ -54,10 +57,18 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected WorldTimestamp m_fZoneStartTime;
 	protected WorldTimestamp m_fZoneEndTime;
 	protected int m_iRemainingTimeSeconds;
+
+	// Contested time left before the zone is lost. Drains while FROZEN, holds its value otherwise.
+	protected int m_iRemainingFailureSeconds;
+	protected WorldTimestamp m_fContestedSince;
 	
 	// Faction configuration
 	protected SCR_Faction m_RedforFaction;
 	protected SCR_Faction m_BluforFaction;
+	
+	// Child entities are not all present at OnPostInit, so resolving them is delayed
+	protected static const int LATE_INIT_DELAY_MS = 5000;
+	protected bool m_bInitialized;
 	
 	
 	override void OnPostInit(IEntity owner)
@@ -68,8 +79,25 @@ class AFM_DiDZoneComponent: ScriptComponent
 			return;
 		
 		//Only initialize when zone system is available (on authority)
-		if (AFM_DiDZoneSystem.GetInstance())
-			GetGame().GetCallqueue().CallLater(LateInit, 5000);
+		AFM_DiDZoneSystem zoneSystem = AFM_DiDZoneSystem.GetInstance();
+		if (!zoneSystem)
+			return;
+
+		// Register now, not in LateInit: the game can reach its GAME state and start the zone system
+		// before the delay below elapses, and the system would then find no zones at all.
+		if (!zoneSystem.RegisterZone(this))
+			PrintFormat("AFM_DiDZoneComponent %1: Failed to register zone!", m_sZoneName, LogLevel.ERROR);
+		else
+			PrintFormat("AFM_DiDZoneComponent %1: Zone registered", m_sZoneName);
+
+		GetGame().GetCallqueue().CallLater(LateInit, LATE_INIT_DELAY_MS);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Children and spawners resolved? The zone system skips processing until they are.
+	bool IsInitialized()
+	{
+		return m_bInitialized;
 	}
 	
 	protected void LateInit()
@@ -120,12 +148,6 @@ class AFM_DiDZoneComponent: ScriptComponent
 			spawner.Prepare(this);
 		}
 		
-		if (!AFM_DiDZoneSystem.GetInstance().RegisterZone(this))
-			PrintFormat("AFM_DiDZoneComponent %1: Failed to register zone!", m_sZoneName, LogLevel.ERROR);
-		else
-			PrintFormat("AFM_DiDZoneComponent %1: Zone registered", m_sZoneName);
-		
-		
 		AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
 		if (!gamemode)
 		{
@@ -134,6 +156,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 		}
 		m_RedforFaction = gamemode.GetRedforFaction();
 		m_BluforFaction = gamemode.GetBluforFaction();
+
+		m_bInitialized = true;
+		PrintFormat("AFM_DiDZoneComponent %1: Initialized with %2 spawners", m_sZoneName, m_aSpawners.Count());
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -289,21 +314,64 @@ class AFM_DiDZoneComponent: ScriptComponent
 		
 		m_iRemainingTimeSeconds = m_fZoneEndTime.DiffSeconds(GetCurrentTimestamp());
 		m_eZoneState = EAFMZoneState.FROZEN;
-		
-		PrintFormat("AFM_DiDZoneComponent %1: Zone FROZEN with %2 seconds remaining",
-		 m_sZoneName, m_iRemainingTimeSeconds);
+		m_fContestedSince = GetCurrentTimestamp();
+
+		PrintFormat("AFM_DiDZoneComponent %1: Zone FROZEN with %2 seconds remaining, %3 s of contested time left",
+		 m_sZoneName, m_iRemainingTimeSeconds, m_iRemainingFailureSeconds);
 	}
-	
+
 	protected void UnfreezeZone()
 	{
 		if (m_eZoneState != EAFMZoneState.FROZEN)
 			return;
-		
+
+		// Bank whatever contested time was spent; it is never given back
+		ConsumeFailureTime();
+
 		m_fZoneEndTime = GetCurrentTimestamp().PlusSeconds(m_iRemainingTimeSeconds);
 		m_eZoneState = EAFMZoneState.ACTIVE;
-		
-		PrintFormat("AFM_DiDZoneComponent %1: Zone UNFROZEN, resuming with %2 seconds",
-		 m_sZoneName, m_iRemainingTimeSeconds);
+
+		PrintFormat("AFM_DiDZoneComponent %1: Zone UNFROZEN, resuming with %2 seconds, %3 s of contested time left",
+		 m_sZoneName, m_iRemainingTimeSeconds, m_iRemainingFailureSeconds);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Deduct the time spent contested since the zone froze, and restart counting from now
+	protected void ConsumeFailureTime()
+	{
+		if (!IsFailureTimerEnabled())
+			return;
+
+		WorldTimestamp now = GetCurrentTimestamp();
+		int spent = now.DiffSeconds(m_fContestedSince);
+		if (spent > 0)
+			m_iRemainingFailureSeconds = Math.Max(0, m_iRemainingFailureSeconds - spent);
+
+		m_fContestedSince = now;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Can this zone be lost by being held? Disabled per zone with 0, e.g. for the last stage
+	bool IsFailureTimerEnabled()
+	{
+		return m_iFailureTimeSeconds > 0;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Contested seconds left before the zone falls, or -1 when the zone cannot be lost this way
+	int GetRemainingFailureSeconds()
+	{
+		if (!IsFailureTimerEnabled())
+			return -1;
+
+		return m_iRemainingFailureSeconds;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Total contested time this zone allows, 0 when it cannot be lost this way
+	int GetFailureTimeSeconds()
+	{
+		return m_iFailureTimeSeconds;
 	}
 
 	protected EAFMZoneState HandlePrepareLogic()
@@ -350,6 +418,19 @@ class AFM_DiDZoneComponent: ScriptComponent
 			else if (attackerCount <= defendersInside && m_eZoneState == EAFMZoneState.FROZEN)
 			{
 				UnfreezeZone();
+			}
+		}
+
+		// Held long enough and the zone falls. Checked after the freeze so the first contested tick counts.
+		if (m_eZoneState == EAFMZoneState.FROZEN && IsFailureTimerEnabled())
+		{
+			ConsumeFailureTime();
+			if (m_iRemainingFailureSeconds <= 0)
+			{
+				PrintFormat("AFM_DiDZoneComponent %1: Contested for the full %2 s, zone lost",
+					m_sZoneName, m_iFailureTimeSeconds);
+				FinishZoneFailed();
+				return m_eZoneState;
 			}
 		}
 		
@@ -430,8 +511,13 @@ class AFM_DiDZoneComponent: ScriptComponent
 		m_eZoneState = EAFMZoneState.PREPARE;
 		m_fZoneStartTime = now;
 		m_fZoneEndTime = now.PlusSeconds(m_iPrepareTimeSeconds);
-		PrintFormat("AFM_DiDZoneComponent %1: Entering PREPARE state for %2 seconds",
-		 m_sZoneName, m_iPrepareTimeSeconds);
+
+		// Contested time is per zone and starts full every stage
+		m_iRemainingFailureSeconds = m_iFailureTimeSeconds;
+		m_fContestedSince = now;
+
+		PrintFormat("AFM_DiDZoneComponent %1: Entering PREPARE state for %2 seconds, %3 s of contested time allowed",
+		 m_sZoneName, m_iPrepareTimeSeconds, m_iFailureTimeSeconds);
 	}
 	
 	void DeactivateZone()

@@ -4,6 +4,7 @@ AFM_DiDZoneEntity zone1 {
    m_sZoneName "Outskirts"
    m_iPrepareTimeSeconds 900
    m_iDefenseTimeSeconds 900
+   m_iFailureTimeSeconds 600
   }
   Hierarchy "{66C71AE7EF54AAC8}" {
   }
@@ -821,6 +822,18 @@ AFM_DiDZoneEntity zone1 {
        }
       }
      }
+    }
+   }
+  }
+  AFM_DiDCowabungaComponent : "{82F093D3102C27A2}Prefabs/Spawners/AFM_Cowabunga.et" {
+   coords 204.302 14.61 -59.346
+   m_iFreezeSecondsBeforeTrigger 360
+   m_iMaxActivations 1
+   m_iDurationSeconds 0
+   {
+    AFM_SpawnPointEntity zone_1_sp_26 : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     coords 91.892 0.356 60.86
+     angles 0 -76.831 0
     }
    }
   }
