@@ -47,6 +47,24 @@ class AFM_DiDZoneComponent: ScriptComponent
 	[Attribute("1", UIWidgets.CheckBox, "Remove the compositions players built in this zone when it ends. Leaving them up blocks vehicle pathing in the stages that follow", category: "DiD")]
 	protected bool m_bRemovePlayerStructuresOnEnd;
 	
+	[Attribute("1", UIWidgets.CheckBox, "Limit the attackers this zone can send with a ticket pool sized to the number of players", category: "DiD Tickets")]
+	protected bool m_bUseTicketPool;
+	
+	[Attribute("15", UIWidgets.EditBox, "Attacker tickets per connected player. One ticket is one soldier", category: "DiD Tickets")]
+	protected int m_iTicketsPerPlayer;
+	
+	[Attribute("1.0", UIWidgets.EditBox, "Scales the pool for difficulty. The mission header will override this once it exists; 0 or less means use the default", category: "DiD Tickets")]
+	protected float m_fTicketMultiplier;
+	
+	[Attribute("60", UIWidgets.EditBox, "Smallest pool, however few players there are", category: "DiD Tickets")]
+	protected int m_iMinTickets;
+	
+	[Attribute("240", UIWidgets.EditBox, "Largest pool, however many players there are", category: "DiD Tickets")]
+	protected int m_iMaxTickets;
+	
+	[Attribute("0.5", UIWidgets.EditBox, "Share of this zone's unspent tickets handed to the next zone when this one is lost. Attackers who were never sent keep coming", category: "DiD Tickets")]
+	protected float m_fFailureCarryOver;
+	
 	protected PolylineShapeEntity m_PolylineEntity;
 	protected AFM_PlayerSpawnPointEntity m_PlayerSpawnPoint;
 	protected ref array<AFM_DiDSpawnerComponent> m_aSpawners = {};
@@ -54,6 +72,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 	
 	// Compositions players built while this zone was active, removed with the zone
 	protected ref array<IEntity> m_aPlayerStructures = {};
+	
+	// Attackers this zone may still send. Sized at activation and never resized afterwards.
+	protected int m_iTicketPool;
+	protected int m_iTicketsRemaining;
 	
 	// Cached 2D polyline points for zone boundary checks (world-space X/Z pairs)
 	protected ref array<float> m_aZonePolylinePoints2D = null;
@@ -406,6 +428,138 @@ class AFM_DiDZoneComponent: ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	// Ticket pool
+	//------------------------------------------------------------------------------------------------
+	
+	//! Attackers are budgeted per player, so a zone holds its shape whether four or fourteen are playing.
+	//! Sized once at activation: a pool that shrank as players died would make a zone easier exactly when
+	//! the team is losing, and the number on the HUD would move on its own.
+	protected void SizeTicketPool()
+	{
+		if (!IsTicketPoolEnabled())
+		{
+			m_iTicketPool = 0;
+			m_iTicketsRemaining = 0;
+			return;
+		}
+		
+		float multiplier = m_fTicketMultiplier;
+		if (multiplier <= 0)
+			multiplier = 1.0;
+		
+		int players = GetConnectedDefenderCount();
+		int pool = Math.Round(m_iTicketsPerPlayer * players * multiplier);
+		
+		// Guardrails, applied after the multiplier so no setting can produce an unplayable zone
+		pool = Math.ClampInt(pool, m_iMinTickets, m_iMaxTickets);
+		
+		m_iTicketPool = pool;
+		m_iTicketsRemaining = pool;
+		
+		PrintFormat("AFM_DiDZoneComponent %1: Ticket pool %2 for %3 players (%4 per player, multiplier %5, clamped to %6-%7)",
+			m_sZoneName, pool, players, m_iTicketsPerPlayer, multiplier, m_iMinTickets, m_iMaxTickets);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Wave zones budget their own tickets per wave, so the zone-wide pool stays out of their way
+	bool IsTicketPoolEnabled()
+	{
+		return m_bUseTicketPool;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Everyone on the defending side who is connected, alive or waiting to respawn. Deliberately not
+	//! GetDefenderCount(), which counts living bodies only.
+	int GetConnectedDefenderCount()
+	{
+		if (!m_BluforFaction)
+			return 0;
+		
+		array<int> playerIds = {};
+		m_BluforFaction.GetPlayersInFaction(playerIds);
+		return playerIds.Count();
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! The attack is spent: the budget is empty and everything it paid for is dead. Players win outright,
+	//! without waiting out the defence timer.
+	//!
+	//! Only counts AI the pool paid for. Mortar crews sit outside the pool and are limited by their own
+	//! logic, so counting them would leave the zone unwinnable while a single mortar team survives.
+	protected bool IsAttackDefeated()
+	{
+		if (!IsTicketPoolEnabled() || HasTicketsRemaining())
+			return false;
+		
+		return GetTicketPoolAICount() == 0;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Attackers alive from the spawners the ticket pool pays for
+	int GetTicketPoolAICount()
+	{
+		int total = 0;
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			if (spawner && spawner.CountsTowardsTicketPool())
+				total += spawner.GetActiveAICount();
+		}
+		
+		return total;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Are there attackers left to send? Always true when the pool is disabled.
+	bool HasTicketsRemaining()
+	{
+		if (!IsTicketPoolEnabled())
+			return true;
+		
+		return m_iTicketsRemaining > 0;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Attackers this zone never got to send, handed on when it is lost. Losing a zone means the enemy
+	//! still has momentum, so part of the unspent budget follows the players to the next stage.
+	//! eturn 0 unless this zone actually failed
+	int GetCarryOverTickets()
+	{
+		if (!IsTicketPoolEnabled() || m_eZoneState != EAFMZoneState.FINISHED_FAILED)
+			return 0;
+		
+		if (m_fFailureCarryOver <= 0)
+			return 0;
+		
+		return Math.Round(m_iTicketsRemaining * m_fFailureCarryOver);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Added on top of a pool that has already been sized, so the clamp does not discard it
+	void AddTickets(int count)
+	{
+		if (!IsTicketPoolEnabled() || count <= 0)
+			return;
+		
+		m_iTicketPool = m_iTicketPool + count;
+		m_iTicketsRemaining = m_iTicketsRemaining + count;
+		
+		PrintFormat("AFM_DiDZoneComponent %1: Inherited %2 tickets from the lost zone, pool now %3",
+			m_sZoneName, count, m_iTicketPool);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Charged when a group spawns, for the size it will reach once its members are in
+	void ConsumeTicketPool(int count)
+	{
+		if (!IsTicketPoolEnabled() || count <= 0)
+			return;
+		
+		m_iTicketsRemaining = Math.Max(0, m_iTicketsRemaining - count);
+		PrintFormat("AFM_DiDZoneComponent %1: %2 tickets spent, %3 of %4 left",
+			m_sZoneName, count, m_iTicketsRemaining, m_iTicketPool, level: LogLevel.DEBUG);
+	}
+	
+	//------------------------------------------------------------------------------------------------
 	//! Can this zone be lost by being held? Disabled per zone with 0, e.g. for the last stage
 	bool IsFailureTimerEnabled()
 	{
@@ -462,6 +616,14 @@ class AFM_DiDZoneComponent: ScriptComponent
 			return m_eZoneState;
 		}
 		
+		if (IsAttackDefeated())
+		{
+			PrintFormat("AFM_DiDZoneComponent %1: Attack defeated - no tickets left and no attackers alive",
+				m_sZoneName);
+			FinishZoneHeld();
+			return m_eZoneState;
+		}
+		
 		// Freeze the timer only while attackers hold the majority inside the zone
 		if (m_bStopTimerOnRedforSuperiority)
 		{
@@ -497,6 +659,11 @@ class AFM_DiDZoneComponent: ScriptComponent
 				continue;
 
 			if (spawnersPaused && spawner.HasSpawnWaves())
+				continue;
+			
+			// The attacker budget is spent. Enforced here because spawners override Process() and the
+			// infantry one does not chain to the base, so a check inside it would be skipped.
+			if (!HasTicketsRemaining() && spawner.CountsTowardsTicketPool())
 				continue;
 
 			spawner.Process();
@@ -570,6 +737,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 		// Contested time is per zone and starts full every stage
 		m_iRemainingFailureSeconds = m_iFailureTimeSeconds;
 		m_fContestedSince = now;
+		
+		SizeTicketPool();
 
 		PrintFormat("AFM_DiDZoneComponent %1: Entering PREPARE state for %2 seconds, %3 s of contested time allowed",
 		 m_sZoneName, m_iPrepareTimeSeconds, m_iFailureTimeSeconds);
@@ -674,15 +843,21 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//! Enemies left to fight in this zone, or -1 when spawns are unlimited
 	int GetEnemiesRemaining()
 	{
-		return -1;
+		if (!IsTicketPoolEnabled())
+			return -1;
+		
+		return m_iTicketsRemaining + GetActiveAICount();
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Spawn tickets left across every spawner that uses them, or -1 when none of them do.
+	//! Attackers this zone may still send, or -1 when it is not limited that way.
 	//! Named apart from the wave zone's own GetRemainingTickets, which counts active spawners only
 	//! and drives wave progression.
 	int GetRemainingSpawnTickets()
 	{
+		if (IsTicketPoolEnabled())
+			return m_iTicketsRemaining;
+		
 		int total = -1;
 
 		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)

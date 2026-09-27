@@ -944,7 +944,7 @@ AFM_DiDZoneEntity : "{54DE363F12E79F7A}Prefabs/MP/AFM_DiDExtractionZonePrefab.et
       angles 0 -76.831 0
      }
      zone_1_sp_19 {
-      coords 437.057 23.491 -118.953
+      coords 437.057 26.785 -118.953
       angles 0 -76.831 0
      }
      zone_1_sp_20 {

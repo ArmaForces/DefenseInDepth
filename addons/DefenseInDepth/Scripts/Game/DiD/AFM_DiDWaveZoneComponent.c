@@ -287,6 +287,14 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 	{
 		return GetCurrentWave();
 	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Wave zones budget their attackers per wave through the spawners' own tickets, and use ticket
+	//! depletion to decide when a wave is over. A zone-wide pool on top of that would stall waves.
+	override bool IsTicketPoolEnabled()
+	{
+		return false;
+	}
 	
 	int GetRemainingTickets()
 	{

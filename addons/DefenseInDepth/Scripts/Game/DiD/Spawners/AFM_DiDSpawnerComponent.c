@@ -106,6 +106,10 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		// If using tickets, check if there are tickets available
 		if (m_bUseTickets && m_iRemainingTickets <= 0)
 			return;
+
+		// The zone's own attacker budget is spent
+		if (IsTicketPoolExhausted())
+			return;
 		
 		ChimeraWorld world = GetGame().GetWorld();
 		WorldTimestamp now = world.GetServerTimestamp();
@@ -226,18 +230,41 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	{
 		m_aSpawnedAIGroups.Insert(group);
 		m_mGroupSpawnTimes.Set(group, GetCurrentTimestamp());
+
+		// Charge the zone for the whole group now; its members appear over the next frames.
+		// Done here rather than in SpawnAI, which the mechanized path does not go through.
+		if (m_Zone && CountsTowardsTicketPool())
+			m_Zone.ConsumeTicketPool(GetPlannedGroupSize(group));
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Does this spawner spend the zone's attacker budget? Reinforcement spawners do; fire support, air
+	//! and the COWABUNGA squad do not, because players cannot grind those down.
+	bool CountsTowardsTicketPool()
+	{
+		return HasSpawnWaves();
 	}
 
 	//------------------------------------------------------------------------------------------------
 	//! True when this spawner's cap or the zone-wide cap is reached
 	protected bool IsAICapReached()
 	{
-		int activeAI = m_Zone.GetActiveAICount();
-		if (activeAI >= m_iMaxAICount)
+		// This spawner's own limit against its own AI, not against everything in the zone
+		if (m_iMaxAICount > 0 && GetActiveAICount() >= m_iMaxAICount)
 			return true;
 
 		int zoneCap = m_Zone.GetMaxAICount();
-		return zoneCap > 0 && activeAI >= zoneCap;
+		return zoneCap > 0 && m_Zone.GetActiveAICount() >= zoneCap;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! True when the zone has no attackers left to send from this spawner
+	protected bool IsTicketPoolExhausted()
+	{
+		if (!m_Zone || !CountsTowardsTicketPool())
+			return false;
+
+		return !m_Zone.HasTicketsRemaining();
 	}
 	
 	//------------------------------------------------------------------------------------------------
