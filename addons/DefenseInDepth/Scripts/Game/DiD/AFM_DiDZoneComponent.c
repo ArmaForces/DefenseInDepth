@@ -44,10 +44,16 @@ class AFM_DiDZoneComponent: ScriptComponent
 	[Attribute("300", UIWidgets.EditBox, "Total seconds the zone may be contested before it is lost. Counts down only while attackers hold the majority and never resets, so repeated pushes add up. 0 = the zone cannot be lost this way", category: "DiD")]
 	protected int m_iFailureTimeSeconds;
 	
+	[Attribute("1", UIWidgets.CheckBox, "Remove the compositions players built in this zone when it ends. Leaving them up blocks vehicle pathing in the stages that follow", category: "DiD")]
+	protected bool m_bRemovePlayerStructuresOnEnd;
+	
 	protected PolylineShapeEntity m_PolylineEntity;
 	protected AFM_PlayerSpawnPointEntity m_PlayerSpawnPoint;
 	protected ref array<AFM_DiDSpawnerComponent> m_aSpawners = {};
 	protected SCR_ResourceComponent m_SupplyCache;
+	
+	// Compositions players built while this zone was active, removed with the zone
+	protected ref array<IEntity> m_aPlayerStructures = {};
 	
 	// Cached 2D polyline points for zone boundary checks (world-space X/Z pairs)
 	protected ref array<float> m_aZonePolylinePoints2D = null;
@@ -293,6 +299,55 @@ class AFM_DiDZoneComponent: ScriptComponent
 			if (spawner)
 				spawner.Cleanup();
 		}
+		
+		RemovePlayerStructures();
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Called by the modded building composition component when a player finishes building something
+	//! while this zone is the active one
+	void RegisterPlayerStructure(IEntity structure)
+	{
+		if (!structure || m_aPlayerStructures.Contains(structure))
+			return;
+		
+		m_aPlayerStructures.Insert(structure);
+		PrintFormat("AFM_DiDZoneComponent %1: Tracking player structure %2 (%3 total)",
+			m_sZoneName, structure.GetOrigin(), m_aPlayerStructures.Count(), level: LogLevel.DEBUG);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Tear down what the players built here. Left standing, these block vehicle pathing for the rest
+	//! of the match - a wall across a road is enough to keep every vehicle out of the next stage.
+	protected void RemovePlayerStructures()
+	{
+		if (!m_bRemovePlayerStructuresOnEnd)
+		{
+			m_aPlayerStructures.Clear();
+			return;
+		}
+		
+		int removed = 0;
+		foreach (IEntity structure : m_aPlayerStructures)
+		{
+			if (!structure)
+				continue;
+			
+			SCR_EntityHelper.DeleteEntityAndChildren(structure);
+			removed++;
+		}
+		
+		if (removed > 0)
+			PrintFormat("AFM_DiDZoneComponent %1: Removed %2 player structures", m_sZoneName, removed);
+		
+		m_aPlayerStructures.Clear();
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! How many compositions players have built in this zone
+	int GetPlayerStructureCount()
+	{
+		return m_aPlayerStructures.Count();
 	}
 	
 	protected void FinishZoneHeld()

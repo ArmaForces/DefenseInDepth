@@ -31,9 +31,14 @@ AFM_GameModeDiD AFM_GameMode_DiD1 : "{E508D7FF014D49F1}Prefabs/MP/Modes/AFM_Game
   DCO_GlobalAIComponent "{684A9572EB976348}" {
    m_eAISkillDefault EXPERT
   }
+  SCR_TimeAndWeatherHandlerComponent "{66AAF4E352EDE128}" {
+   m_bRandomStartingDaytime 1
+   m_bRandomStartingWeather 1
+  }
   SCR_XPHandlerComponent "{66D34C57D4D10ACA}" {
    m_iVeterancyXPAwardThreshold 150
   }
  }
  coords 1390.949 46.151 6040.119
+ m_bDisableGarbageSystem 1
 }
