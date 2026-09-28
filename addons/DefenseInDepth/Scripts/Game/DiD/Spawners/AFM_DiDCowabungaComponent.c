@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------------------------
-//! COWABUNGA: when attackers have held the zone long enough that its timer stays frozen, the dead
-//! defenders come back as an attacker squad and hunt their former team.
+//! COWABUNGA: when attackers have held the zone long enough, the dead defenders come back as an
+//! attacker squad and hunt their former team.
 //!
 //! Place it as a child of a zone, with AFM_SpawnPointEntity children as squad spawn points.
 //! One playable attacker is spawned per waiting player, and each of them is moved into it.
@@ -15,7 +15,7 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 	[Attribute("{8DE0C0830FE0C33D}Prefabs/Groups/OPFOR/Group_USSR_Base.et", UIWidgets.ResourceNamePicker, desc: "Empty attacker group the squad is put into", params: "et", category: "DiD Cowabunga")]
 	protected ResourceName m_sSquadGroupPrefab;
 
-	[Attribute("", UIWidgets.ResourceAssignArray, desc: "Playable attacker prefabs, used in order and repeated as needed. Empty = riflemen with a machine gunner and an AT man", params: "et", category: "DiD Cowabunga")]
+	[Attribute("", UIWidgets.ResourceAssignArray, desc: "Playable attacker prefabs, used in order and repeated as needed. Empty = unarmed USSR characters in mixed uniforms, who have to pick their weapons off the ground", params: "et", category: "DiD Cowabunga")]
 	protected ref array<ResourceName> m_aSquadCharacterPrefabs;
 
 	[Attribute("180", UIWidgets.EditBox, "Seconds the zone timer must stay frozen before the squad is sent in", category: "DiD Cowabunga")]
@@ -36,7 +36,8 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 	[Attribute("COWABUNGA! The fallen have joined the attack!", UIWidgets.EditBox, "Announcement when the squad is sent in", category: "DiD Cowabunga")]
 	protected string m_sAnnouncement;
 
-	protected static const ResourceName DEFAUALT = "{98EB9CDD85B8C92C}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Unarmed.et";
+	// Unarmed by design: the squad starts with nothing and has to arm itself from the dead
+	protected static const ResourceName DEFAULT_ARMY = "{98EB9CDD85B8C92C}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Unarmed.et";
 	protected static const ResourceName DEFAULT_NI = "{2BC3C5A7294A3289}Prefabs/Characters/Factions/OPFOR/USSR_Army/Naval_Infantry/Character_USSR_NI_Unarmed.et";
 	protected static const ResourceName DEFAULT_KLMK = "{F67A91C100D6C222}Prefabs/Characters/Factions/OPFOR/USSR_Army/KLMK/Character_USSR_Unarmed_KLMK.et";
 
@@ -92,7 +93,9 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 			return;
 		}
 
-		if (m_Zone.GetZoneState() != EAFMZoneState.FROZEN)
+		// The contested flag, not the FROZEN state: a zone can be set to keep its clock running while the
+		// attackers hold it, and the squad should still come
+		if (!m_Zone.IsContested())
 			return;
 
 		if (m_iActivations >= m_iMaxActivations)
@@ -108,7 +111,7 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 	//! Total time this zone has been contested, taken from the zone's own failure timer so the two
 	//! cannot disagree. Counts across separate pushes, not just one unbroken contest.
 	//!
-	//! Falls back to timing the current freeze when the zone's failure timer is disabled.
+	//! Falls back to timing the current push when the zone's failure timer is disabled.
 	protected int GetContestedSeconds()
 	{
 		int remaining = m_Zone.GetRemainingFailureSeconds();
@@ -231,7 +234,7 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 			return m_aSquadCharacterPrefabs[index % m_aSquadCharacterPrefabs.Count()];
 
 		if (index == 1)
-			return DEFAUALT;
+			return DEFAULT_ARMY;
 
 		if (index == 2)
 			return DEFAULT_NI;
@@ -302,7 +305,7 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 		if (m_iDurationSeconds > 0 && now.DiffSeconds(m_ActivatedAt) >= m_iDurationSeconds)
 			return "time is up";
 
-		if (m_iDurationSeconds <= 0 && state != EAFMZoneState.FROZEN)
+		if (m_iDurationSeconds <= 0 && !m_Zone.IsContested())
 			return "zone no longer contested";
 
 		if (IsSquadWipedOut())

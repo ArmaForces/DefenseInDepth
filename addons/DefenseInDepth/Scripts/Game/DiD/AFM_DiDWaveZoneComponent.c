@@ -115,9 +115,10 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 	//------------------------------------------------------------------------------------------------
 	protected EAFMZoneState HandleWaveActiveState()
 	{
+		RefreshCounts();
+		
 		// Check if all defenders are dead
-		int defenderCount = GetDefenderCount();
-		if (defenderCount == 0)
+		if (m_iDefenderCount == 0)
 		{
 			m_eZoneState = EAFMZoneState.FINISHED_FAILED;
 			PrintFormat("AFM_DiDWaveZoneComponent %1: FINISHED_FAILED - All defenders eliminated!", m_sZoneName);

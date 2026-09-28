@@ -91,9 +91,18 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected WorldTimestamp m_fZoneEndTime;
 	protected int m_iRemainingTimeSeconds;
 
-	// Contested time left before the zone is lost. Drains while FROZEN, holds its value otherwise.
+	// Contested time left before the zone is lost. Drains while contested, holds its value otherwise.
 	protected int m_iRemainingFailureSeconds;
 	protected WorldTimestamp m_fContestedSince;
+
+	// Attackers hold the majority inside the zone. Tracked separately from FROZEN, which is only about
+	// the defence clock and can be switched off per zone.
+	protected bool m_bContested;
+
+	// Counts taken once per tick and read by everything else, including the HUD getters
+	protected int m_iDefenderCount = -1;
+	protected int m_iAttackerCountInZone = -1;
+	protected int m_iDefenderCountInsideZone;
 	
 	// Faction configuration
 	protected SCR_Faction m_RedforFaction;
@@ -119,7 +128,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 		// Register now, not in LateInit: the game can reach its GAME state and start the zone system
 		// before the delay below elapses, and the system would then find no zones at all.
 		if (!zoneSystem.RegisterZone(this))
-			PrintFormat("AFM_DiDZoneComponent %1: Failed to register zone!", m_sZoneName, LogLevel.ERROR);
+			PrintFormat("AFM_DiDZoneComponent %1: Failed to register zone!", m_sZoneName, level: LogLevel.ERROR);
 		else
 			PrintFormat("AFM_DiDZoneComponent %1: Zone registered", m_sZoneName);
 
@@ -139,32 +148,26 @@ class AFM_DiDZoneComponent: ScriptComponent
 		if (!e)
 			PrintFormat("AFM_DiDZoneComponent %1: No children found!", m_sZoneName, level: LogLevel.ERROR);
 		
+		// Matched by cast, not by exact type: a new spawner deriving from any of these is picked up
+		// without having to be named here
 		while (e)
 		{
-			switch (e.Type())
-			{
-				case PolylineShapeEntity:
-					m_PolylineEntity = PolylineShapeEntity.Cast(e);
-					break;
-				case AFM_PlayerSpawnPointEntity:
-					m_PlayerSpawnPoint = AFM_PlayerSpawnPointEntity.Cast(e);
-					break;
-				case AFM_DiDMechanizedSpawnerComponent:
-				case AFM_DiDInfantrySpawnerComponent:
-				case AFM_DiDMortarSpawnerComponent:
-				case AFM_DiDWaveSpawnerComponent:
-				case AFM_DiDHeliSpawnerComponent:
-				case AFM_DiDCowabungaComponent:
-				case AFM_DiDExtractionComponent:
-					AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(e);
-					m_aSpawners.Insert(spawner);
-					break;
-				case AFM_SupplyCacheEntity:
-					m_SupplyCache = SCR_ResourceComponent.Cast(e.FindComponent(SCR_ResourceComponent));
-					break;
-				default:
-					PrintFormat("AFM_DiDZoneComponent %1: Unknown type %2", m_sZoneName, e.Type().ToString());
-			}
+			AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(e);
+			PolylineShapeEntity polyline = PolylineShapeEntity.Cast(e);
+			AFM_PlayerSpawnPointEntity playerSpawnPoint = AFM_PlayerSpawnPointEntity.Cast(e);
+			AFM_SupplyCacheEntity supplyCache = AFM_SupplyCacheEntity.Cast(e);
+
+			if (spawner)
+				m_aSpawners.Insert(spawner);
+			else if (polyline)
+				m_PolylineEntity = polyline;
+			else if (playerSpawnPoint)
+				m_PlayerSpawnPoint = playerSpawnPoint;
+			else if (supplyCache)
+				m_SupplyCache = SCR_ResourceComponent.Cast(e.FindComponent(SCR_ResourceComponent));
+			else
+				PrintFormat("AFM_DiDZoneComponent %1: Unknown type %2", m_sZoneName, e.Type().ToString());
+
 			e = e.GetSibling();
 		}
 		
@@ -279,8 +282,6 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//------------------------------------------------------------------------------------------------
 	int GetAICountInsideZone()
 	{
-		WorldTimestamp timeStart = GetCurrentTimestamp();
-
 		if (!EnsureZonePolygon())
 			return -1;
 
@@ -288,7 +289,6 @@ class AFM_DiDZoneComponent: ScriptComponent
 		GetGame().GetAIWorld().GetAIAgents(agents);
 		
 		int count = 0;
-		int totalAgentCount = 0;
 		
 		foreach(AIAgent agent: agents)
 		{
@@ -310,11 +310,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 			vector pos = character.GetOrigin();
 			if (Math2D.IsPointInPolygon(m_aZonePolylinePoints2D, pos[0], pos[2]))
 				count++;
-			totalAgentCount++;
 		}
 		
-		WorldTimestamp end = GetCurrentTimestamp();
-		PrintFormat("AFM_DiDZoneComponent %1: Found %2/%3 AIs inside zone. Took %4ms", m_sZoneName, count, totalAgentCount, end.DiffMilliseconds(timeStart).ToString(), level: LogLevel.DEBUG);
 		return count;
 	}
 	
@@ -398,7 +395,6 @@ class AFM_DiDZoneComponent: ScriptComponent
 		
 		m_iRemainingTimeSeconds = m_fZoneEndTime.DiffSeconds(GetCurrentTimestamp());
 		m_eZoneState = EAFMZoneState.FROZEN;
-		m_fContestedSince = GetCurrentTimestamp();
 
 		PrintFormat("AFM_DiDZoneComponent %1: Zone FROZEN with %2 seconds remaining, %3 s of contested time left",
 		 m_sZoneName, m_iRemainingTimeSeconds, m_iRemainingFailureSeconds);
@@ -408,9 +404,6 @@ class AFM_DiDZoneComponent: ScriptComponent
 	{
 		if (m_eZoneState != EAFMZoneState.FROZEN)
 			return;
-
-		// Bank whatever contested time was spent; it is never given back
-		ConsumeFailureTime();
 
 		m_fZoneEndTime = GetCurrentTimestamp().PlusSeconds(m_iRemainingTimeSeconds);
 		m_eZoneState = EAFMZoneState.ACTIVE;
@@ -694,6 +687,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 
 	protected EAFMZoneState HandlePrepareLogic()
 	{
+		RefreshCounts();
+		
 		// Check if preparation time is over
 		if (GetCurrentTimestamp().GreaterEqual(m_fZoneEndTime))
 		{
@@ -714,10 +709,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	
 	protected EAFMZoneState HandleActiveZoneLogic()
 	{
-		int defenderCount = GetDefenderCount();
-		int attackerCount = GetAICountInsideZone();
+		RefreshCounts();
 		
-		if (defenderCount == 0)
+		if (m_iDefenderCount == 0)
 		{
 			FinishZoneFailed();
 			return m_eZoneState;
@@ -737,22 +731,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 			return m_eZoneState;
 		}
 		
-		// Freeze the timer only while attackers hold the majority inside the zone
-		if (m_bStopTimerOnRedforSuperiority)
-		{
-			int defendersInside = GetDefenderCountInsideZone();
-			if (attackerCount > defendersInside && m_eZoneState == EAFMZoneState.ACTIVE)
-			{
-				FreezeZone();
-			}
-			else if (attackerCount <= defendersInside && m_eZoneState == EAFMZoneState.FROZEN)
-			{
-				UnfreezeZone();
-			}
-		}
+		UpdateContestedState();
 
-		// Held long enough and the zone falls. Checked after the freeze so the first contested tick counts.
-		if (m_eZoneState == EAFMZoneState.FROZEN && IsFailureTimerEnabled())
+		// Held long enough and the zone falls. Checked after the contested state so the first tick counts.
+		if (m_bContested && IsFailureTimerEnabled())
 		{
 			ConsumeFailureTime();
 			if (m_iRemainingFailureSeconds <= 0)
@@ -771,15 +753,20 @@ class AFM_DiDZoneComponent: ScriptComponent
 			if (!spawner)
 				continue;
 
+			if (!IsSpawnerEnabled(spawner))
+				continue;
+
+			// Re-tasking the attackers already in the field is not spawning, so it runs even when this zone
+			// will not pay for anyone new. Otherwise the last of them stand still exactly when the players
+			// have to beat them to win the zone.
+			spawner.UpdateTactics();
+
 			if (spawnersPaused && spawner.HasSpawnWaves())
 				continue;
 			
 			// The attacker budget is spent. Enforced here because spawners override Process() and the
 			// infantry one does not chain to the base, so a check inside it would be skipped.
 			if (!HasTicketsRemaining() && spawner.CountsTowardsTicketPool())
-				continue;
-			
-			if (!IsSpawnerEnabled(spawner))
 				continue;
 
 			spawner.Process();
@@ -789,10 +776,55 @@ class AFM_DiDZoneComponent: ScriptComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! One pass over the world per tick, shared by the zone logic and by the getters the HUD reads, so
+	//! the AI world is not walked twice a second.
+	protected void RefreshCounts()
+	{
+		m_iDefenderCount = GetDefenderCount();
+		m_iAttackerCountInZone = GetAICountInsideZone();
+		m_iDefenderCountInsideZone = GetDefenderCountInsideZone();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Whether the attackers hold the zone is tracked on its own, separately from whether the defence
+	//! clock stops for it. With the two tied together, turning m_bStopTimerOnRedforSuperiority off also
+	//! stopped the failure timer from ever draining, which quietly made the zone impossible to lose.
+	protected void UpdateContestedState()
+	{
+		bool contested = m_iAttackerCountInZone > m_iDefenderCountInsideZone;
+		if (contested == m_bContested)
+			return;
+
+		m_bContested = contested;
+
+		if (contested)
+		{
+			m_fContestedSince = GetCurrentTimestamp();
+			if (m_bStopTimerOnRedforSuperiority)
+				FreezeZone();
+
+			PrintFormat("AFM_DiDZoneComponent %1: Contested - %2 attackers against %3 defenders inside, %4 s of contested time left",
+				m_sZoneName, m_iAttackerCountInZone, m_iDefenderCountInsideZone, m_iRemainingFailureSeconds);
+			return;
+		}
+
+		// Bank whatever contested time was spent; it is never given back
+		ConsumeFailureTime();
+		UnfreezeZone();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Attackers hold the majority inside the zone
+	bool IsContested()
+	{
+		return m_bContested;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! Infantry and mechanized spawners are paused while attackers hold the zone
 	bool AreSpawnersPaused()
 	{
-		return m_bStopSpawnersOnRedforSuperiority && m_eZoneState == EAFMZoneState.FROZEN;
+		return m_bStopSpawnersOnRedforSuperiority && m_bContested;
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -853,6 +885,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 		// Contested time is per zone and starts full every stage
 		m_iRemainingFailureSeconds = m_iFailureTimeSeconds;
 		m_fContestedSince = now;
+		m_bContested = false;
+		m_iDefenderCount = -1;
+		m_iAttackerCountInZone = -1;
+		m_iDefenderCountInsideZone = 0;
 		
 		// The pool is sized when the attack starts, not here. Players join during the prepare phase, so
 		// counting them at activation would size the zone for whoever happened to be on the server then.
@@ -916,14 +952,15 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return m_RedforFaction;
 	}
 	
+	//! Both read the counts taken by the last tick rather than scanning the world again
 	int GetBluforScore()
 	{
-		return GetDefenderCount();
+		return m_iDefenderCount;
 	}
 	
 	int GetRedforScore()
 	{
-		return GetAICountInsideZone();
+		return m_iAttackerCountInZone;
 	}
 	
 	int GetZoneDisplayNumber()

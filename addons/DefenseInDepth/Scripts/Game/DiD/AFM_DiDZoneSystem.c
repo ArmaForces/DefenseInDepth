@@ -21,6 +21,10 @@ class AFM_DiDZoneSystem: GameSystem
 	protected SCR_FactionManager m_FactionManager;
 	protected bool m_bIsSystemActive = false;
 	protected bool m_bSkipWarmup = false;
+
+	// The starting zone has run at least once, so a missing active zone means the run is over
+	protected bool m_bStartingZoneActivated;
+	protected bool m_bZonesValidated;
 	
 	protected const int m_iStartingZoneIndex = 1;
 	
@@ -118,9 +122,10 @@ class AFM_DiDZoneSystem: GameSystem
 		
 		m_ActiveZone = m_aZones[m_iStartingZoneIndex];
 		m_ActiveZone.ActivateZone();
+		m_bStartingZoneActivated = true;
 		
 		if (m_OnZoneChanged)
-			m_OnZoneChanged.Invoke(m_iStartingZoneIndex);
+			m_OnZoneChanged.Invoke();
 		
 		return true;
 	}
@@ -131,11 +136,14 @@ class AFM_DiDZoneSystem: GameSystem
 	
 	protected void ProcessZone()
 	{
-		WorldTimestamp tStart = GetCurrentTimestamp();
-		
 		// The starting zone registered after the system started
 		if (!m_ActiveZone)
 		{
+			// Only while the first zone has never run. Once the system has progressed past it, having no
+			// active zone means the run is over, and starting zone 1 again would loop the mission forever
+			if (m_bStartingZoneActivated)
+				return;
+			
 			if (!ActivateStartingZone())
 				return;
 		}
@@ -147,6 +155,13 @@ class AFM_DiDZoneSystem: GameSystem
 		// Children and spawners are resolved a few seconds after the zone registers
 		if (!m_ActiveZone.IsInitialized())
 			return;
+		
+		// Every zone has registered by the time the first one has finished initialising
+		if (!m_bZonesValidated)
+		{
+			m_bZonesValidated = true;
+			ValidateZoneIndices();
+		}
 		
 		EAFMZoneState previousState = m_ActiveZone.GetZoneState();
 		EAFMZoneState currentState = m_ActiveZone.Process();
@@ -180,11 +195,39 @@ class AFM_DiDZoneSystem: GameSystem
 		
 		if (m_OnZoneUpdate)
 			m_OnZoneUpdate.Invoke();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Zone indices must run 1..N with no gaps: progression counts upwards and stops at the first index
+	//! nothing is registered at, so anything numbered past a gap can never be played.
+	protected void ValidateZoneIndices()
+	{
+		int count = m_aZones.Count();
+		int lastIndex = m_iStartingZoneIndex + count - 1;
 		
-		WorldTimestamp tEnd = GetCurrentTimestamp();
-		float diff = tEnd.DiffMilliseconds(tStart);
-		if (diff > 5)
-			PrintFormat("AFM_DiDZoneSystem: ProcessZone took %1 ms", diff, level: LogLevel.WARNING);
+		for (int index = m_iStartingZoneIndex; index <= lastIndex; index++)
+		{
+			if (m_aZones.Contains(index))
+				continue;
+			
+			PrintFormat("AFM_DiDZoneSystem: %1 zones are registered, so their indices must run %2 to %3 without gaps, but nothing has index %4. Renumber the zones - the ones past the gap will never be played",
+				count, m_iStartingZoneIndex, lastIndex, index, level: LogLevel.ERROR);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Progression found no zone at the next index. Anything registered above it is stranded, which is
+	//! worth saying out loud rather than ending the match as if every zone had been played.
+	protected void ReportStrandedZones(int missingIndex)
+	{
+		foreach (int index, AFM_DiDZoneComponent zone : m_aZones)
+		{
+			if (index <= missingIndex || !zone)
+				continue;
+			
+			PrintFormat("AFM_DiDZoneSystem: Zone %1 ('%2') was never played - nothing is registered at index %3 and progression stops there",
+				index, zone.GetZoneName(), missingIndex, level: LogLevel.ERROR);
+		}
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -239,15 +282,18 @@ class AFM_DiDZoneSystem: GameSystem
 			m_ActiveZone.DeactivateZone();
 		}
 		
-		m_ActiveZone = m_aZones[newZoneIndex];
-		
 		Print("AFM_DiDZoneSystem: Progressing to zone " + newZoneIndex);
 		m_bSkipWarmup = false;
 		
-		// Check if all zones completed
-		if (newZoneIndex > m_aZones.Count())
+		// Looked up rather than indexed: a missing index used to hand back nothing and leave the system
+		// running with no active zone, which restarted the first one on the next tick
+		AFM_DiDZoneComponent nextZone;
+		if (!m_aZones.Find(newZoneIndex, nextZone) || !nextZone)
 		{
-			PrintFormat("AFM_DiDZoneSystem: All zones completed (max: %1)", m_aZones.Count());
+			ReportStrandedZones(newZoneIndex);
+			
+			PrintFormat("AFM_DiDZoneSystem: All zones completed (%1 registered)", m_aZones.Count());
+			m_ActiveZone = null;
 			StopZoneSystem();
 			
 			if (m_OnAllZonesCompleted)
@@ -256,16 +302,14 @@ class AFM_DiDZoneSystem: GameSystem
 		}
 		
 		// Activate next zone in prepare phase
-		if (m_ActiveZone)
-		{
-			m_ActiveZone.ActivateZone();
-			
-			// After activation, which is where the new pool is sized and clamped
-			m_ActiveZone.AddTickets(carryOverTickets);
-			
-			if (m_OnZoneChanged)
-				m_OnZoneChanged.Invoke();
-		}
+		m_ActiveZone = nextZone;
+		m_ActiveZone.ActivateZone();
+		
+		// After activation, which is where the new pool is sized and clamped
+		m_ActiveZone.AddTickets(carryOverTickets);
+		
+		if (m_OnZoneChanged)
+			m_OnZoneChanged.Invoke();
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -336,13 +380,14 @@ class AFM_DiDZoneSystem: GameSystem
 		);
 	}
 	
-	//! Attackers hold the majority inside the zone, so the timer is stopped
+	//! Attackers hold the majority inside the zone. Not the same as a stopped timer: a zone may be
+	//! configured to keep counting down while contested.
 	bool IsContested()
 	{
 		if (!m_ActiveZone)
 			return false;
 
-		return m_ActiveZone.GetZoneState() == EAFMZoneState.FROZEN;
+		return m_ActiveZone.IsContested();
 	}
 
 	AFM_DiDZoneComponent GetActiveZone()
