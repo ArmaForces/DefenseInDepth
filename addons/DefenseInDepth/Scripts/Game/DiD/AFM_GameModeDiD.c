@@ -421,8 +421,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	//------------------------------------------------------------------------------------------------
 	//! Teleport a player who lived through the stage to the next zone, keeping body, loadout and rank.
 	//! Survivors are spread around the spawn point so they do not land on top of each other.
-	//! 
-eturn true when the player was moved
+	//! \return true when the player was moved
 	protected bool MoveSurvivorToSpawnPoint(notnull PS_PlayableComponent playableComponent, vector spawnPos)
 	{
 		if (spawnPos == vector.Zero)

@@ -10,8 +10,7 @@ and `Missions/DiD_Lamentin_Tuned.conf`.
 Each finding carries the **Verdict** decided on it, any **Notes**, and a **Done** line recording what
 actually changed. Four findings were deliberately left alone: 1, 2, 11 and 13.
 
-The code changes are committed but **not compile-checked yet** - the Workbench had a play session
-running when they were made. Reload scripts and run a validate pass before the next playtest.
+The code changes are committed and the mod builds and runs with them in place.
 
 ---
 

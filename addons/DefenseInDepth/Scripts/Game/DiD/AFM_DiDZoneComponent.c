@@ -616,7 +616,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//------------------------------------------------------------------------------------------------
 	//! Attackers this zone never got to send, handed on when it is lost. Losing a zone means the enemy
 	//! still has momentum, so part of the unspent budget follows the players to the next stage.
-	//! eturn 0 unless this zone actually failed
+	//! \return 0 unless this zone actually failed
 	int GetCarryOverTickets()
 	{
 		if (!IsTicketPoolEnabled() || m_eZoneState != EAFMZoneState.FINISHED_FAILED)
