@@ -107,6 +107,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 	// Faction configuration
 	protected SCR_Faction m_RedforFaction;
 	protected SCR_Faction m_BluforFaction;
+
+	// What each side brings, from the game mode's per-side config files
+	protected AFM_DiDSideConfig m_AttackerConfig;
+	protected AFM_DiDSideConfig m_DefenderConfig;
 	
 	// Child entities are not all present at OnPostInit, so resolving them is delayed
 	protected static const int LATE_INIT_DELAY_MS = 5000;
@@ -178,12 +182,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 		if (m_aSpawners.Count() == 0)
 			PrintFormat("AFM_DiDZoneComponent %1: No spawner components found, AI will not spawn!", m_sZoneName, level:LogLevel.WARNING);
 		
-		// Initialize spawners
-		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
-		{
-			spawner.Prepare(this);
-		}
-		
+		// Resolved before the spawners are prepared: that is where they read their faction content from
 		AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
 		if (!gamemode)
 		{
@@ -192,6 +191,14 @@ class AFM_DiDZoneComponent: ScriptComponent
 		}
 		m_RedforFaction = gamemode.GetRedforFaction();
 		m_BluforFaction = gamemode.GetBluforFaction();
+		m_AttackerConfig = gamemode.GetAttackerConfig();
+		m_DefenderConfig = gamemode.GetDefenderConfig();
+
+		// Initialize spawners
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			spawner.Prepare(this);
+		}
 
 		ApplyPhaseSettings();
 		
@@ -940,6 +947,18 @@ class AFM_DiDZoneComponent: ScriptComponent
 	SCR_ResourceComponent GetSupplyCache()
 	{
 		return m_SupplyCache;
+	}
+	
+	//! What the attacking side brings. Spawners read their prefabs from here.
+	AFM_DiDSideConfig GetAttackerConfig()
+	{
+		return m_AttackerConfig;
+	}
+	
+	//! What the defending side brings, e.g. the extraction helicopter
+	AFM_DiDSideConfig GetDefenderConfig()
+	{
+		return m_DefenderConfig;
 	}
 	
 	SCR_Faction GetDefenderFaction()

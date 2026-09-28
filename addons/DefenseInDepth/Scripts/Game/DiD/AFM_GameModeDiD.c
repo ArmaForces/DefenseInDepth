@@ -4,11 +4,15 @@ class AFM_GameModeDiDClass: PS_GameModeCoopClass
 
 class AFM_GameModeDiD: PS_GameModeCoop
 {
-	[Attribute("US", UIWidgets.EditBox, "Defenders faction key", category: "DiD")]
-	protected FactionKey m_sDefenderFactionKey;
-	
-	[Attribute("USSR", UIWidgets.EditBox, "Attackers faction key", category: "DiD")]
-	protected FactionKey m_sAttackerFactionKey;	
+	[Attribute("{2FF4CFE9D80F6F76}Configs/Factions/DiD_Side_US.conf", UIWidgets.ResourceNamePicker, "The side the players defend as: its faction, its extraction helicopter and that helicopter's crew", params: "conf class=AFM_DiDSideConfig", category: "DiD")]
+	protected ResourceName m_sDefenderConfigPath;
+
+	[Attribute("{CB5CAE38E68AEBE5}Configs/Factions/DiD_Side_USSR.conf", UIWidgets.ResourceNamePicker, "The side that attacks: its faction, infantry groups, vehicles, mortars, helicopters and COWABUNGA squad", params: "conf class=AFM_DiDSideConfig", category: "DiD")]
+	protected ResourceName m_sAttackerConfigPath;
+
+	// Loaded at EOnInit, well before any zone initialises and reads them
+	protected ref AFM_DiDSideConfig m_DefenderConfig;
+	protected ref AFM_DiDSideConfig m_AttackerConfig;
 	
 	[Attribute("1", UIWidgets.CheckBox, "Re-equip the loadout a player saved at an arsenal when they respawn", category: "DiD")]
 	protected bool m_bApplySavedLoadouts;
@@ -156,6 +160,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		if (SCR_Global.IsEditMode())
 			return;
 		
+		LoadSideConfigs();
+		
 		m_FactionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
 		if (!m_FactionManager)
 		{
@@ -199,6 +205,67 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		Replication.BumpMe();
 	}
 	
+	//------------------------------------------------------------------------------------------------
+	//! Who the two sides are comes from a config file per side rather than from attributes here, so a
+	//! scenario can be re-sided without re-authoring it: the zones, spawn points and timings do not care
+	//! who is attacking.
+	//!
+	//! Loaded on server and client alike. These are files, identical on every machine, and the HUD needs
+	//! the faction keys as much as the spawners need the prefabs - loading them only on the authority
+	//! would leave clients with no flags.
+	//------------------------------------------------------------------------------------------------
+	protected void LoadSideConfigs()
+	{
+		m_DefenderConfig = SCR_ConfigHelperT<AFM_DiDSideConfig>.GetConfigObject(m_sDefenderConfigPath);
+		m_AttackerConfig = SCR_ConfigHelperT<AFM_DiDSideConfig>.GetConfigObject(m_sAttackerConfigPath);
+
+		if (!m_DefenderConfig)
+			PrintFormat("AFM_GameModeDiD: Defender side config '%1' could not be loaded, the defending side will not work",
+				m_sDefenderConfigPath, level: LogLevel.ERROR);
+		else
+			m_DefenderConfig.ValidateFactionKey("defender");
+
+		if (!m_AttackerConfig)
+			PrintFormat("AFM_GameModeDiD: Attacker side config '%1' could not be loaded, nothing will attack",
+				m_sAttackerConfigPath, level: LogLevel.ERROR);
+		else
+			m_AttackerConfig.ValidateFactionKey("attacker");
+
+		if (m_DefenderConfig && m_AttackerConfig)
+			PrintFormat("AFM_GameModeDiD: %1 defending against %2",
+				m_DefenderConfig.GetLabel(), m_AttackerConfig.GetLabel());
+	}
+
+	//------------------------------------------------------------------------------------------------
+	AFM_DiDSideConfig GetDefenderConfig()
+	{
+		return m_DefenderConfig;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	AFM_DiDSideConfig GetAttackerConfig()
+	{
+		return m_AttackerConfig;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	FactionKey GetDefenderFactionKey()
+	{
+		if (!m_DefenderConfig)
+			return string.Empty;
+
+		return m_DefenderConfig.m_sFactionKey;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	FactionKey GetAttackerFactionKey()
+	{
+		if (!m_AttackerConfig)
+			return string.Empty;
+
+		return m_AttackerConfig.m_sFactionKey;
+	}
+
 	//------------------------------------------------------------------------------------------------
 	// Zone system callbacks
 	//------------------------------------------------------------------------------------------------
@@ -524,7 +591,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		
 		// COWABUNGA puts players on the attacking side. OnLoadoutSpawned erases a saved loadout whose
 		// faction does not match the body, so it must never run for an attacker.
-		if (character.GetFactionKey() != m_sDefenderFactionKey)
+		if (character.GetFactionKey() != GetDefenderFactionKey())
 			return;
 		
 		SCR_ArsenalManagerComponent arsenalManager;
@@ -656,13 +723,13 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	protected void GameEndDefendersWin()
 	{
 		Print("Defenders win!");
-		GameEnd(m_sDefenderFactionKey);
+		GameEnd(GetDefenderFactionKey());
 	}
 
 	protected void GameEndAttackersWin()
 	{
 		Print("Attackers win!");
-		GameEnd(m_sAttackerFactionKey);
+		GameEnd(GetAttackerFactionKey());
 	}
 	
 	
@@ -764,12 +831,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	
 	SCR_Faction GetBluforFaction()
 	{
-		return SCR_Faction.Cast(m_FactionManager.GetFactionByKey(m_sDefenderFactionKey));
+		return SCR_Faction.Cast(m_FactionManager.GetFactionByKey(GetDefenderFactionKey()));
 	}
 	
 	SCR_Faction GetRedforFaction()
 	{
-		return SCR_Faction.Cast(m_FactionManager.GetFactionByKey(m_sAttackerFactionKey));
+		return SCR_Faction.Cast(m_FactionManager.GetFactionByKey(GetAttackerFactionKey()));
 	}
 	
 	

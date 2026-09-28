@@ -20,11 +20,8 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	[Attribute("1", UIWidgets.CheckBox, "Spawn in coordinated groups", category: "DiD Mechanized Spawner")]
 	protected bool m_bCoordinatedSpawn;
 	
-	[Attribute("", UIWidgets.Object, desc: "Defines the vehicles crew - you may drag existing configs into here.", category: "DiD Mechanized Spawner")]
-	protected ref AFM_CrewConfig m_crewConfig;
-	
-	[Attribute("", UIWidgets.Auto, desc: "Vehicle prefabs to spawn", category: "DiD Mechanized Spawner")]
-	protected ref array<ResourceName> m_aVehiclePrefabs;
+	// The attacking side's vehicles, each paired with the crew that mans it
+	protected ref array<ref AFM_DiDVehicleEntry> m_aVehicles = {};
 
 	[Attribute("2", UIWidgets.EditBox, "Maximum vehicles from this spawner alive at the same time", category: "DiD Mechanized Spawner")]
 	protected int m_iMaxActiveVehicles;
@@ -68,6 +65,24 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 	protected ref array<IEntity> m_aSpawnedVehicles = {};
 	protected ref map<AIGroup, ref AFM_MechanizedGroup> m_mGroups = new map<AIGroup, ref AFM_MechanizedGroup>();
 	protected WorldTimestamp m_fLastRetask;
+
+	//------------------------------------------------------------------------------------------------
+	//! Vehicles come with their crews: a BRDM manned by a UAZ's crew is nobody's intention, and vanilla's
+	//! entity catalogs cannot express the pairing, so the side config does.
+	//------------------------------------------------------------------------------------------------
+	override protected void ResolveFactionContent()
+	{
+		AFM_DiDSideConfig side = GetAttackerConfig();
+		if (!side)
+			return;
+
+		if (side.m_aMechanized)
+			m_aVehicles = side.m_aMechanized;
+
+		if (m_aVehicles.IsEmpty())
+			PrintFormat("AFM_DiDMechanizedSpawnerComponent: The attacking side (%1) has no vehicles, none will be sent",
+				side.GetLabel(), level: LogLevel.ERROR);
+	}
 
 	//------------------------------------------------------------------------------------------------
 	override void Prepare(AFM_DiDZoneComponent owner)
@@ -213,15 +228,10 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 			return;
 		}
 
-		if (m_aVehiclePrefabs.IsEmpty())
+		AFM_DiDVehicleEntry entry = m_aVehicles.GetRandomElement();
+		if (!entry || entry.m_sVehiclePrefab.IsEmpty() || !entry.m_CrewConfig)
 		{
-			PrintFormat("AFM_DiDMechanizedSpawnerComponent: No vehicle prefabs configured", level: LogLevel.WARNING);
-			return;
-		}
-
-		if (!m_crewConfig)
-		{
-			PrintFormat("AFM_DiDMechanizedSpawnerComponent: No crew config, the vehicle would have nobody in it", level: LogLevel.WARNING);
+			PrintFormat("AFM_DiDMechanizedSpawnerComponent: A vehicle on the attacking side has no prefab or no crew", level: LogLevel.ERROR);
 			return;
 		}
 
@@ -233,7 +243,7 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 			return;
 		}
 
-		IEntity vehicle = SpawnPrefab(m_aVehiclePrefabs.GetRandomElement(), m_aSpawnPoints.GetRandomElement());
+		IEntity vehicle = SpawnPrefab(entry.m_sVehiclePrefab, m_aSpawnPoints.GetRandomElement());
 		if (!vehicle)
 			return;
 		m_aSpawnedVehicles.Insert(vehicle);
@@ -251,7 +261,7 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 		bool ownsOverwatch = overwatch != placed;
 
 		// Track the crew so it counts towards the AI cap and is removed on cleanup
-		AIGroup crew = m_crewConfig.SpawnCrew(cm, overwatch);
+		AIGroup crew = entry.m_CrewConfig.SpawnCrew(cm, overwatch);
 		if (!crew)
 		{
 			// An empty vehicle would sit there counting against the vehicle limit, and the waypoint made for

@@ -6,7 +6,6 @@ AFM_DiDExtractionComponent {
  }
  coords 4770.478 27.843 11255.777
  m_bUseTickets 1
- m_sHelicopterPrefab "{BDE43262FC05B4D7}Prefabs/Vehicles/Helicopters/UH1H/UH1H_armed_gunship_empty_sharkNose.et"
  m_fCruiseSpeed 150
  m_fApproachSpeed 100
 }

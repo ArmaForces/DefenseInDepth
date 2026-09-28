@@ -27,10 +27,8 @@ enum AFM_EHeliSortieState
 //------------------------------------------------------------------------------------------------
 class AFM_DiDHeliSpawnerComponent: AFM_DiDAirSpawnerComponent
 {
-	[Attribute("", UIWidgets.ResourceAssignArray, desc: "Helicopter prefabs, must be supported by REAPER_AiHelicopters. Empty = Mi-8MT gunship HE", params: "et", category: "DiD Heli Spawner")]
-	protected ref array<ResourceName> m_aHelicopterPrefabs;
-
-	[Attribute("{B10210712040A7C9}Prefabs/Groups/OPFOR/REAPER_USSR_HelicopterCrew.et", UIWidgets.ResourceNamePicker, desc: "Crew group, moved into pilot, turret and cargo seats in that order", params: "et", category: "DiD Heli Spawner")]
+	// The attacking side's helicopters and the crew group that flies them
+	protected ref array<ResourceName> m_aHelicopterPrefabs = {};
 	protected ResourceName m_sCrewGroupPrefab;
 
 	[Attribute("120", UIWidgets.EditBox, "Seconds after the zone becomes active before the first sortie", category: "DiD Heli Spawner")]
@@ -111,7 +109,6 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDAirSpawnerComponent
 	[Attribute("0", UIWidgets.EditBox, "Supplies added to the zone's supply cache when the helicopter is shot down", category: "DiD Heli Spawner")]
 	protected int m_iSupplyRewardOnKill;
 
-	protected static const ResourceName DEFAULT_HELICOPTER_PREFAB = "{3C6B3ED0C3AC30D5}Prefabs/Vehicles/Helicopters/Mi8MT/Mi8MT_armed_gunship_HE.et";
 	protected static const ResourceName HOVER_WAYPOINT_PREFAB = "{471EDCB44D26C193}Prefabs/AI/Waypoints/REAPER_AiHelicopterHoverWaypoint.et";
 
 	protected static const int SORTIE_RETRY_SECONDS = 60;
@@ -150,6 +147,27 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDAirSpawnerComponent
 		}
 
 		StartSortie();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	override protected void ResolveFactionContent()
+	{
+		AFM_DiDSideConfig side = GetAttackerConfig();
+		if (!side)
+			return;
+
+		if (side.m_aHelicopters)
+			m_aHelicopterPrefabs = side.m_aHelicopters;
+
+		m_sCrewGroupPrefab = side.m_sHelicopterCrewGroup;
+
+		// Nothing to fly: stop the spawner rather than let it retry a sortie it cannot start
+		if (m_aHelicopterPrefabs.IsEmpty() || m_sCrewGroupPrefab.IsEmpty())
+		{
+			PrintFormat("AFM_DiDHeliSpawnerComponent: The attacking side (%1) has no helicopters or no crew group, no sorties will fly",
+				side.GetLabel(), level: LogLevel.ERROR);
+			m_iSortiesFlown = m_iMaxSorties;
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -204,9 +222,7 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDAirSpawnerComponent
 			return;
 		}
 
-		ResourceName heliPrefab = DEFAULT_HELICOPTER_PREFAB;
-		if (m_aHelicopterPrefabs && !m_aHelicopterPrefabs.IsEmpty())
-			heliPrefab = m_aHelicopterPrefabs.GetRandomElement();
+		ResourceName heliPrefab = m_aHelicopterPrefabs.GetRandomElement();
 
 		Vehicle helicopter;
 		SCR_AIGroup crew;

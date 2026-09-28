@@ -12,11 +12,10 @@ class AFM_DiDCowabungaComponentClass: AFM_DiDSpawnerComponentClass
 //------------------------------------------------------------------------------------------------
 class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 {
-	[Attribute("{8DE0C0830FE0C33D}Prefabs/Groups/OPFOR/Group_USSR_Base.et", UIWidgets.ResourceNamePicker, desc: "Empty attacker group the squad is put into", params: "et", category: "DiD Cowabunga")]
+	// From the attacking side's config: the empty group the squad joins, and the characters it is made
+	// of, used in order and repeated as needed
 	protected ResourceName m_sSquadGroupPrefab;
-
-	[Attribute("", UIWidgets.ResourceAssignArray, desc: "Playable attacker prefabs, used in order and repeated as needed. Empty = unarmed USSR characters in mixed uniforms, who have to pick their weapons off the ground", params: "et", category: "DiD Cowabunga")]
-	protected ref array<ResourceName> m_aSquadCharacterPrefabs;
+	protected ref array<ResourceName> m_aSquadCharacterPrefabs = {};
 
 	[Attribute("180", UIWidgets.EditBox, "Seconds the zone timer must stay frozen before the squad is sent in", category: "DiD Cowabunga")]
 	protected int m_iFreezeSecondsBeforeTrigger;
@@ -35,11 +34,6 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 
 	[Attribute("COWABUNGA! The fallen have joined the attack!", UIWidgets.EditBox, "Announcement when the squad is sent in", category: "DiD Cowabunga")]
 	protected string m_sAnnouncement;
-
-	// Unarmed by design: the squad starts with nothing and has to arm itself from the dead
-	protected static const ResourceName DEFAULT_ARMY = "{98EB9CDD85B8C92C}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Unarmed.et";
-	protected static const ResourceName DEFAULT_NI = "{2BC3C5A7294A3289}Prefabs/Characters/Factions/OPFOR/USSR_Army/Naval_Infantry/Character_USSR_NI_Unarmed.et";
-	protected static const ResourceName DEFAULT_KLMK = "{F67A91C100D6C222}Prefabs/Characters/Factions/OPFOR/USSR_Army/KLMK/Character_USSR_Unarmed_KLMK.et";
 
 	protected static const int ASSIGN_DELAY_MS = 500;
 	protected static const int ASSIGN_MAX_ATTEMPTS = 10;
@@ -60,6 +54,26 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 	{
 		super.Prepare(owner);
 		m_GameMode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
+	}
+
+	//------------------------------------------------------------------------------------------------
+	override protected void ResolveFactionContent()
+	{
+		AFM_DiDSideConfig side = GetAttackerConfig();
+		if (!side)
+			return;
+
+		m_sSquadGroupPrefab = side.m_sCowabungaGroup;
+		if (side.m_aCowabungaCharacters)
+			m_aSquadCharacterPrefabs = side.m_aCowabungaCharacters;
+
+		// Without a squad to send there is nothing to wait for, so do not let it trigger at all
+		if (m_sSquadGroupPrefab.IsEmpty() || m_aSquadCharacterPrefabs.IsEmpty())
+		{
+			PrintFormat("AFM_DiDCowabungaComponent: The attacking side (%1) has no COWABUNGA group or characters, the squad will never be sent",
+				side.GetLabel(), level: LogLevel.ERROR);
+			m_iActivations = m_iMaxActivations;
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -230,16 +244,10 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 	//------------------------------------------------------------------------------------------------
 	protected ResourceName GetSquadMemberPrefab(int index)
 	{
-		if (m_aSquadCharacterPrefabs && !m_aSquadCharacterPrefabs.IsEmpty())
-			return m_aSquadCharacterPrefabs[index % m_aSquadCharacterPrefabs.Count()];
+		if (m_aSquadCharacterPrefabs.IsEmpty())
+			return ResourceName.Empty;
 
-		if (index == 1)
-			return DEFAULT_ARMY;
-
-		if (index == 2)
-			return DEFAULT_NI;
-
-		return DEFAULT_KLMK;
+		return m_aSquadCharacterPrefabs[index % m_aSquadCharacterPrefabs.Count()];
 	}
 
 	//------------------------------------------------------------------------------------------------

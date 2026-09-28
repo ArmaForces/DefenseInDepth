@@ -128,8 +128,8 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
  m_bDisableGarbageSystem 0
  m_bDisableArmaVision 0
  m_bHolsterWeapon 0
- m_sDefenderFactionKey "US"
- m_sAttackerFactionKey "USSR"
+ m_sDefenderConfigPath "{2FF4CFE9D80F6F76}Configs/Factions/DiD_Side_US.conf"
+ m_sAttackerConfigPath "{CB5CAE38E68AEBE5}Configs/Factions/DiD_Side_USSR.conf"
  {
   SCR_FactionManager "5EA8C932C68D400F" : "{4A188E44289B9A50}Prefabs/MP/Managers/Factions/FactionManager_Editor.et" {
    ID "66AAF4E352ED3209"

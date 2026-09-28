@@ -9,8 +9,8 @@ class AFM_DiDSpawnerComponentClass: GenericEntityClass
 //------------------------------------------------------------------------------------------------
 class AFM_DiDSpawnerComponent: GenericEntity
 {
-	[Attribute("", UIWidgets.Auto, desc: "AI Group prefabs to spawn", category: "DiD Spawner")]
-	protected ref array<ResourceName> m_aAIGroupPrefabs;
+	// Resolved from the attacking side's config when the zone prepares this spawner
+	protected ref array<ResourceName> m_aGroupPrefabs = {};
 	
 	[Attribute("90", UIWidgets.EditBox, "Time in seconds between spawning waves", category: "DiD Spawner")]
 	protected int m_iWaveIntervalSeconds;
@@ -56,6 +56,8 @@ class AFM_DiDSpawnerComponent: GenericEntity
 			m_iRemainingTickets = m_iMaxTickets;
 			PrintFormat("AFM_DiDSpawnerComponent: Tickets enabled with %1 tickets", m_iMaxTickets, level: LogLevel.DEBUG);
 		}
+		
+		ResolveFactionContent();
 		
 		// Find spawn points and waypoints in children
 		IEntity child = GetChildren();
@@ -109,6 +111,46 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		}
 	}
 	
+	//------------------------------------------------------------------------------------------------
+	//! Read this spawner's faction content out of the side config. Called once, from Prepare, before
+	//! anything can spawn. Overridden by spawners that need something other than infantry groups.
+	//!
+	//! Nothing faction-specific is authored on the spawner itself: a zone, its spawn points and its
+	//! timings are the same whoever is attacking, so who that is belongs in one file per side.
+	//------------------------------------------------------------------------------------------------
+	protected void ResolveFactionContent()
+	{
+		AFM_DiDSideConfig side = GetAttackerConfig();
+		if (!side)
+			return;
+
+		side.GetInfantryGroups(m_aGroupPrefabs);
+
+		if (m_aGroupPrefabs.IsEmpty())
+			PrintFormat("%1: The attacking side (%2) has no infantry groups, nothing will spawn here",
+				Type().ToString(), side.GetLabel(), level: LogLevel.ERROR);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! What the attacking side brings, or null when the game mode could not load its config
+	protected AFM_DiDSideConfig GetAttackerConfig()
+	{
+		if (!m_Zone)
+			return null;
+
+		return m_Zone.GetAttackerConfig();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! What the defending side brings, or null when the game mode could not load its config
+	protected AFM_DiDSideConfig GetDefenderConfig()
+	{
+		if (!m_Zone)
+			return null;
+
+		return m_Zone.GetDefenderConfig();
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//! Every condition that has to hold before this spawner may send anyone. Overrides of Process() are
 	//! expected to start with this rather than repeat the checks, which is how the infantry spawner came
@@ -295,11 +337,8 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		if (m_aSpawnPoints.Count() == 0 || m_aAIWaypoints.Count() == 0)
 			return;
 		
-		if (m_aAIGroupPrefabs.Count() == 0)
-		{
-			PrintFormat("AFM_DiDSpawnerComponent: No AI group prefabs configured!", level: LogLevel.WARNING);
+		if (m_aGroupPrefabs.IsEmpty())
 			return;
-		}
 		
 		if (IsAICapReached())
 		{
@@ -332,7 +371,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 			return;
 		}
 		
-		ResourceName groupPrefab = m_aAIGroupPrefabs.GetRandomElement();
+		ResourceName groupPrefab = m_aGroupPrefabs.GetRandomElement();
 		AFM_SpawnPointEntity spawnPoint = m_aSpawnPoints.GetRandomElement();
 		SCR_AIWaypoint waypoint = m_aAIWaypoints.GetRandomElement();
 		
@@ -380,7 +419,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	//------------------------------------------------------------------------------------------------
 	array<ResourceName> GetAIGroupPrefabs()
 	{
-		return m_aAIGroupPrefabs;
+		return m_aGroupPrefabs;
 	}
 	
 	protected AIGroup SpawnAI(ResourceName groupPrefab, IEntity spawnPoint, SCR_AIWaypoint waypoint)

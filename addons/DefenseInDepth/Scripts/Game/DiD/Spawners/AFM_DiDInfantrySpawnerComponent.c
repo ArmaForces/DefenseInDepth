@@ -130,14 +130,14 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 	//------------------------------------------------------------------------------------------------
 	override protected void SpawnSingleGroup()
 	{
-		if (m_aSpawnPoints.Count() == 0 || m_aAIWaypoints.Count() == 0 || m_aAIGroupPrefabs.Count() == 0)
+		if (m_aSpawnPoints.Count() == 0 || m_aAIWaypoints.Count() == 0 || m_aGroupPrefabs.IsEmpty())
 			return;
 
 		// This spawner's own budget, separate from the zone pool
 		if (m_bUseTickets && GetRemainingTickets() <= 0)
 			return;
 
-		ResourceName groupPrefab = m_aAIGroupPrefabs.GetRandomElement();
+		ResourceName groupPrefab = m_aGroupPrefabs.GetRandomElement();
 
 		// Get spawn point (random or sequential)
 		AFM_SpawnPointEntity spawnPoint;

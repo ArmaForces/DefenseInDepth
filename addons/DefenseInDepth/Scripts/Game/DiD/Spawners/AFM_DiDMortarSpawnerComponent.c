@@ -9,11 +9,9 @@ class AFM_DiDMortarSpawnerComponentClass: AFM_DiDSpawnerComponentClass
 //------------------------------------------------------------------------------------------------
 class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 {
-	[Attribute("", UIWidgets.Object, desc: "Crew configuration for mortar", category: "DiD Mortar Spawner")]
-	protected ref AFM_CrewConfig m_crewConfig;
-	
-	[Attribute("", UIWidgets.Auto, desc: "Mortar vehicle prefabs to spawn", category: "DiD Mortar Spawner")]
+	// The attacking side's mortar composition and the crew that mans it
 	protected ResourceName m_MortarPrefab;
+	protected ref AFM_CrewConfig m_crewConfig;
 	
 	[Attribute("30", UIWidgets.EditBox, "Fire mission update interval (seconds)", category: "DiD Mortar Spawner")]
 	protected int m_iFireMissionUpdateInterval;
@@ -73,6 +71,21 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 			m_fTargetGroupRadius, level: LogLevel.DEBUG);
 	}
 	
+	//------------------------------------------------------------------------------------------------
+	override protected void ResolveFactionContent()
+	{
+		AFM_DiDSideConfig side = GetAttackerConfig();
+		if (!side)
+			return;
+
+		m_MortarPrefab = side.m_sMortarComposition;
+		m_crewConfig = side.m_MortarCrew;
+
+		if (m_MortarPrefab.IsEmpty() || !m_crewConfig)
+			PrintFormat("AFM_DiDMortarSpawnerComponent: The attacking side (%1) has no mortar composition or no mortar crew",
+				side.GetLabel(), level: LogLevel.ERROR);
+	}
+
 	//------------------------------------------------------------------------------------------------
 	override void Process()
 	{

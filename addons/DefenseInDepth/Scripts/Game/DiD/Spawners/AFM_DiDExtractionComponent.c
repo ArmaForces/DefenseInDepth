@@ -27,10 +27,8 @@ enum AFM_EExtractionState
 //------------------------------------------------------------------------------------------------
 class AFM_DiDExtractionComponent: AFM_DiDAirSpawnerComponent
 {
-	[Attribute("", UIWidgets.ResourceNamePicker, desc: "Extraction helicopter, must be supported by REAPER_AiHelicopters. Empty = Mi-8MT", params: "et", category: "DiD Extraction")]
+	// The defending side's extraction helicopter and the crew that flies it in
 	protected ResourceName m_sHelicopterPrefab;
-
-	[Attribute("{BF78D4AAF08466CD}Prefabs/Groups/BLUFOR/REAPER_US_HelicopterCrew.et", UIWidgets.ResourceNamePicker, desc: "Crew group, moved into pilot, turret and cargo seats in that order", params: "et", category: "DiD Extraction")]
 	protected ResourceName m_sCrewGroupPrefab;
 
 	[Attribute("180", UIWidgets.EditBox, "Seconds between the call and the helicopter launching", category: "DiD Extraction")]
@@ -57,7 +55,6 @@ class AFM_DiDExtractionComponent: AFM_DiDAirSpawnerComponent
 	[Attribute("{927BC3E7CC0E3A54}PrefabsEditable/Markers/LZMapMarker.et", UIWidgets.ResourceNamePicker, desc: "Map marker spawned on every picked landing zone", params: "et", category: "DiD Extraction")]
 	protected ResourceName m_sLandingZoneMarkerPrefab;
 
-	protected static const ResourceName DEFAULT_HELICOPTER_PREFAB = "{3C6B3ED0C3AC30D5}Prefabs/Vehicles/Helicopters/Mi8MT/Mi8MT_armed_gunship_HE.et";
 	protected static const ResourceName LAND_WAYPOINT_PREFAB = "{6D8ADA4DF1A482C6}Prefabs/AI/Waypoints/REAPER_AiHelicopterLandWaypoint.et";
 
 	protected static const int NEVER_TAKE_OFF_PLAYER_COUNT = 9999;
@@ -107,6 +104,23 @@ class AFM_DiDExtractionComponent: AFM_DiDAirSpawnerComponent
 
 		if (m_aLandingZones.IsEmpty())
 			PrintFormat("AFM_DiDExtractionComponent: No landing zones found, extraction will not work!", level: LogLevel.ERROR);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! The ride home belongs to the players, so this is the one spawner that reads the defender config
+	//------------------------------------------------------------------------------------------------
+	override protected void ResolveFactionContent()
+	{
+		AFM_DiDSideConfig side = GetDefenderConfig();
+		if (!side)
+			return;
+
+		m_sHelicopterPrefab = side.m_sExtractionHelicopter;
+		m_sCrewGroupPrefab = side.m_sExtractionCrewGroup;
+
+		if (m_sHelicopterPrefab.IsEmpty() || m_sCrewGroupPrefab.IsEmpty())
+			PrintFormat("AFM_DiDExtractionComponent: The defending side (%1) has no extraction helicopter or no crew, the players cannot be extracted",
+				side.GetLabel(), level: LogLevel.ERROR);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -295,14 +309,10 @@ class AFM_DiDExtractionComponent: AFM_DiDAirSpawnerComponent
 
 	protected void LaunchExtraction()
 	{
-		ResourceName heliPrefab = DEFAULT_HELICOPTER_PREFAB;
-		if (!m_sHelicopterPrefab.IsEmpty())
-			heliPrefab = m_sHelicopterPrefab;
-
 		Vehicle helicopter;
 		SCR_AIGroup crew;
 		vector groundPos;
-		if (!SpawnHelicopterWithCrew(heliPrefab, m_sCrewGroupPrefab, helicopter, crew, groundPos))
+		if (!SpawnHelicopterWithCrew(m_sHelicopterPrefab, m_sCrewGroupPrefab, helicopter, crew, groundPos))
 		{
 			AbortExtraction("helicopter could not be spawned");
 			return;
