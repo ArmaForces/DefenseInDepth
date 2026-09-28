@@ -7,8 +7,11 @@ Full read of `addons/DefenseInDepth/Scripts/Game/DiD/**` (~5.7k lines) and
 Nothing below has been playtested against; findings come from reading the code, the world layers
 and `Missions/DiD_Lamentin_Tuned.conf`.
 
-Each finding has a **Verdict** line to fill in (agree / wontfix / already handled / needs thought)
-and a **Notes** line for the reasoning, so the fixes can be worked through from this file.
+Each finding carries the **Verdict** decided on it, any **Notes**, and a **Done** line recording what
+actually changed. Four findings were deliberately left alone: 1, 2, 11 and 13.
+
+The code changes are committed but **not compile-checked yet** - the Workbench had a play session
+running when they were made. Reload scripts and run a validate pass before the next playtest.
 
 ---
 
@@ -30,6 +33,7 @@ already-replicated `m_bIsGameRunning`.
 
 - **Verdict:** Disregard: UI is shown to all players, with or without map open
 - **Notes:**
+- **Done:** Not changed. The HUD does reach clients in practice.
 
 ### 2. Zone 3 can be won without extracting
 
@@ -44,6 +48,7 @@ Fix: override `IsAttackDefeated()` to return false in the extraction zone, or di
 
 - **Verdict:** Disregard, decision made on purpose to leave two victory variants
 - **Notes:**
+- **Done:** Not changed. Two ways to win the last stage is the intent.
 
 ### 3. The extraction sortie timeout awards the win
 
@@ -57,6 +62,7 @@ Fix: in `HANDOVER`, disarm the timeout or route it to `AbortExtraction` instead.
 
 - **Verdict:** Fix
 - **Notes:**
+- **Done:** `AFM_DiDExtractionComponent.UpdateSortie` now handles `HANDOVER` before the timeout, so a landed helicopter has no clock on it at all. The timeout only covers the stretch the AI pilot flies and ends in `AbortExtraction`, deleting the stuck helicopter and its crew so another can be called.
 
 ### 4. Running out of tickets freezes the attackers that are still alive
 
@@ -74,6 +80,7 @@ zone always calls, with only the wave spawn gated.
 
 - **Verdict:** Fix
 - **Notes:**
+- **Done:** New `AFM_DiDSpawnerComponent.UpdateTactics()`, which the zone calls for every enabled spawner on every tick, before the pause and budget gates. Infantry hunting and the mechanized overwatch -> engage transition moved into it, so the attackers already in the field keep fighting once the tickets are gone or while the zone is contested.
 
 ### 5. The mortar respawns instantly and leaks its old fire mission
 
@@ -86,6 +93,7 @@ cleared until zone cleanup.
 
 - **Verdict:** Fix
 - **Notes:** Make the mortar respawn delayed: It should make sense to players to hunt enemy mortars
+- **Done:** New `m_iRespawnDelaySeconds` (default 300) on the mortar spawner. The first mortar still arrives at once; a destroyed one is replaced only after the delay. `DropLostFireMissions` clears the dead crew's salvo waypoints and its map entry instead of leaving both until the zone ends.
 
 ---
 
@@ -104,6 +112,7 @@ Fix: iterate sorted keys, or track a max index instead of `Count()`.
 
 - **Verdict:** Fix, add a validataion check on system init, if zones are not sequential log an error to mission maker
 - **Notes:**
+- **Done:** `ProgressToNextZone` looks the next index up instead of indexing, and ends the run when nothing is there. `ProcessZone` no longer re-activates zone 1 once the run has started, and `ValidateZoneIndices` logs an error naming the missing index the first time the starting zone is processed. Stranded zones past a gap are named too.
 
 ### 7. The infantry spawner's own ticket limit does nothing
 
@@ -119,6 +128,7 @@ zone pool holds it back.
 
 - **Verdict:** Fix
 - **Notes:**
+- **Done:** New `AFM_DiDSpawnerComponent.CanSpawnNow()` holds every precondition; the base and the infantry `Process()` both start with it, and the infantry `SpawnSingleGroup()` checks its own remaining tickets like the base one does.
 
 ### 8. Failed crew spawn leaks a vehicle and a waypoint
 
@@ -130,6 +140,7 @@ The vehicle is inserted into `m_aSpawnedVehicles` and the overwatch waypoint is 
 
 - **Verdict:** Fix
 - **Notes:**
+- **Done:** `SpawnSingleGroup` now routes both failures through `DiscardVehicle`, which removes the vehicle from the tracking array, deletes it, and deletes the overwatch waypoint when it was ours.
 
 ### 9. The default COWABUNGA squad is unarmed
 
@@ -140,6 +151,7 @@ are `Character_USSR_Unarmed`, `..._NI_Unarmed`, `..._Unarmed_KLMK`. Also `DEFAUA
 
 - **Verdict:** Unarmed on purpose, fix any incorrect comments and typos
 - **Notes:**
+- **Done:** Comment corrected to say the fallbacks are unarmed on purpose, with a note on the constants; `DEFAUALT` renamed to `DEFAULT_ARMY`.
 
 ### 10. ScriptInvoker arity mismatch
 
@@ -150,6 +162,7 @@ subscriber `AFM_GameModeDiD.OnZoneChanged()` takes no parameters. Drop the argum
 
 - **Verdict:** Fix
 - **Notes:**
+- **Done:** `ActivateStartingZone` invokes the event with no argument, like every other call site.
 
 ### 11. Two modded classes are no-ops
 
@@ -165,6 +178,7 @@ To change audible distance, override the method that uses it
 
 - **Verdict:** Do not fix, this remark is false: Modded class can and does override properties, even when they are private. Save this into your memory
 - **Notes:**
+- **Done:** Not changed - the finding was wrong, and this is now in my memory so it does not come back.
 
 ### 12. The warmup skip is only checked client-side
 
@@ -175,6 +189,7 @@ client. Re-check `SCR_Global.IsAdmin` server-side.
 
 - **Verdict:** Note, leave a comment. Do not fix
 - **Notes:**
+- **Done:** Not changed. A comment on `RPC_DoForceEndPrepareStage` records that the admin check is client-side only and that this is deliberate.
 
 ### 13. Wave-zone path (latent)
 
@@ -191,6 +206,7 @@ Unused in the shipped world - only `Prefabs/MP/AFM_DiDZoneWavesPrefab.et` and
 
 - **Verdict:** Do not fix, wave spawners are outside the scope of current refactor
 - **Notes:**
+- **Done:** Not changed, out of scope.
 
 ---
 
@@ -204,6 +220,7 @@ agent in the world), then `UpdateLocalGameState` calls it again via `GetRedforSc
 
 - **Verdict:** Fix
 - **Notes:**
+- **Done:** `RefreshCounts()` takes the defender count, the attackers inside the zone and the defenders inside the zone once per tick; the zone logic and the `GetBluforScore` / `GetRedforScore` getters both read those fields, so the AI world is walked once a second instead of twice.
 
 ### 15. The perf instrumentation can never fire
 
@@ -213,6 +230,7 @@ diff *server timestamps*, which do not advance within a frame - the result is al
 
 - **Verdict:** Remove the log and time measuring logic, not needed
 - **Notes:**
+- **Done:** Both timing blocks removed, along with the AI-count log line they fed.
 
 ### 16. Mortar debug visualisation defaults to on
 
@@ -221,6 +239,7 @@ to 0.
 
 - **Verdict:** Remove debug visualisation
 - **Notes:**
+- **Done:** `m_bDebugVisualization`, `m_aDebugShapes` and `DebugDrawSamplePoint` are gone, and the spawner's README no longer documents them.
 
 ### 17. 14 log calls pass LogLevel positionally
 
@@ -233,6 +252,7 @@ Full list: `AFM_CrewConfig.c:65,74,90`; `AFM_DiDZoneComponent.c:122`;
 
 - **Verdict:** Fix
 - **Notes:**
+- **Done:** All 14 calls now pass `level:`. The two that were meant to be errors are errors again.
 
 ### 18. Config traps
 
@@ -244,6 +264,7 @@ Full list: `AFM_CrewConfig.c:65,74,90`; `AFM_DiDZoneComponent.c:122`;
 
 - **Verdict:** Fix
 - **Notes:**
+- **Done:** The contested state is tracked by `m_bContested`, set in `UpdateContestedState` from the counts alone; `m_bStopTimerOnRedforSuperiority` now only decides whether the defence clock freezes for it, so the failure timer drains either way. `IsContested()` on the zone replaced the FROZEN checks in the zone system and in COWABUNGA. The extraction's `m_fCruiseSpeed` now flies the run in, with `m_fApproachSpeed` left for the landing.
 
 ### 19. Brittleness / duplication
 
@@ -258,6 +279,7 @@ Full list: `AFM_CrewConfig.c:65,74,90`; `AFM_DiDZoneComponent.c:122`;
 
 - **Verdict:** Remove duplicates, make helper class if required
 - **Notes:**
+- **Done:** `LateInit` matches children by cast, so a spawner subclass is picked up without being named. The mortar asks the zone for `IsPointInsideZone` instead of keeping a second polygon cache. New `AFM_DiDAirSpawnerComponent` holds the flight envelope, the waypoint prefab and timeouts, `SpawnHelicopterWithCrew`, `CreateWaypoint` and `IsAliveCharacter` for both air spawners; attribute names are unchanged, so prefab values still bind.
 
 ### 20. Small things
 
@@ -269,6 +291,7 @@ Full list: `AFM_CrewConfig.c:65,74,90`; `AFM_DiDZoneComponent.c:122`;
 
 - **Verdict:** Fix
 - **Notes:**
+- **Done:** Semicolon added. `KeepBody` and its `OnPlayerKilled` override are gone, with the reason the garbage collector stays off recorded where the respawn list is built. `ConsumeTickets` floors at zero.
 
 ---
 
