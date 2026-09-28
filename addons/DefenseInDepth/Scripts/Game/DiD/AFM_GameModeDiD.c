@@ -216,18 +216,31 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	//------------------------------------------------------------------------------------------------
 	protected void LoadSideConfigs()
 	{
-		m_DefenderConfig = SCR_ConfigHelperT<AFM_DiDSideConfig>.GetConfigObject(m_sDefenderConfigPath);
-		m_AttackerConfig = SCR_ConfigHelperT<AFM_DiDSideConfig>.GetConfigObject(m_sAttackerConfigPath);
+		// A scenario may name the two sides itself, which is how one game mode prefab serves every pairing
+		ResourceName defenderPath = AFM_DiDScenarioSettings.GetDefenderConfig();
+		if (defenderPath.IsEmpty())
+			defenderPath = m_sDefenderConfigPath;
+		else
+			PrintFormat("AFM_GameModeDiD: Defending side comes from the scenario: %1", defenderPath);
+
+		ResourceName attackerPath = AFM_DiDScenarioSettings.GetAttackerConfig();
+		if (attackerPath.IsEmpty())
+			attackerPath = m_sAttackerConfigPath;
+		else
+			PrintFormat("AFM_GameModeDiD: Attacking side comes from the scenario: %1", attackerPath);
+
+		m_DefenderConfig = SCR_ConfigHelperT<AFM_DiDSideConfig>.GetConfigObject(defenderPath);
+		m_AttackerConfig = SCR_ConfigHelperT<AFM_DiDSideConfig>.GetConfigObject(attackerPath);
 
 		if (!m_DefenderConfig)
 			PrintFormat("AFM_GameModeDiD: Defender side config '%1' could not be loaded, the defending side will not work",
-				m_sDefenderConfigPath, level: LogLevel.ERROR);
+				defenderPath, level: LogLevel.ERROR);
 		else
 			m_DefenderConfig.ValidateFactionKey("defender");
 
 		if (!m_AttackerConfig)
 			PrintFormat("AFM_GameModeDiD: Attacker side config '%1' could not be loaded, nothing will attack",
-				m_sAttackerConfigPath, level: LogLevel.ERROR);
+				attackerPath, level: LogLevel.ERROR);
 		else
 			m_AttackerConfig.ValidateFactionKey("attacker");
 

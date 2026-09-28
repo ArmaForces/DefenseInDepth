@@ -4,6 +4,9 @@
         "scenarioId": "{336531B51C9762C1}Missions/DiD_Lamentin_Tuned.conf",
         "gameProperties": {
             "missionHeader": {
+                "_comment_sides": "Which side config each side plays. Omit both to keep what the game mode prefab names.",
+                "m_sAFM_DiDDefenderConfig": "{2FF4CFE9D80F6F76}Configs/Factions/DiD_Side_US.conf",
+                "m_sAFM_DiDAttackerConfig": "{CB5CAE38E68AEBE5}Configs/Factions/DiD_Side_USSR.conf",
                 "m_AFM_DiDDefaultPhase": {
                     "m_iPrepareTimeSeconds": 300,
                     "m_iDefenseTimeSeconds": 600,

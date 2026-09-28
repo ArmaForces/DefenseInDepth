@@ -15,12 +15,18 @@ class AFM_DiDScenarioSettings
 	static protected ref array<ref AFM_DiDPhaseOverride> s_aPhaseOverrides;
 	static protected string s_sScenarioName;
 
+	// Which two sides the scenario wants, empty when it does not care and the game mode decides
+	static protected ResourceName s_sDefenderConfig;
+	static protected ResourceName s_sAttackerConfig;
+
 	//------------------------------------------------------------------------------------------------
-	static void Capture(AFM_DiDPhaseSettings defaultPhase, array<ref AFM_DiDPhaseOverride> phaseOverrides, string scenarioName)
+	static void Capture(AFM_DiDPhaseSettings defaultPhase, array<ref AFM_DiDPhaseOverride> phaseOverrides, string scenarioName, ResourceName defenderConfig = ResourceName.Empty, ResourceName attackerConfig = ResourceName.Empty)
 	{
 		s_DefaultPhase = defaultPhase;
 		s_aPhaseOverrides = phaseOverrides;
 		s_sScenarioName = scenarioName;
+		s_sDefenderConfig = defenderConfig;
+		s_sAttackerConfig = attackerConfig;
 
 		int overrideCount = 0;
 		if (s_aPhaseOverrides)
@@ -32,6 +38,23 @@ class AFM_DiDScenarioSettings
 
 		PrintFormat("AFM_DiDScenarioSettings: Captured '%1' - default block %2, %3 phase overrides, default prepare %4",
 			s_sScenarioName, s_DefaultPhase != null, overrideCount, defaultPrepare);
+
+		if (!s_sDefenderConfig.IsEmpty() || !s_sAttackerConfig.IsEmpty())
+			PrintFormat("AFM_DiDScenarioSettings: Sides from the scenario - defender '%1', attacker '%2' (empty = the game mode's own choice)",
+				s_sDefenderConfig, s_sAttackerConfig);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! \return the side config the scenario asks for, or empty to leave the game mode's choice alone
+	static ResourceName GetDefenderConfig()
+	{
+		return s_sDefenderConfig;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	static ResourceName GetAttackerConfig()
+	{
+		return s_sAttackerConfig;
 	}
 
 	//------------------------------------------------------------------------------------------------

@@ -12,13 +12,21 @@ modded class SCR_MissionHeader : MissionHeader
 	[Attribute(desc: "Defense in Depth: per zone, by zone index, layered on top of the default block")]
 	protected ref array<ref AFM_DiDPhaseOverride> m_aAFM_DiDPhaseOverrides;
 
+	[Attribute(desc: "Defense in Depth: the side the players defend as. Overrides the game mode's own choice, so one game mode prefab serves every pairing", params: "conf class=AFM_DiDSideConfig")]
+	protected ResourceName m_sAFM_DiDDefenderConfig;
+
+	[Attribute(desc: "Defense in Depth: the side that attacks. Overrides the game mode's own choice", params: "conf class=AFM_DiDSideConfig")]
+	protected ResourceName m_sAFM_DiDAttackerConfig;
+
 	//------------------------------------------------------------------------------------------------
 	//! Hand the settings to AFM_DiDScenarioSettings while this header still holds them
 	void AFM_CaptureDiDSettings()
 	{
-		if (!m_AFM_DiDDefaultPhase && !m_aAFM_DiDPhaseOverrides)
+		if (!m_AFM_DiDDefaultPhase && !m_aAFM_DiDPhaseOverrides
+			&& m_sAFM_DiDDefenderConfig.IsEmpty() && m_sAFM_DiDAttackerConfig.IsEmpty())
 			return;
 
-		AFM_DiDScenarioSettings.Capture(m_AFM_DiDDefaultPhase, m_aAFM_DiDPhaseOverrides, m_sName);
+		AFM_DiDScenarioSettings.Capture(m_AFM_DiDDefaultPhase, m_aAFM_DiDPhaseOverrides, m_sName,
+			m_sAFM_DiDDefenderConfig, m_sAFM_DiDAttackerConfig);
 	}
 }
