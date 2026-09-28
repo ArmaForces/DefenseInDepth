@@ -44,11 +44,11 @@ Mortar fire support that shells the largest group of players in the zone and wal
 | `m_crewConfig` | AFM_CrewConfig | - | Crew configuration (gunner only typically) |
 | `m_aMortarPrefabs` | ResourceName[] | - | Mortar vehicle prefabs to spawn |
 | `m_iFireMissionUpdateInterval` | int | 30 | Seconds between target updates |
+| `m_iRespawnDelaySeconds` | int | 300 | Seconds before a destroyed mortar team is replaced |
 | `m_iMonteCarloSamples` | int | 10 | Attempts to find a random spot for harassing fire when no player can be targeted |
 | `m_fTargetGroupRadius` | float | 40 | Players this close (m) to each other count as one group; fire aims at the centre of the largest |
 | `m_fMinTargetDistance` | float | 100 | Minimum range from mortar |
 | `m_fMaxTargetDistance` | float | 800 | Maximum range from mortar |
-| `m_bDebugVisualization` | bool | true | Show debug visualization |
 | `m_fInitialDispersion` | float | 60 | Scatter (m) of the first salvo on a new target area; rounds land 50–100% of it from the aim point |
 | `m_fMinDispersion` | float | 12 | Scatter (m) once fire has walked in; rounds land anywhere within it |
 | `m_fDispersionStep` | float | 0.5 | Scatter multiplier for each consecutive salvo on the same area |
@@ -209,15 +209,8 @@ Own troops are already avoided: aim points and impact points are rejected within
 
 ## Debugging
 
-### Enable Visualization
-```enscript
-m_bDebugVisualization = true
-```
-
-**Visual Indicators:**
-- Yellow spheres: Sample points with no targets
-- Orange spheres: Sample points with some targets
-- Red sphere: Best target position (most targets)
+Sample points were once drawn as debug spheres. That only ever rendered on the machine running the
+server and the shapes were never released, so it was dropped; read the spawner's log lines instead.
 - Sphere radius = sample radius
 
 ### Console Logging

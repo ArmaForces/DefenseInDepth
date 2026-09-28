@@ -65,21 +65,11 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 	//------------------------------------------------------------------------------------------------
 	override void Process()
 	{
-		if (!m_Zone)
-			return;
-
-		EAFMZoneState state = m_Zone.GetZoneState();
-		if (state != EAFMZoneState.ACTIVE && state != EAFMZoneState.FROZEN)
+		if (!CanSpawnNow())
 			return;
 
 		ChimeraWorld world = GetGame().GetWorld();
 		WorldTimestamp now = world.GetServerTimestamp();
-
-		if (m_bHuntPlayers && now.DiffSeconds(m_fLastRetask) >= m_iRetaskIntervalSeconds)
-		{
-			m_fLastRetask = now;
-			RetaskHuntingGroups();
-		}
 
 		int timeSinceLastSpawn = Math.AbsInt(now.DiffSeconds(m_fLastSpawnTime));
 
@@ -92,6 +82,26 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 			m_fLastSpawnTime = now;
 			SpawnWave();
 		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Hunting groups are re-tasked here rather than in Process(), so they keep chasing the players even
+	//! when the zone has no tickets left to spend or is pausing its reinforcements
+	override void UpdateTactics()
+	{
+		if (!m_bHuntPlayers || !m_Zone)
+			return;
+
+		EAFMZoneState state = m_Zone.GetZoneState();
+		if (state != EAFMZoneState.ACTIVE && state != EAFMZoneState.FROZEN)
+			return;
+
+		WorldTimestamp now = GetCurrentTimestamp();
+		if (now.DiffSeconds(m_fLastRetask) < m_iRetaskIntervalSeconds)
+			return;
+
+		m_fLastRetask = now;
+		RetaskHuntingGroups();
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -121,6 +131,10 @@ class AFM_DiDInfantrySpawnerComponent: AFM_DiDSpawnerComponent
 	override protected void SpawnSingleGroup()
 	{
 		if (m_aSpawnPoints.Count() == 0 || m_aAIWaypoints.Count() == 0 || m_aAIGroupPrefabs.Count() == 0)
+			return;
+
+		// This spawner's own budget, separate from the zone pool
+		if (m_bUseTickets && GetRemainingTickets() <= 0)
 			return;
 
 		ResourceName groupPrefab = m_aAIGroupPrefabs.GetRandomElement();

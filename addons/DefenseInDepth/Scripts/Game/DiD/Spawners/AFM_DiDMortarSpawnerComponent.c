@@ -17,6 +17,9 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 	
 	[Attribute("30", UIWidgets.EditBox, "Fire mission update interval (seconds)", category: "DiD Mortar Spawner")]
 	protected int m_iFireMissionUpdateInterval;
+
+	[Attribute("300", UIWidgets.EditBox, "Seconds before a destroyed mortar team is replaced. Silencing the mortars should be worth the trip out to them", category: "DiD Mortar Spawner")]
+	protected int m_iRespawnDelaySeconds;
 	
 	[Attribute("10", UIWidgets.EditBox, "Attempts to find a random spot in the zone for harassing fire when no player can be targeted", category: "DiD Mortar Spawner")]
 	protected int m_iMonteCarloSamples;
@@ -30,9 +33,6 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 	[Attribute("800", UIWidgets.EditBox, "Maximum distance from mortar to target (meters)", category: "DiD Mortar Spawner")]
 	protected float m_fMaxTargetDistance;
 	
-	[Attribute("1", UIWidgets.CheckBox, "Enable debug visualization of sample points", category: "DiD Mortar Spawner")]
-	protected bool m_bDebugVisualization;
-
 	[Attribute("60", UIWidgets.EditBox, "Scatter (meters) of the first salvo on a new target area. Rounds land between half and full scatter from the aim point", category: "DiD Mortar Accuracy")]
 	protected float m_fInitialDispersion;
 
@@ -55,10 +55,11 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 	protected IEntity m_SpawnedMortar;
 	protected ref map<IEntity, ref MortarFireMissionData> m_mFireMissions = new map<IEntity, ref MortarFireMissionData>();
 	protected WorldTimestamp m_fLastTargetUpdate;
-	protected ref array<Shape> m_aDebugShapes = {};
-	
-	//calculate only once
-	protected ref array<float> m_aPolylinePoints2D = null;
+
+	// A mortar has been spawned this activation, and when the last one was lost
+	protected bool m_bMortarSpawned;
+	protected bool m_bMortarLost;
+	protected WorldTimestamp m_fMortarLostAt;
 	
 	//------------------------------------------------------------------------------------------------
 	override void Prepare(AFM_DiDZoneComponent owner)
@@ -85,7 +86,11 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		
 		if (!m_SpawnedMortar)
 		{
-			SpawnSingleGroup();
+			if (m_bMortarSpawned)
+				HandleMortarLost();
+			else
+				SpawnSingleGroup();
+			
 			return;
 		}
 		
@@ -109,6 +114,7 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 	{
 		super.Cleanup();
 		SCR_EntityHelper.DeleteEntityAndChildren(m_SpawnedMortar);
+		m_SpawnedMortar = null;
 
 		foreach (IEntity mortar, MortarFireMissionData fireMission : m_mFireMissions)
 		{
@@ -117,8 +123,56 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		}
 		m_mFireMissions.Clear();
 		
-		// Release debug shape references so they are garbage collected
-		m_aDebugShapes.Clear();
+		m_bMortarSpawned = false;
+		m_bMortarLost = false;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! A destroyed mortar team is replaced only after a delay. Killing one used to buy the players about
+	//! a second, which made going after them pointless.
+	protected void HandleMortarLost()
+	{
+		WorldTimestamp now = GetCurrentTimestamp();
+		
+		if (!m_bMortarLost)
+		{
+			m_bMortarLost = true;
+			m_fMortarLostAt = now;
+			
+			// The dead crew's salvo waypoints are nobody's now, and the map entry keyed on the destroyed
+			// mortar would keep them alive until the zone ends
+			DropLostFireMissions();
+			
+			PrintFormat("AFM_DiDMortarSpawnerComponent: Mortar lost, the next one arrives in %1 s", m_iRespawnDelaySeconds);
+			return;
+		}
+		
+		if (now.DiffSeconds(m_fMortarLostAt) < m_iRespawnDelaySeconds)
+			return;
+		
+		m_bMortarLost = false;
+		SpawnSingleGroup();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Forget the fire missions of mortars that no longer exist, deleting the salvo waypoints they left
+	protected void DropLostFireMissions()
+	{
+		ref map<IEntity, ref MortarFireMissionData> alive = new map<IEntity, ref MortarFireMissionData>();
+		
+		foreach (IEntity mortar, MortarFireMissionData fireMission : m_mFireMissions)
+		{
+			if (mortar)
+			{
+				alive.Set(mortar, fireMission);
+				continue;
+			}
+			
+			if (fireMission)
+				ClearFireMissionWaypoints(fireMission);
+		}
+		
+		m_mFireMissions = alive;
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -190,6 +244,7 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 
 		fireMission.m_CrewGroup = crew;
 		m_mFireMissions.Set(m_SpawnedMortar, fireMission);
+		m_bMortarSpawned = true;
 
 		// Create initial fire mission. Restart the update timer so it isn't immediately replaced on the next tick.
 		UpdateFireMission(fireMission);
@@ -369,11 +424,6 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		if (!m_Zone)
 			return vector.Zero;
 
-		array<vector> polylinePoints = {};
-		vector polylineOrigin;
-		if (!GetZonePolyline(polylinePoints, polylineOrigin))
-			return vector.Zero;
-
 		// Players the mortar is allowed to fire at
 		array<vector> targets = {};
 		SCR_Faction defenderFaction = m_Zone.GetDefenderFaction();
@@ -384,7 +434,7 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 
 			foreach (vector playerPos : playerPositions)
 			{
-				if (IsValidTargetPosition(playerPos, mortarPos, attackerPositions, polylinePoints, polylineOrigin))
+				if (IsValidTargetPosition(playerPos, mortarPos, attackerPositions))
 					targets.Insert(playerPos);
 			}
 		}
@@ -398,19 +448,24 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 			groupCenter[1] = GetGame().GetWorld().GetSurfaceY(groupCenter[0], groupCenter[2]);
 
 			// The centre of a spread out group can sit on top of own troops; then shell one of them directly
-			if (IsValidTargetPosition(groupCenter, mortarPos, attackerPositions, polylinePoints, polylineOrigin))
+			if (IsValidTargetPosition(groupCenter, mortarPos, attackerPositions))
 				return groupCenter;
 
 			return targets[0];
 		}
 
-		return FindRandomTargetPosition(mortarPos, attackerPositions, polylinePoints, polylineOrigin);
+		return FindRandomTargetPosition(mortarPos, attackerPositions);
 	}
 
 	//------------------------------------------------------------------------------------------------
 	//! Harassing fire when no player can be targeted
-	protected vector FindRandomTargetPosition(vector mortarPos, notnull array<vector> attackerPositions, notnull array<vector> polylinePoints, vector polylineOrigin)
+	protected vector FindRandomTargetPosition(vector mortarPos, notnull array<vector> attackerPositions)
 	{
+		array<vector> polylinePoints = {};
+		vector polylineOrigin;
+		if (!GetZonePolyline(polylinePoints, polylineOrigin))
+			return vector.Zero;
+
 		vector minBounds, maxBounds;
 		CalculateZoneBounds(polylinePoints, minBounds, maxBounds, polylineOrigin);
 
@@ -418,10 +473,7 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		{
 			vector samplePos = GenerateRandomPointInBounds(minBounds, maxBounds);
 
-			if (m_bDebugVisualization)
-				DebugDrawSamplePoint(samplePos, 0, 0);
-
-			if (IsValidTargetPosition(samplePos, mortarPos, attackerPositions, polylinePoints, polylineOrigin))
+			if (IsValidTargetPosition(samplePos, mortarPos, attackerPositions))
 				return samplePos;
 		}
 
@@ -430,9 +482,9 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 
 	//------------------------------------------------------------------------------------------------
 	//! Inside the zone, within the mortar's range and clear of own troops
-	protected bool IsValidTargetPosition(vector pos, vector mortarPos, notnull array<vector> attackerPositions, notnull array<vector> polylinePoints, vector polylineOrigin)
+	protected bool IsValidTargetPosition(vector pos, vector mortarPos, notnull array<vector> attackerPositions)
 	{
-		if (!IsPointInZone(pos, polylinePoints, polylineOrigin))
+		if (!m_Zone.IsPointInsideZone(pos))
 			return false;
 
 		float distToMortar = vector.DistanceXZ(mortarPos, pos);
@@ -515,35 +567,6 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		return point;
 	}
 	
-	protected bool IsPointInZone(vector point, array<vector> polylinePoints, vector polylineOrigin)
-	{
-		//init polyline point array once
-		if (!m_aPolylinePoints2D)
-		{
-			m_aPolylinePoints2D = new array<float>();
-			foreach (vector p : polylinePoints)
-			{
-				m_aPolylinePoints2D.Insert(polylineOrigin[0] + p[0]);
-				m_aPolylinePoints2D.Insert(polylineOrigin[2] + p[2]);
-			}
-		}
-		
-		return Math2D.IsPointInPolygon(m_aPolylinePoints2D, point[0], point[2]);
-	}
-	
-	protected void DebugDrawSamplePoint(vector pos, int targetCount, int maxCount)
-	{
-		Color color = Color.Yellow;
-		if (targetCount == maxCount && targetCount > 0)
-			color = Color.Red;
-		else if (targetCount > 0)
-			color = Color.Orange;
-		
-		// Draw sphere at sample point
-		Shape s = Shape.CreateSphere(color.PackToInt(), ShapeFlags.VISIBLE, pos, m_fTargetGroupRadius);
-	
-		m_aDebugShapes.Insert(s);
-	}
 }
 
 //------------------------------------------------------------------------------------------------

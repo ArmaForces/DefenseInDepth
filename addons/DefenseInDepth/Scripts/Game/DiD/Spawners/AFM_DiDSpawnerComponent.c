@@ -54,7 +54,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		if (m_bUseTickets)
 		{
 			m_iRemainingTickets = m_iMaxTickets;
-			PrintFormat("AFM_DiDSpawnerComponent: Tickets enabled with %1 tickets", m_iMaxTickets, LogLevel.DEBUG);
+			PrintFormat("AFM_DiDSpawnerComponent: Tickets enabled with %1 tickets", m_iMaxTickets, level: LogLevel.DEBUG);
 		}
 		
 		// Find spawn points and waypoints in children
@@ -81,10 +81,10 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		}
 		
 		if (m_aSpawnPoints.Count() == 0)
-			PrintFormat("AFM_DiDSpawnerComponent: No spawn points found in spawner!", LogLevel.WARNING);
+			PrintFormat("AFM_DiDSpawnerComponent: No spawn points found in spawner!", level: LogLevel.WARNING);
 		
 		if (m_aAIWaypoints.Count() == 0)
-			PrintFormat("AFM_DiDSpawnerComponent: No waypoints found in spawner!", LogLevel.WARNING);
+			PrintFormat("AFM_DiDSpawnerComponent: No waypoints found in spawner!", level: LogLevel.WARNING);
 		
 		ChimeraWorld world = GetGame().GetWorld();
 		m_fLastSpawnTime = world.GetServerTimestamp().PlusSeconds(-m_iWaveIntervalSeconds);
@@ -95,20 +95,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	//------------------------------------------------------------------------------------------------
 	void Process()
 	{
-		if (!m_Zone)
-			return;
-		
-		// Only spawn during active or frozen states
-		EAFMZoneState state = m_Zone.GetZoneState();
-		if (state != EAFMZoneState.ACTIVE && state != EAFMZoneState.FROZEN)
-			return;
-		
-		// If using tickets, check if there are tickets available
-		if (m_bUseTickets && m_iRemainingTickets <= 0)
-			return;
-
-		// The zone's own attacker budget is spent
-		if (IsTicketPoolExhausted())
+		if (!CanSpawnNow())
 			return;
 		
 		ChimeraWorld world = GetGame().GetWorld();
@@ -122,6 +109,38 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		}
 	}
 	
+	//------------------------------------------------------------------------------------------------
+	//! Every condition that has to hold before this spawner may send anyone. Overrides of Process() are
+	//! expected to start with this rather than repeat the checks, which is how the infantry spawner came
+	//! to ignore its own ticket limit.
+	//------------------------------------------------------------------------------------------------
+	protected bool CanSpawnNow()
+	{
+		if (!m_Zone)
+			return false;
+		
+		// Only spawn during active or frozen states
+		EAFMZoneState state = m_Zone.GetZoneState();
+		if (state != EAFMZoneState.ACTIVE && state != EAFMZoneState.FROZEN)
+			return false;
+		
+		// If using tickets, check if there are tickets available
+		if (m_bUseTickets && m_iRemainingTickets <= 0)
+			return false;
+		
+		// The zone's own attacker budget is spent
+		return !IsTicketPoolExhausted();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Re-task the AI this spawner has already put in the field. Called by the zone every tick, whether
+	//! or not it will pay for new spawns, so live attackers keep fighting once the budget is spent or
+	//! while the zone is contested. Spawning belongs in Process(), never here.
+	//------------------------------------------------------------------------------------------------
+	void UpdateTactics()
+	{
+	}
+
 	//------------------------------------------------------------------------------------------------
 	// Cleanup method - called by owner zone component on end
 	//------------------------------------------------------------------------------------------------
@@ -278,7 +297,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		
 		if (m_aAIGroupPrefabs.Count() == 0)
 		{
-			PrintFormat("AFM_DiDSpawnerComponent: No AI group prefabs configured!", LogLevel.WARNING);
+			PrintFormat("AFM_DiDSpawnerComponent: No AI group prefabs configured!", level: LogLevel.WARNING);
 			return;
 		}
 		
@@ -309,7 +328,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		// Try to consume ticket if using ticket system
 		if (m_bUseTickets && GetRemainingTickets() <= 0)
 		{
-			PrintFormat("AFM_DiDSpawnerComponent: No tickets remaining, cannot spawn", LogLevel.DEBUG);
+			PrintFormat("AFM_DiDSpawnerComponent: No tickets remaining, cannot spawn", level: LogLevel.DEBUG);
 			return;
 		}
 		
@@ -321,11 +340,11 @@ class AFM_DiDSpawnerComponent: GenericEntity
 		if (group)
 		{
 			TrackSpawnedGroup(group);
-			PrintFormat("AFM_DiDSpawnerComponent: Spawned AI group %1 at %2", groupPrefab, spawnPoint.GetOrigin().ToString(), LogLevel.DEBUG);
+			PrintFormat("AFM_DiDSpawnerComponent: Spawned AI group %1 at %2", groupPrefab, spawnPoint.GetOrigin().ToString(), level: LogLevel.DEBUG);
 		}
 		else
 		{
-			PrintFormat("AFM_DiDSpawnerComponent: Failed to spawn AI group %1", groupPrefab, LogLevel.ERROR);
+			PrintFormat("AFM_DiDSpawnerComponent: Failed to spawn AI group %1", groupPrefab, level: LogLevel.ERROR);
 		}
 	}
 	
@@ -437,11 +456,13 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	//! Consume one ticket, returns false if no tickets available
 	void ConsumeTickets(int ticketCount)
 	{
-		if (!m_bUseTickets || m_iRemainingTickets <= 0)
+		if (!m_bUseTickets || ticketCount <= 0)
 			return;
 		
-		m_iRemainingTickets = m_iRemainingTickets - ticketCount;
-		PrintFormat("AFM_DiDSpawnerComponent: Ticket consumed, %1 remaining", m_iRemainingTickets, LogLevel.DEBUG);
+		// Floored: a group larger than what is left used to push the count negative, and a zone without a
+		// pool reports the sum of these straight to the HUD
+		m_iRemainingTickets = Math.Max(0, m_iRemainingTickets - ticketCount);
+		PrintFormat("AFM_DiDSpawnerComponent: Ticket consumed, %1 remaining", m_iRemainingTickets, level: LogLevel.DEBUG);
 	}
 	
 	//! Get remaining tickets
@@ -460,7 +481,7 @@ class AFM_DiDSpawnerComponent: GenericEntity
 	void SetRemainingTickets(int tickets)
 	{
 		m_iRemainingTickets = tickets;
-		PrintFormat("AFM_DiDSpawnerComponent: Tickets set to %1", tickets, LogLevel.DEBUG);
+		PrintFormat("AFM_DiDSpawnerComponent: Tickets set to %1", tickets, level: LogLevel.DEBUG);
 	}
 	
 	bool IsActive()

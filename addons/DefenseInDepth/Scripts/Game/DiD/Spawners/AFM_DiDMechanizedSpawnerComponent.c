@@ -79,14 +79,15 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 		m_fLastRetask = GetCurrentTimestamp();
 
 		PrintFormat("AFM_DiDMechanizedSpawnerComponent: Mechanized spawner initialized with %1s interval",
-			m_iWaveIntervalSeconds, LogLevel.DEBUG);
+			m_iWaveIntervalSeconds, level: LogLevel.DEBUG);
 	}
 
 	//------------------------------------------------------------------------------------------------
-	override void Process()
+	//! Moving crews from overwatch into the fight is re-tasking, not spawning, so it runs even when the
+	//! zone has no tickets left to spend or is pausing its reinforcements. Vehicles parked at overwatch
+	//! would otherwise be the last thing standing between the players and the zone.
+	override void UpdateTactics()
 	{
-		super.Process();
-
 		if (!m_bOverwatchTactics || !m_Zone)
 			return;
 
@@ -239,18 +240,43 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 
 		SCR_BaseCompartmentManagerComponent cm = SCR_BaseCompartmentManagerComponent.Cast(vehicle.FindComponent(SCR_BaseCompartmentManagerComponent));
 		if (!cm)
+		{
+			PrintFormat("AFM_DiDMechanizedSpawnerComponent: Vehicle has no compartment manager, nobody could crew it", level: LogLevel.ERROR);
+			DiscardVehicle(vehicle, null, false);
 			return;
+		}
 
 		SCR_AIWaypoint placed = PickOverwatchWaypoint();
 		SCR_AIWaypoint overwatch = CreateOverwatchWaypoint(placed, PickOverwatchPosition(placed));
+		bool ownsOverwatch = overwatch != placed;
 
 		// Track the crew so it counts towards the AI cap and is removed on cleanup
 		AIGroup crew = m_crewConfig.SpawnCrew(cm, overwatch);
 		if (!crew)
+		{
+			// An empty vehicle would sit there counting against the vehicle limit, and the waypoint made for
+			// its crew would never be tracked by anything that deletes it
+			PrintFormat("AFM_DiDMechanizedSpawnerComponent: Crew could not be spawned, removing the vehicle again", level: LogLevel.ERROR);
+			DiscardVehicle(vehicle, overwatch, ownsOverwatch);
 			return;
+		}
 
 		TrackSpawnedGroup(crew);
-		TrackMechanizedGroup(crew, vehicle, overwatch, overwatch != placed);
+		TrackMechanizedGroup(crew, vehicle, overwatch, ownsOverwatch);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Undo a spawn that could not be crewed, taking the waypoint with it when we made it ourselves
+	protected void DiscardVehicle(IEntity vehicle, SCR_AIWaypoint overwatch, bool ownsOverwatch)
+	{
+		if (vehicle)
+		{
+			m_aSpawnedVehicles.RemoveItem(vehicle);
+			SCR_EntityHelper.DeleteEntityAndChildren(vehicle);
+		}
+
+		if (ownsOverwatch && overwatch)
+			SCR_EntityHelper.DeleteEntityAndChildren(overwatch);
 	}
 
 	//------------------------------------------------------------------------------------------------
