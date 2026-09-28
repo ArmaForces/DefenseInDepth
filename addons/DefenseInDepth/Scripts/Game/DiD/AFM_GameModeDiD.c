@@ -31,6 +31,16 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	// Zone the last transfer was made for, so survivors are only moved when the stage actually changes
 	protected int m_iLastTransferZoneIndex = -1;
 
+	// The one group every player belongs to, made with the first body of the match
+	protected SCR_AIGroup m_PlayerGroup;
+
+	// How many bodies have been handed out, which is also the next index into the side config's list
+	protected int m_iBodiesHandedOut;
+
+	// A freshly spawned playable needs a moment to register before a player can be put in it
+	protected static const int ASSIGN_DELAY_MS = 500;
+	protected static const int ASSIGN_MAX_ATTEMPTS = 10;
+
 	protected SCR_FactionManager m_FactionManager;
 	protected AFM_DiDZoneSystem m_ZoneSystem;
 	protected ref ScriptInvoker m_OnMatchSituationChanged;
@@ -295,7 +305,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		bool zoneProgressed = m_iLastTransferZoneIndex >= 0 && m_iZoneNumber != m_iLastTransferZoneIndex;
 		m_iLastTransferZoneIndex = m_iZoneNumber;
 
-		GetGame().GetCallqueue().CallLater(RespawnAllSpectators, ZONE_TRANSFER_DELAY_MS, false, zoneProgressed);
+		GetGame().GetCallqueue().CallLater(PopulateZone, ZONE_TRANSFER_DELAY_MS, false, zoneProgressed);
 
 		// Wave clears have their own hint (OnWaveCompleted)
 		if (m_bIsWarmup)
@@ -394,10 +404,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	//------------------------------------------------------------------------------------------------
 	//! Players without a living body: dead, or holding no playable at all.
 	//!
-	//! Dead bodies have to survive until the next zone: deleting one unregisters its playable and the
-	//! player would be missing from this list and never respawned. That is why the garbage collector is
-	//! switched off for this game mode - it used to withdraw each body from the garbage system by hand,
-	//! which raced against the collector and lost. Bodies are cleaned up in OnPlayerRespawned instead.
+	//! A player with no playable at all counts here too, which is what every player is at the start of a
+	//! match now that the world holds no player prefabs.
+	//!
+	//! Corpses are cleared in ClearOldBody once their owner holds a new body. They no longer have to
+	//! survive until then - this list follows player ids, not playables - but the garbage collector stays
+	//! off for the game mode, because a body collected from under a player mid-stage is worse.
 	void GetSpectatorPlayerIds(notnull array<int> outPlayerIds)
 	{
 		outPlayerIds.Clear();
@@ -452,50 +464,221 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Dead players get a new body at the new zone's spawn point; survivors keep theirs and are moved
-	//! there, so nobody is left behind in the stage that just ended.
-	protected void RespawnAllSpectators(bool moveSurvivors = false)
+	//! Everyone who has no living body gets one at the stage's spawn point; survivors keep theirs and are
+	//! moved there, so nobody is left behind in the stage that just ended.
+	//!
+	//! The world holds no player prefabs at all. What the players are is content like anything else, so it
+	//! comes from the defending side's config, and a mission does not have to be re-authored to be
+	//! re-sided. Bodies are spawned and handed over the way AFM_DiDCowabungaComponent does it for the
+	//! attackers, rather than through PS_GameModeCoop.Respawn, which needs a placed playable to respawn
+	//! from.
+	protected void PopulateZone(bool moveSurvivors = false)
 	{
-		int spawnIndex = 0;
-		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
-		array<PS_PlayableContainer> playableContainers = playableManager.GetPlayablesSorted();
+		if (!m_ZoneSystem)
+			return;
+
 		AFM_PlayerSpawnPointEntity currentSpawnPoint = m_ZoneSystem.GetCurrentZonePlayerSpawnPoint();
+		int spawnIndex = 0;
 
+		if (moveSurvivors)
+			spawnIndex = MoveSurvivors(currentSpawnPoint, spawnIndex);
 
+		array<int> spectators = {};
+		GetSpectatorPlayerIds(spectators);
+
+		foreach (int playerId : spectators)
+		{
+			if (SpawnPlayerBody(playerId, GetSpawnPosition(currentSpawnPoint, spawnIndex)))
+				spawnIndex++;
+		}
+
+		if (!spectators.IsEmpty())
+			PrintFormat("AFM_GameModeDiD: Spawning bodies for %1 players at the stage's spawn point", spectators.Count());
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Move everyone who lived through the stage to the new spawn point
+	//! \return the next free position in the spawn ring
+	protected int MoveSurvivors(AFM_PlayerSpawnPointEntity spawnPoint, int spawnIndex)
+	{
+		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
+		if (!playableManager)
+			return spawnIndex;
+
+		array<PS_PlayableContainer> playableContainers = playableManager.GetPlayablesSorted();
 		foreach (PS_PlayableContainer container : playableContainers)
 		{
-			if (!container)
+			if (!container || container.GetDamageState() == EDamageState.DESTROYED)
 				continue;
 
-			// A playable whose entity is already gone can't be respawned, and must not stop the others
 			PS_PlayableComponent pcomp = container.GetPlayableComponent();
 			if (!pcomp)
 				continue;
 
-			SCR_CharacterDamageManagerComponent damageManager = pcomp.GetCharacterDamageManagerComponent();
-			if (!damageManager)
+			// Only bodies somebody is actually holding: the rest are corpses waiting to be cleared
+			if (playableManager.GetPlayerByPlayable(pcomp.GetRplId()) <= 0)
 				continue;
 
-			int playerId = playableManager.GetPlayerByPlayableRemembered(pcomp.GetRplId());
-			if (playerId == -1)
-				continue;
-
-			vector spawnPos = GetSpawnPosition(currentSpawnPoint, spawnIndex);
-
-			EDamageState damageState = damageManager.GetState();
-			if (damageState == EDamageState.DESTROYED)
-			{
-				RespawnPlayer(playerId, pcomp, spawnPos);
-				spawnIndex++;
-				continue;
-			}
-
-			if (!moveSurvivors)
-				continue;
-
-			if (MoveSurvivorToSpawnPoint(pcomp, spawnPos))
+			if (MoveSurvivorToSpawnPoint(pcomp, GetSpawnPosition(spawnPoint, spawnIndex)))
 				spawnIndex++;
 		}
+
+		return spawnIndex;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Spawn one body from the defending side's config and put the player in it
+	//! \return false when nothing could be spawned
+	protected bool SpawnPlayerBody(int playerId, vector spawnPos)
+	{
+		if (!m_DefenderConfig)
+		{
+			PrintFormat("AFM_GameModeDiD: No defender side config, players cannot be given bodies", level: LogLevel.ERROR);
+			return false;
+		}
+
+		ResourceName prefab = m_DefenderConfig.GetPlayerCharacter(m_iBodiesHandedOut);
+		if (prefab.IsEmpty())
+		{
+			PrintFormat("AFM_GameModeDiD: The defending side (%1) has no player characters, nobody can spawn",
+				m_DefenderConfig.GetLabel(), level: LogLevel.ERROR);
+			return false;
+		}
+
+		if (!EnsurePlayerGroup(spawnPos))
+			return false;
+
+		vector spawnTransform[4];
+		Math3D.MatrixIdentity4(spawnTransform);
+		spawnTransform[3] = spawnPos;
+
+		EntitySpawnParams spawnParams = new EntitySpawnParams();
+		spawnParams.TransformMode = ETransformMode.WORLD;
+		spawnParams.Transform = spawnTransform;
+
+		IEntity body = GetGame().SpawnEntityPrefab(Resource.Load(prefab), GetGame().GetWorld(), spawnParams);
+		if (!body)
+		{
+			PrintFormat("AFM_GameModeDiD: Failed to spawn player body %1", prefab, level: LogLevel.ERROR);
+			return false;
+		}
+
+		PS_PlayableComponent playable = PS_PlayableComponent.Cast(body.FindComponent(PS_PlayableComponent));
+		if (!playable)
+		{
+			PrintFormat("AFM_GameModeDiD: %1 is not playable - the side config needs the PlayableSelector _P prefabs",
+				prefab, level: LogLevel.ERROR);
+			SCR_EntityHelper.DeleteEntityAndChildren(body);
+			return false;
+		}
+
+		m_PlayerGroup.AddAIEntityToGroup(body);
+		playable.SetPlayable(true);
+		m_iBodiesHandedOut++;
+
+		// The corpse this player is leaving behind, cleared once they hold the new body. Their rank goes
+		// with them: a fresh body starts at whatever its prefab says.
+		IEntity oldBody = GetGame().GetPlayerManager().GetPlayerControlledEntity(playerId);
+		SCR_ECharacterRank previousRank = SCR_CharacterRankComponent.GetCharacterRank(oldBody);
+
+		GetGame().GetCallqueue().CallLater(AssignPlayerBody, ASSIGN_DELAY_MS, false, playerId, body, previousRank, 0);
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Every player is in one group, made the first time anyone needs a body. One group keeps the whole
+	//! team on one map marker set and in one voice room, which is what a defence of this shape wants.
+	//! \return false when the side config has no group to make
+	protected bool EnsurePlayerGroup(vector spawnPos)
+	{
+		if (m_PlayerGroup)
+			return true;
+
+		ResourceName groupPrefab = m_DefenderConfig.m_sPlayerGroup;
+		if (groupPrefab.IsEmpty())
+		{
+			PrintFormat("AFM_GameModeDiD: The defending side (%1) has no player group, nobody can spawn",
+				m_DefenderConfig.GetLabel(), level: LogLevel.ERROR);
+			return false;
+		}
+
+		vector groupTransform[4];
+		Math3D.MatrixIdentity4(groupTransform);
+		groupTransform[3] = spawnPos;
+
+		EntitySpawnParams spawnParams = new EntitySpawnParams();
+		spawnParams.TransformMode = ETransformMode.WORLD;
+		spawnParams.Transform = groupTransform;
+
+		m_PlayerGroup = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(Resource.Load(groupPrefab), GetGame().GetWorld(), spawnParams));
+		if (!m_PlayerGroup)
+		{
+			PrintFormat("AFM_GameModeDiD: Failed to spawn the player group %1", groupPrefab, level: LogLevel.ERROR);
+			return false;
+		}
+
+		// 0 means no limit: the whole server goes in here
+		m_PlayerGroup.SetMaxMembers(0);
+
+		PrintFormat("AFM_GameModeDiD: Player group %1 created for the %2 side",
+			groupPrefab, m_DefenderConfig.GetLabel());
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Hand a spawned body to its player. The playable registers a moment after it spawns, so this retries
+	//! until it has an id to switch to.
+	protected void AssignPlayerBody(int playerId, IEntity body, SCR_ECharacterRank previousRank, int attempt)
+	{
+		if (!body)
+			return;
+
+		PS_PlayableComponent playable = PS_PlayableComponent.Cast(body.FindComponent(PS_PlayableComponent));
+		if (!playable)
+			return;
+
+		RplId playableId = playable.GetRplId();
+		if (!playableId.IsValid())
+		{
+			if (attempt < ASSIGN_MAX_ATTEMPTS)
+				GetGame().GetCallqueue().CallLater(AssignPlayerBody, ASSIGN_DELAY_MS, false, playerId, body, previousRank, attempt + 1);
+			else
+				PrintFormat("AFM_GameModeDiD: Body for player %1 never registered as playable", playerId, level: LogLevel.ERROR);
+
+			return;
+		}
+
+		// Nothing placed in the world says which side the players are on any more, so it is set here. The
+		// zone counts defenders through the faction manager, and would see an empty team without this.
+		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
+		if (playableManager)
+			playableManager.SetPlayerFactionKey(playerId, GetDefenderFactionKey());
+
+		IEntity oldBody = GetGame().GetPlayerManager().GetPlayerControlledEntity(playerId);
+
+		SwitchPlayerToPlayable(playerId, playableId);
+
+		GetGame().GetCallqueue().CallLater(RestorePlayerRank, RANK_RESTORE_FIRST_DELAY_MS, false, playerId, previousRank);
+		GetGame().GetCallqueue().CallLater(ApplySavedLoadout, RANK_RESTORE_FIRST_DELAY_MS, false, playerId);
+		GetGame().GetCallqueue().CallLater(ClearOldBody, RESPAWN_FINALIZE_DELAY_MS, false, playerId, oldBody, previousRank);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Restore the rank once more in case the respawn overwrote it, and remove the corpse the player left.
+	//! Corpses used to have to survive for the respawn to find the player; now the player id is what is
+	//! followed, so they can go as soon as their owner is elsewhere.
+	protected void ClearOldBody(int playerId, IEntity oldBody, SCR_ECharacterRank previousRank)
+	{
+		RestorePlayerRank(playerId, previousRank);
+
+		if (!oldBody)
+			return;
+
+		// Never the body they are holding right now
+		if (oldBody == GetGame().GetPlayerManager().GetPlayerControlledEntity(playerId))
+			return;
+
+		SCR_EntityHelper.DeleteEntityAndChildren(oldBody);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -552,36 +735,6 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		pos[1] = GetGame().GetWorld().GetSurfaceY(pos[0], pos[2]);
 		return pos;
 	}
-	
-	protected void RespawnPlayer(int playerId, PS_PlayableComponent playableComponent, vector spawnPos)
-	{
-		if (playableComponent)
-		{
-			ResourceName prefabToSpawn = playableComponent.GetNextRespawn(false);
-			if (prefabToSpawn != "")
-			{
-				PS_RespawnData respawnData = new PS_RespawnData(playableComponent, prefabToSpawn, "");
-
-				if (spawnPos != vector.Zero)
-					respawnData.m_aSpawnTransform[3] = spawnPos;
-
-				Respawn(playerId, respawnData);
-
-				// The player is switched into the new body a few frames later
-				IEntity oldBody = playableComponent.GetOwner();
-				SCR_ECharacterRank previousRank = SCR_CharacterRankComponent.GetCharacterRank(oldBody);
-				
-				// Restore the rank as soon as the player holds the new body, then again in case anything
-				// reads or overwrites it while the respawn finishes
-				GetGame().GetCallqueue().CallLater(RestorePlayerRank, RANK_RESTORE_FIRST_DELAY_MS, false, playerId, previousRank);
-				GetGame().GetCallqueue().CallLater(ApplySavedLoadout, RANK_RESTORE_FIRST_DELAY_MS, false, playerId);
-				GetGame().GetCallqueue().CallLater(OnPlayerRespawned, RESPAWN_FINALIZE_DELAY_MS, false, playerId, oldBody, previousRank);
-				return;
-			}
-		}
-
-		SwitchToInitialEntity(playerId);
-	}
 
 	//------------------------------------------------------------------------------------------------
 	//! Re-equip whatever the player last saved at an arsenal.
@@ -622,16 +775,6 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		loadout.OnLoadoutSpawned(character, playerId);
 		
 		PrintFormat("AFM_GameModeDiD: Applied saved arsenal loadout to player %1", playerId);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! Restore the rank the player earned and remove the body kept for this respawn
-	protected void OnPlayerRespawned(int playerId, IEntity oldBody, SCR_ECharacterRank previousRank)
-	{
-		RestorePlayerRank(playerId, previousRank);
-
-		if (oldBody)
-			SCR_EntityHelper.DeleteEntityAndChildren(oldBody);
 	}
 
 	//------------------------------------------------------------------------------------------------

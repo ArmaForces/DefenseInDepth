@@ -187,55 +187,66 @@ edit. Only the crate's model stays visually American, which is cosmetic.
 
 ## Player side
 
-Per-faction **world wrappers**, since layers cannot be switched:
+**The world holds no player prefabs at all.** `Players.layer` is deleted from every world; what the
+players are comes from the defending side's config, like everything else:
 
 ```
-DiD_Linear_Lamentin.ent          SubScene of Eden          zones, props - everything shared
-DiD_Linear_Lamentin_US.ent       SubScene of the above  +  Players_US
-DiD_Linear_Lamentin_USSR.ent     SubScene of the above  +  Players_USSR
+m_sPlayerGroup       one empty base group of the side's faction - every player joins it
+m_aPlayerCharacters  bodies handed out in authored order, repeating once the list runs out
 ```
 
-The mission `.conf` picks the world and the two side configs together, which is how scenarios already
-vary (`DiD_Lamentin_Tuned.conf`). Authoring cost per faction per world is the dozen prefab references
-that are in `Players.layer` today.
+At each stage's prep start the game mode spawns a body for everyone without one, adds it to the single
+player group, marks it playable and hands it over - the same sequence
+`AFM_DiDCowabungaComponent` already used for the attacker squad. It does not go through
+`PS_GameModeCoop.Respawn`, which needs a placed playable to respawn *from*.
 
-**Confirmed working.** Inheriting a DiD world from another DiD world was tested in the editor
-(2026-09-28) - none of the six worlds did it before, all inheriting vanilla terrains, so it was worth
-proving. The shared content comes through and a child world can add its own player groups.
+Why this works, given PS binds faction to the prefab: nothing placed in the world claims a faction any
+more, so there is nothing to disagree with. The game mode sets each player's faction key itself when it
+hands over the body, which is what the zone's defender count reads.
 
-The alternative this avoids, recorded in case it is ever needed: runtime substitution, despawning the
-placed playable groups at world init and spawning the config's equivalents at the same transforms
-before PS finishes registering them. `AFM_DiDCowabungaComponent` proves every piece (spawn group, spawn
-characters, `SetPlayable(true)`, `SwitchPlayerToPlayable`), but PS offers no hook and the work would
-have to land inside `PS_PlayableComponent.LateInit -> RegisterPlayable` - EOnInit plus a couple of
-callqueue frames. Not needed now.
+What PS tolerates, checked in its source and confirmed in game: `AdvanceGameState` never gates on
+playables existing, and `OnGameStateChanged` at BRIEFING explicitly handles players with
+`RplId.Invalid()` by parking them faction-less in the global voice room. `SetMaxMembers(0)` means the
+one group has no size limit.
 
----
+What this costs, and it is worth being clear about it:
+
+- **No slot selection.** The lobby has nothing to list. Roles are handed out first-come in config
+  order, so the first players to need a body get the top of the list.
+- **A few seconds bodiless at match start.** Bodies arrive with zone 1's prep start, five seconds
+  after the zone activates.
+- **Reconnecting mid-stage means waiting** for the next stage's prep, since that is when bodies are
+  handed out. Spawning on join would be a small addition if it turns out to matter.
+
+The alternative this replaced - per-faction world wrappers over a shared base world - is no longer
+needed. World inheritance was proven working first, so it stays available if the player side ever wants
+authored slots again.
 
 ## Phases
 
-**Phase 0 - the world-inheritance test.** Done: it works, so the player side is per-faction world
-wrappers.
+**Phase 0 - the world-inheritance test.** Done: it works. Kept as a fallback rather than used, since
+the player side went further (see above).
 
-**Phase 1 - the config, read by the AI side.** New `AFM_DiDSideConfig`, `AFM_DiDVehicleEntry`, two
+**Phase 1 (done) - the config, read by the AI side.** New `AFM_DiDSideConfig`, `AFM_DiDVehicleEntry`, two
 `.conf` files carrying today's US and USSR content, the two game-mode attributes and loader, getters on
 the game mode and pass-throughs on the zone. Spawners resolve config-then-override for: infantry
 groups, mechanized vehicles + crew, mortar composition + crew, helicopters + crew, COWABUNGA group +
 characters, extraction helicopter + crew. The four hardcoded script fallbacks are deleted.
 Verification: mod builds, a match plays identically to today with the prefabs untouched.
 
-**Phase 2 - clear the prefabs.** Empty the faction arrays in the six spawner prefabs so the config is
+**Phase 2 (done) - clear the prefabs.** Empty the faction arrays in the six spawner prefabs so the config is
 the only source. Verification: a match still plays identically; then point the attacker config at a
 different side and watch the enemy change without touching a world.
 
-**Phase 3 - faction keys from config.** Delete `m_sDefenderFactionKey` / `m_sAttackerFactionKey`, read
+**Phase 3 (done) - faction keys from config.** Arsenal re-factioning is still open. Delete `m_sDefenderFactionKey` / `m_sAttackerFactionKey`, read
 `m_sFactionKey` from the two configs, re-faction the arsenal boxes at init.
 
-**Phase 4 - mission-header override.** Two fields on the modded header, captured alongside the phase
+**Phase 4 (done) - mission-header override.** Two fields on the modded header, captured alongside the phase
 settings, so a scenario and a server config can swap sides. Sample config updated.
 
-**Phase 5 - the player side.** Per Phase 0: either split each world into a shared base plus per-faction
-wrappers, or build the runtime substitution.
+**Phase 5 (done) - the player side.** Neither of the two options in the original plan: the players are
+spawned from the config at every  stage's prep start and the layer is gone entirely. Needs a playtest - if
+nobody spawns, `git revert` brings the layers back.
 
 ---
 
