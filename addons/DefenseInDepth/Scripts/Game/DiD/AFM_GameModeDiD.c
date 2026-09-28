@@ -10,6 +10,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	[Attribute("USSR", UIWidgets.EditBox, "Attackers faction key", category: "DiD")]
 	protected FactionKey m_sAttackerFactionKey;	
 	
+	[Attribute("1", UIWidgets.CheckBox, "Re-equip the loadout a player saved at an arsenal when they respawn", category: "DiD")]
+	protected bool m_bApplySavedLoadouts;
+	
 	// Dead bodies are inserted into the garbage system on death; withdraw them shortly after
 	protected static const int BODY_WITHDRAW_DELAY_MS = 500;
 
@@ -508,12 +511,54 @@ class AFM_GameModeDiD: PS_GameModeCoop
 				// Restore the rank as soon as the player holds the new body, then again in case anything
 				// reads or overwrites it while the respawn finishes
 				GetGame().GetCallqueue().CallLater(RestorePlayerRank, RANK_RESTORE_FIRST_DELAY_MS, false, playerId, previousRank);
+				GetGame().GetCallqueue().CallLater(ApplySavedLoadout, RANK_RESTORE_FIRST_DELAY_MS, false, playerId);
 				GetGame().GetCallqueue().CallLater(OnPlayerRespawned, RESPAWN_FINALIZE_DELAY_MS, false, playerId, oldBody, previousRank);
 				return;
 			}
 		}
 
 		SwitchToInitialEntity(playerId);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Re-equip whatever the player last saved at an arsenal.
+	//!
+	//! Vanilla applies saved loadouts through SCR_LoadoutManager, which calls OnLoadoutSpawned on the
+	//! chosen SCR_BasePlayerLoadout. The PS framework spawns a prefab directly and never goes near that
+	//! pipeline, so nothing applies the save. Calling the arsenal loadout's own applier is enough: it
+	//! reads the stored string from SCR_ArsenalManagerComponent itself.
+	protected void ApplySavedLoadout(int playerId)
+	{
+		if (!m_bApplySavedLoadouts)
+			return;
+		
+		SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(GetGame().GetPlayerManager().GetPlayerControlledEntity(playerId));
+		if (!character)
+		{
+			PrintFormat("AFM_GameModeDiD: No body for player %1, saved loadout not applied", playerId, level: LogLevel.WARNING);
+			return;
+		}
+		
+		// COWABUNGA puts players on the attacking side. OnLoadoutSpawned erases a saved loadout whose
+		// faction does not match the body, so it must never run for an attacker.
+		if (character.GetFactionKey() != m_sDefenderFactionKey)
+			return;
+		
+		SCR_ArsenalManagerComponent arsenalManager;
+		if (!SCR_ArsenalManagerComponent.GetArsenalManager(arsenalManager))
+			return;
+		
+		SCR_ArsenalPlayerLoadout saved;
+		if (!arsenalManager.GetPlayerArsenalLoadout(SCR_PlayerIdentityUtils.GetPlayerIdentityId(playerId), saved))
+			return;
+		
+		if (!saved || saved.loadout.IsEmpty())
+			return;
+		
+		SCR_PlayerArsenalLoadout loadout = new SCR_PlayerArsenalLoadout();
+		loadout.OnLoadoutSpawned(character, playerId);
+		
+		PrintFormat("AFM_GameModeDiD: Applied saved arsenal loadout to player %1", playerId);
 	}
 
 	//------------------------------------------------------------------------------------------------

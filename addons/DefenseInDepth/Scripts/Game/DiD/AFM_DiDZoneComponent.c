@@ -73,9 +73,11 @@ class AFM_DiDZoneComponent: ScriptComponent
 	// Compositions players built while this zone was active, removed with the zone
 	protected ref array<IEntity> m_aPlayerStructures = {};
 	
-	// Attackers this zone may still send. Sized at activation and never resized afterwards.
+	// Attackers this zone may still send. Sized when the attack starts, then never resized.
 	protected int m_iTicketPool;
 	protected int m_iTicketsRemaining;
+	protected int m_iInheritedTickets;	// Handed over by a zone that was lost, added once the pool is sized
+	protected bool m_bTicketPoolSized;
 	
 	// Resolved scenario header settings, or null when the mission has no DiD header
 	protected ref AFM_DiDPhaseSettings m_PhaseSettings;
@@ -549,11 +551,15 @@ class AFM_DiDZoneComponent: ScriptComponent
 		// Guardrails, applied after the multiplier so no setting can produce an unplayable zone
 		pool = Math.ClampInt(pool, m_iMinTickets, m_iMaxTickets);
 		
+		// Added after the clamp so tickets inherited from a lost zone are not discarded by it
+		pool = pool + m_iInheritedTickets;
+		
 		m_iTicketPool = pool;
 		m_iTicketsRemaining = pool;
+		m_bTicketPoolSized = true;
 		
-		PrintFormat("AFM_DiDZoneComponent %1: Ticket pool %2 for %3 players (%4 per player, multiplier %5, clamped to %6-%7)",
-			m_sZoneName, pool, players, m_iTicketsPerPlayer, multiplier, m_iMinTickets, m_iMaxTickets);
+		PrintFormat("AFM_DiDZoneComponent %1: Ticket pool %2 for %3 players (%4 per player, multiplier %5, clamped to %6-%7, plus %8 inherited)",
+			m_sZoneName, pool, players, m_iTicketsPerPlayer, multiplier, m_iMinTickets, m_iMaxTickets, m_iInheritedTickets);
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -584,7 +590,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//! logic, so counting them would leave the zone unwinnable while a single mortar team survives.
 	protected bool IsAttackDefeated()
 	{
-		if (!IsTicketPoolEnabled() || HasTicketsRemaining())
+		if (!IsTicketPoolEnabled() || !m_bTicketPoolSized || HasTicketsRemaining())
 			return false;
 		
 		return GetTicketPoolAICount() == 0;
@@ -608,7 +614,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//! Are there attackers left to send? Always true when the pool is disabled.
 	bool HasTicketsRemaining()
 	{
-		if (!IsTicketPoolEnabled())
+		if (!IsTicketPoolEnabled() || !m_bTicketPoolSized)
 			return true;
 		
 		return m_iTicketsRemaining > 0;
@@ -630,17 +636,24 @@ class AFM_DiDZoneComponent: ScriptComponent
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	//! Added on top of a pool that has already been sized, so the clamp does not discard it
+	//! Tickets handed over by a zone that was lost. They arrive during the prepare phase, before this
+	//! zone's pool has been sized, so they are banked and folded in by SizeTicketPool.
 	void AddTickets(int count)
 	{
 		if (!IsTicketPoolEnabled() || count <= 0)
 			return;
 		
+		if (!m_bTicketPoolSized)
+		{
+			m_iInheritedTickets = m_iInheritedTickets + count;
+			PrintFormat("AFM_DiDZoneComponent %1: %2 tickets inherited from the lost zone, held until the attack starts",
+				m_sZoneName, count);
+			return;
+		}
+		
 		m_iTicketPool = m_iTicketPool + count;
 		m_iTicketsRemaining = m_iTicketsRemaining + count;
-		
-		PrintFormat("AFM_DiDZoneComponent %1: Inherited %2 tickets from the lost zone, pool now %3",
-			m_sZoneName, count, m_iTicketPool);
+		PrintFormat("AFM_DiDZoneComponent %1: %2 tickets added, pool now %3", m_sZoneName, count, m_iTicketPool);
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -689,6 +702,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 			WorldTimestamp now = GetCurrentTimestamp();
 			m_fZoneStartTime = now;
 			m_fZoneEndTime = now.PlusSeconds(m_iDefenseTimeSeconds);
+			
+			// Everyone who is going to fight this stage has joined by now
+			SizeTicketPool();
+			
 			PrintFormat("AFM_DiDZoneComponent %1: PREPARE -> ACTIVE", m_sZoneName);	
 		}
 		
@@ -837,7 +854,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 		m_iRemainingFailureSeconds = m_iFailureTimeSeconds;
 		m_fContestedSince = now;
 		
-		SizeTicketPool();
+		// The pool is sized when the attack starts, not here. Players join during the prepare phase, so
+		// counting them at activation would size the zone for whoever happened to be on the server then.
+		m_iTicketPool = 0;
+		m_iTicketsRemaining = 0;
+		m_iInheritedTickets = 0;
+		m_bTicketPoolSized = false;
 
 		PrintFormat("AFM_DiDZoneComponent %1: Entering PREPARE state for %2 seconds, %3 s of contested time allowed",
 		 m_sZoneName, m_iPrepareTimeSeconds, m_iFailureTimeSeconds);
@@ -942,7 +964,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//! Enemies left to fight in this zone, or -1 when spawns are unlimited
 	int GetEnemiesRemaining()
 	{
-		if (!IsTicketPoolEnabled())
+		// Before the attack starts there is nothing meaningful to show
+		if (!IsTicketPoolEnabled() || !m_bTicketPoolSized)
 			return -1;
 		
 		return m_iTicketsRemaining + GetActiveAICount();
@@ -955,7 +978,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 	int GetRemainingSpawnTickets()
 	{
 		if (IsTicketPoolEnabled())
+		{
+			if (!m_bTicketPoolSized)
+				return -1;
+			
 			return m_iTicketsRemaining;
+		}
 		
 		int total = -1;
 
