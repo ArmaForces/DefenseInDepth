@@ -1,0 +1,21 @@
+$grp SCR_AIGroup : "{47EADE5E4E07076C}Prefabs/Groups/BLUFOR/Group_US_FireTeam_P.et" {
+ {
+  coords 5829.645 5.11 9765.432
+ }
+ {
+  coords 5831.225 4.963 9772.859
+ }
+ {
+  coords 5830.694 4.956 9776.255
+ }
+}
+SCR_AIGroup : "{FCBE9E46702ED307}Prefabs/Groups/BLUFOR/Group_US_PlatoonHQ_P.et" {
+ coords 5830.833 4.965 9778.334
+ angles 0 89.246 0
+ m_aUnitPrefabSlots {
+  "{D164278FD7D9C81A}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_PL_P.et"
+  "{501777EB151D644B}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Sergeant_P.et"
+  "{D479353521DB520E}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Scout_P.et"
+  "{547BA14003A67C04}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Medic_P.et"
+ }
+}
