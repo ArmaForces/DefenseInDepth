@@ -13,9 +13,6 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	[Attribute("1", UIWidgets.CheckBox, "Re-equip the loadout a player saved at an arsenal when they respawn", category: "DiD")]
 	protected bool m_bApplySavedLoadouts;
 	
-	// Dead bodies are inserted into the garbage system on death; withdraw them shortly after
-	protected static const int BODY_WITHDRAW_DELAY_MS = 500;
-
 	// PS switches the player into the new body four frames after the respawn request
 	protected static const int RANK_RESTORE_FIRST_DELAY_MS = 300;
 	protected static const int RESPAWN_FINALIZE_DELAY_MS = 2000;
@@ -111,6 +108,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			Rpc(RPC_DoForceEndPrepareStage);
 	}
 	
+	//! The admin check behind this lives in AFM_VoteSkipWarmupAction.CanBeShownScript, which only hides
+	//! the action locally - a client can still send this RPC and cut the prepare phase short. Left as it
+	//! is on purpose: the worst case is a stage starting early on a server whose players we know.
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	void RPC_DoForceEndPrepareStage()
 	{
@@ -312,29 +312,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 
 	
 	//------------------------------------------------------------------------------------------------
-	//! Keep dead bodies out of the garbage system. Deleting a body unregisters its playable, and the
-	//! player would then be missing from the list below and never respawned at the next zone.
-	override protected void OnPlayerKilled(int playerId, IEntity playerEntity, IEntity killerEntity, notnull Instigator killer)
-	{
-		super.OnPlayerKilled(playerId, playerEntity, killerEntity, killer);
-
-		// The body is inserted into the garbage system on death, so withdraw it right after
-		GetGame().GetCallqueue().CallLater(KeepBody, BODY_WITHDRAW_DELAY_MS, false, playerEntity);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	protected void KeepBody(IEntity body)
-	{
-		if (!body)
-			return;
-
-		SCR_GarbageSystem garbageSystem = SCR_GarbageSystem.GetByEntityWorld(body);
-		if (garbageSystem)
-			garbageSystem.Withdraw(body);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! Players without a living body: dead, or holding no playable at all
+	//! Players without a living body: dead, or holding no playable at all.
+	//!
+	//! Dead bodies have to survive until the next zone: deleting one unregisters its playable and the
+	//! player would be missing from this list and never respawned. That is why the garbage collector is
+	//! switched off for this game mode - it used to withdraw each body from the garbage system by hand,
+	//! which raced against the collector and lost. Bodies are cleaned up in OnPlayerRespawned instead.
 	void GetSpectatorPlayerIds(notnull array<int> outPlayerIds)
 	{
 		outPlayerIds.Clear();
@@ -438,7 +421,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	//------------------------------------------------------------------------------------------------
 	//! Teleport a player who lived through the stage to the next zone, keeping body, loadout and rank.
 	//! Survivors are spread around the spawn point so they do not land on top of each other.
-	//! eturn true when the player was moved
+	//! 
+eturn true when the player was moved
 	protected bool MoveSurvivorToSpawnPoint(notnull PS_PlayableComponent playableComponent, vector spawnPos)
 	{
 		if (spawnPos == vector.Zero)

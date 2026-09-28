@@ -82,7 +82,7 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 	//------------------------------------------------------------------------------------------------
 	protected void HideHUD()
 	{
-		Show(false, UIConstants.FADE_RATE_SLOW)
+		Show(false, UIConstants.FADE_RATE_SLOW);
 	}
 	
 	//------------------------------------------------------------------------------------------------
