@@ -131,6 +131,10 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
  m_sDefenderConfigPath "{2FF4CFE9D80F6F76}Configs/Factions/DiD_Side_US.conf"
  m_sAttackerConfigPath "{CB5CAE38E68AEBE5}Configs/Factions/DiD_Side_USSR.conf"
  {
+  SCR_FactionManager : "{4A188E44289B9A50}Prefabs/MP/Managers/Factions/FactionManager_Editor.et" {
+   ID "6A793E451E738E84"
+   coords 0 0 0
+  }
   RadioManagerEntity : "{B8E09FAB91C4ECCD}Prefabs/Systems/Radio/RadioManager.et" {
    ID "66AAF4E352ED3207"
   }
@@ -142,11 +146,7 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
    m_bIsUnlimitedEditorLegal 1
   }
   SCR_LoadoutManager : "{58FBD035E53D95C1}Prefabs/MP/Campaign/CampaignLoadoutManager.et" {
-   ID "6A792757B3FD419E"
-   coords 0 0 0
-  }
-  SCR_LoadoutManager : "{AA4E7419A1FF65B0}Prefabs/MP/Managers/Loadouts/LoadoutManager_Base.et" {
-   ID "6A78E92E462741C4"
+   ID "6A793E452E93D436"
    coords 0 0 0
   }
   ItemPreviewManagerEntity "5E7AE0AB2109F297" : "{AB5D049A3AB43FC0}Prefabs/World/Game/ItemPreviewManager_PS.et" {

@@ -648,12 +648,6 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			return;
 		}
 
-		// Nothing placed in the world says which side the players are on any more, so it is set here. The
-		// zone counts defenders through the faction manager, and would see an empty team without this.
-		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
-		if (playableManager)
-			playableManager.SetPlayerFactionKey(playerId, GetDefenderFactionKey());
-
 		IEntity oldBody = GetGame().GetPlayerManager().GetPlayerControlledEntity(playerId);
 
 		SwitchPlayerToPlayable(playerId, playableId);
@@ -661,6 +655,33 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		GetGame().GetCallqueue().CallLater(RestorePlayerRank, RANK_RESTORE_FIRST_DELAY_MS, false, playerId, previousRank);
 		GetGame().GetCallqueue().CallLater(ApplySavedLoadout, RANK_RESTORE_FIRST_DELAY_MS, false, playerId);
 		GetGame().GetCallqueue().CallLater(ClearOldBody, RESPAWN_FINALIZE_DELAY_MS, false, playerId, oldBody, previousRank);
+		GetGame().GetCallqueue().CallLater(EnsurePlayerFaction, RESPAWN_FINALIZE_DELAY_MS, false, playerId);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Make sure the player counts as a defender, without setting the faction when it is already right.
+	//!
+	//! PS_PlayableManager.ApplyPlayable derives the player's faction from the body it puts them in, which
+	//! is this config's prefab, so normally there is nothing to do here. Setting it eagerly instead - before
+	//! the player held the body - sent SCR_GroupsManagerComponent.OnPlayerFactionChanged through a group
+	//! they had not joined yet and threw inside SCR_MapMarkerEntrySquadLeader. This only steps in if PS did
+	//! not get there, because a player whose faction is unset is invisible to the zone's defender count.
+	protected void EnsurePlayerFaction(int playerId)
+	{
+		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
+		if (!playableManager)
+			return;
+
+		FactionKey wanted = GetDefenderFactionKey();
+		if (wanted.IsEmpty())
+			return;
+
+		FactionKey current = playableManager.GetPlayerFactionKey(playerId);
+		if (current == wanted)
+			return;
+
+		PrintFormat("AFM_GameModeDiD: Player %1 was on faction '%2', setting it to '%3'", playerId, current, wanted);
+		playableManager.SetPlayerFactionKey(playerId, wanted);
 	}
 
 	//------------------------------------------------------------------------------------------------
