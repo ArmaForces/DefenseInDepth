@@ -10,7 +10,7 @@
 //! Optional SCR_AIWaypoint children = holding points; without them the helicopter holds between the
 //! players and its entry point.
 //------------------------------------------------------------------------------------------------
-class AFM_DiDHeliSpawnerComponentClass: AFM_DiDSpawnerComponentClass
+class AFM_DiDHeliSpawnerComponentClass: AFM_DiDAirSpawnerComponentClass
 {
 }
 
@@ -25,7 +25,7 @@ enum AFM_EHeliSortieState
 }
 
 //------------------------------------------------------------------------------------------------
-class AFM_DiDHeliSpawnerComponent: AFM_DiDSpawnerComponent
+class AFM_DiDHeliSpawnerComponent: AFM_DiDAirSpawnerComponent
 {
 	[Attribute("", UIWidgets.ResourceAssignArray, desc: "Helicopter prefabs, must be supported by REAPER_AiHelicopters. Empty = Mi-8MT gunship HE", params: "et", category: "DiD Heli Spawner")]
 	protected ref array<ResourceName> m_aHelicopterPrefabs;
@@ -51,15 +51,6 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDSpawnerComponent
 	[Attribute("-1", UIWidgets.EditBox, "Wave zones: last wave with sorties (-1 = any)", category: "DiD Heli Spawner")]
 	protected int m_iMaxWaveNumber;
 
-	[Attribute("150", UIWidgets.EditBox, "Spawn height above terrain (meters)", category: "DiD Heli Flight")]
-	protected float m_fSpawnHeightAGL;
-
-	[Attribute("140", UIWidgets.EditBox, "Speed to and from the fight (km/h, 20-150)", category: "DiD Heli Flight")]
-	protected float m_fCruiseSpeed;
-
-	[Attribute("80", UIWidgets.EditBox, "Height above terrain to and from the fight and while holding (meters)", category: "DiD Heli Flight")]
-	protected float m_fCruiseHeight;
-
 	[Attribute("100", UIWidgets.EditBox, "Speed on attack waypoints (km/h, 20-150)", category: "DiD Heli Flight")]
 	protected float m_fAttackSpeed;
 
@@ -68,9 +59,6 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDSpawnerComponent
 
 	[Attribute("500", UIWidgets.EditBox, "Distance (meters) of attack waypoints from the densest player group", category: "DiD Heli Flight")]
 	protected float m_fAttackRadius;
-
-	[Attribute("300", UIWidgets.EditBox, "A waypoint counts as reached within this distance (meters). Must be larger than the helicopter's turn radius", category: "DiD Heli Flight")]
-	protected float m_fWaypointReachedRadius;
 
 	[Attribute("3", UIWidgets.EditBox, "Attack waypoints per attack, spread over an arc facing the helicopter's entry point", category: "DiD Heli Flight")]
 	protected int m_iAttackWaypoints;
@@ -124,14 +112,10 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDSpawnerComponent
 	protected int m_iSupplyRewardOnKill;
 
 	protected static const ResourceName DEFAULT_HELICOPTER_PREFAB = "{3C6B3ED0C3AC30D5}Prefabs/Vehicles/Helicopters/Mi8MT/Mi8MT_armed_gunship_HE.et";
-	protected static const ResourceName MOVE_WAYPOINT_PREFAB = "{F6FB686B76E77E7D}Prefabs/AI/Waypoints/REAPER_AiHelicopterMoveWaypoint.et";
 	protected static const ResourceName HOVER_WAYPOINT_PREFAB = "{471EDCB44D26C193}Prefabs/AI/Waypoints/REAPER_AiHelicopterHoverWaypoint.et";
 
-	protected static const int UPDATE_INTERVAL_MS = 1000;
 	protected static const int SORTIE_RETRY_SECONDS = 60;
-	protected static const int BOARDING_TIMEOUT_SECONDS = 30;
 	protected static const int EGRESS_TIMEOUT_SECONDS = 240;
-	protected static const int WAYPOINT_TIMEOUT_SECONDS = 90;
 
 	protected ref AFM_HeliSortie m_Sortie;
 	protected ref array<IEntity> m_aLeftovers = {};	// Wrecks and emptied crew groups, deleted on cleanup
@@ -208,19 +192,6 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Helicopter crews don't count as zone AI, so they never hold up the end of a wave
-	override int GetActiveAICount()
-	{
-		return 0;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	override bool HasSpawnWaves()
-	{
-		return false;
-	}
-
-	//------------------------------------------------------------------------------------------------
 	// Sortie lifecycle
 	//------------------------------------------------------------------------------------------------
 
@@ -237,44 +208,14 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDSpawnerComponent
 		if (m_aHelicopterPrefabs && !m_aHelicopterPrefabs.IsEmpty())
 			heliPrefab = m_aHelicopterPrefabs.GetRandomElement();
 
-		AFM_SpawnPointEntity entry = m_aSpawnPoints.GetRandomElement();
-		vector transform[4];
-		entry.GetWorldTransform(transform);
-
-		BaseWorld world = GetGame().GetWorld();
-		vector groundPos = transform[3];
-		groundPos[1] = world.GetSurfaceY(groundPos[0], groundPos[2]);
-
-		// The helicopter spawns in the air, the mod keeps it steady until the pilot takes over
-		vector spawnPos = transform[3];
-		spawnPos[1] = Math.Max(spawnPos[1], groundPos[1] + m_fSpawnHeightAGL);
-		transform[3] = spawnPos;
-
-		EntitySpawnParams heliParams = new EntitySpawnParams();
-		heliParams.TransformMode = ETransformMode.WORLD;
-		heliParams.Transform = transform;
-		Vehicle helicopter = Vehicle.Cast(GetGame().SpawnEntityPrefab(Resource.Load(heliPrefab), world, heliParams));
-		if (!helicopter)
+		Vehicle helicopter;
+		SCR_AIGroup crew;
+		vector groundPos;
+		if (!SpawnHelicopterWithCrew(heliPrefab, m_sCrewGroupPrefab, helicopter, crew, groundPos))
 		{
-			PrintFormat("AFM_DiDHeliSpawnerComponent: Failed to spawn helicopter %1", heliPrefab, level: LogLevel.ERROR);
 			m_NextSortieTime = GetCurrentTimestamp().PlusSeconds(m_iSortieCooldown);
 			return;
 		}
-
-		// Spawn the crew on the ground so nobody falls before being moved into the seats
-		EntitySpawnParams crewParams = new EntitySpawnParams();
-		crewParams.TransformMode = ETransformMode.WORLD;
-		crewParams.Transform[3] = groundPos;
-		SCR_AIGroup crew = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(Resource.Load(m_sCrewGroupPrefab), world, crewParams));
-		if (!crew)
-		{
-			PrintFormat("AFM_DiDHeliSpawnerComponent: Failed to spawn crew %1", m_sCrewGroupPrefab, level: LogLevel.ERROR);
-			SCR_EntityHelper.DeleteEntityAndChildren(helicopter);
-			m_NextSortieTime = GetCurrentTimestamp().PlusSeconds(m_iSortieCooldown);
-			return;
-		}
-
-		crew.REAPER_TeleportGroupInHelicopter(helicopter, true);
 
 		m_Sortie = new AFM_HeliSortie();
 		m_Sortie.m_Helicopter = helicopter;
@@ -564,25 +505,9 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDSpawnerComponent
 	//------------------------------------------------------------------------------------------------
 	protected void AddWaypoint(notnull array<REAPER_AiHelicopterBaseWaypoint> outWaypoints, ResourceName prefab, vector pos, float speedKmh, float heightAGL, bool deleteOnArrival)
 	{
-		BaseWorld world = GetGame().GetWorld();
-		pos[1] = world.GetSurfaceY(pos[0], pos[2]);
-
-		EntitySpawnParams params = new EntitySpawnParams();
-		params.TransformMode = ETransformMode.WORLD;
-		params.Transform[3] = pos;
-
-		REAPER_AiHelicopterBaseWaypoint waypoint = REAPER_AiHelicopterBaseWaypoint.Cast(GetGame().SpawnEntityPrefab(Resource.Load(prefab), world, params));
-		if (!waypoint)
-		{
-			PrintFormat("AFM_DiDHeliSpawnerComponent: Failed to spawn waypoint %1", prefab, level: LogLevel.ERROR);
-			return;
-		}
-
-		// Set before the waypoint is assigned: the mod reads them when it becomes current
-		waypoint.REAPER_SetMaxSpeed(speedKmh);
-		waypoint.REAPER_SetHeightAboveTerrain(heightAGL);
-		waypoint.REAPER_SetDeleteHelicopterAndCrew(deleteOnArrival);
-		outWaypoints.Insert(waypoint);
+		REAPER_AiHelicopterBaseWaypoint waypoint = CreateWaypoint(prefab, pos, speedKmh, heightAGL, deleteOnArrival);
+		if (waypoint)
+			outWaypoints.Insert(waypoint);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -753,17 +678,6 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDSpawnerComponent
 		}
 
 		return alive;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	protected bool IsAliveCharacter(IEntity entity)
-	{
-		SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(entity);
-		if (!character)
-			return false;
-
-		SCR_DamageManagerComponent damageManager = character.GetDamageManager();
-		return damageManager && !damageManager.IsDestroyed();
 	}
 
 	//------------------------------------------------------------------------------------------------

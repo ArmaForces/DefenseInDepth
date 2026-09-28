@@ -9,7 +9,7 @@
 //! Children: AFM_SpawnPointEntity        = where the helicopter comes from and leaves through
 //!           AFM_DiDLandingZoneEntity    = candidate landing zones, one picked at random per call
 //------------------------------------------------------------------------------------------------
-class AFM_DiDExtractionComponentClass: AFM_DiDSpawnerComponentClass
+class AFM_DiDExtractionComponentClass: AFM_DiDAirSpawnerComponentClass
 {
 }
 
@@ -25,7 +25,7 @@ enum AFM_EExtractionState
 }
 
 //------------------------------------------------------------------------------------------------
-class AFM_DiDExtractionComponent: AFM_DiDSpawnerComponent
+class AFM_DiDExtractionComponent: AFM_DiDAirSpawnerComponent
 {
 	[Attribute("", UIWidgets.ResourceNamePicker, desc: "Extraction helicopter, must be supported by REAPER_AiHelicopters. Empty = Mi-8MT", params: "et", category: "DiD Extraction")]
 	protected ResourceName m_sHelicopterPrefab;
@@ -45,23 +45,11 @@ class AFM_DiDExtractionComponent: AFM_DiDSpawnerComponent
 	[Attribute("5", UIWidgets.EditBox, "Height above terrain (meters) below which the helicopter counts as landed", category: "DiD Extraction")]
 	protected float m_fTouchdownHeight;
 
-	[Attribute("900", UIWidgets.EditBox, "Seconds after launch before the extraction counts as done regardless of the helicopter. Keeps a stuck pilot from hanging the match", category: "DiD Extraction")]
+	[Attribute("900", UIWidgets.EditBox, "Seconds the inbound helicopter is given before it is written off and another can be called. Does not apply once it has landed and is the players'", category: "DiD Extraction")]
 	protected int m_iSortieTimeoutSeconds;
-
-	[Attribute("150", UIWidgets.EditBox, "Spawn height above terrain (meters)", category: "DiD Extraction Flight")]
-	protected float m_fSpawnHeightAGL;
-
-	[Attribute("140", UIWidgets.EditBox, "Cruise speed (km/h, 20-150)", category: "DiD Extraction Flight")]
-	protected float m_fCruiseSpeed;
-
-	[Attribute("80", UIWidgets.EditBox, "Cruise height above terrain (meters)", category: "DiD Extraction Flight")]
-	protected float m_fCruiseHeight;
 
 	[Attribute("60", UIWidgets.EditBox, "Approach speed to the landing zone (km/h, 20-150)", category: "DiD Extraction Flight")]
 	protected float m_fApproachSpeed;
-
-	[Attribute("300", UIWidgets.EditBox, "A move waypoint counts as reached within this distance (meters). Must be larger than the helicopter's turn radius", category: "DiD Extraction Flight")]
-	protected float m_fWaypointReachedRadius;
 
 	[Attribute("3", UIWidgets.EditBox, "How many of the child landing zones are used in a match. They are picked at random, named and marked on the map", category: "DiD Extraction")]
 	protected int m_iLandingZoneCount;
@@ -70,12 +58,8 @@ class AFM_DiDExtractionComponent: AFM_DiDSpawnerComponent
 	protected ResourceName m_sLandingZoneMarkerPrefab;
 
 	protected static const ResourceName DEFAULT_HELICOPTER_PREFAB = "{3C6B3ED0C3AC30D5}Prefabs/Vehicles/Helicopters/Mi8MT/Mi8MT_armed_gunship_HE.et";
-	protected static const ResourceName MOVE_WAYPOINT_PREFAB = "{F6FB686B76E77E7D}Prefabs/AI/Waypoints/REAPER_AiHelicopterMoveWaypoint.et";
 	protected static const ResourceName LAND_WAYPOINT_PREFAB = "{6D8ADA4DF1A482C6}Prefabs/AI/Waypoints/REAPER_AiHelicopterLandWaypoint.et";
 
-	protected static const int UPDATE_INTERVAL_MS = 1000;
-	protected static const int CREW_BOARDING_TIMEOUT_SECONDS = 30;
-	protected static const int WAYPOINT_TIMEOUT_SECONDS = 90;
 	protected static const int NEVER_TAKE_OFF_PLAYER_COUNT = 9999;
 	protected static const float MARKER_YAW = 90;	//!< Matches the yaw the marker prefab is placed with
 
@@ -306,19 +290,6 @@ class AFM_DiDExtractionComponent: AFM_DiDSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! The extraction helicopter is not part of the zone's AI budget
-	override int GetActiveAICount()
-	{
-		return 0;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	override bool HasSpawnWaves()
-	{
-		return false;
-	}
-
-	//------------------------------------------------------------------------------------------------
 	// Sortie lifecycle
 	//------------------------------------------------------------------------------------------------
 
@@ -328,45 +299,17 @@ class AFM_DiDExtractionComponent: AFM_DiDSpawnerComponent
 		if (!m_sHelicopterPrefab.IsEmpty())
 			heliPrefab = m_sHelicopterPrefab;
 
-		AFM_SpawnPointEntity entry = m_aSpawnPoints.GetRandomElement();
-		vector transform[4];
-		entry.GetWorldTransform(transform);
-
-		BaseWorld world = GetGame().GetWorld();
-		vector groundPos = transform[3];
-		groundPos[1] = world.GetSurfaceY(groundPos[0], groundPos[2]);
-
-		// The helicopter spawns in the air, the mod keeps it steady until the pilot takes over
-		vector spawnPos = transform[3];
-		spawnPos[1] = Math.Max(spawnPos[1], groundPos[1] + m_fSpawnHeightAGL);
-		transform[3] = spawnPos;
-
-		EntitySpawnParams heliParams = new EntitySpawnParams();
-		heliParams.TransformMode = ETransformMode.WORLD;
-		heliParams.Transform = transform;
-		m_Helicopter = Vehicle.Cast(GetGame().SpawnEntityPrefab(Resource.Load(heliPrefab), world, heliParams));
-		if (!m_Helicopter)
+		Vehicle helicopter;
+		SCR_AIGroup crew;
+		vector groundPos;
+		if (!SpawnHelicopterWithCrew(heliPrefab, m_sCrewGroupPrefab, helicopter, crew, groundPos))
 		{
-			PrintFormat("AFM_DiDExtractionComponent: Failed to spawn helicopter %1", heliPrefab, level: LogLevel.ERROR);
 			AbortExtraction("helicopter could not be spawned");
 			return;
 		}
 
-		// Spawn the crew on the ground so nobody falls before being moved into the seats
-		EntitySpawnParams crewParams = new EntitySpawnParams();
-		crewParams.TransformMode = ETransformMode.WORLD;
-		crewParams.Transform[3] = groundPos;
-		m_CrewGroup = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(Resource.Load(m_sCrewGroupPrefab), world, crewParams));
-		if (!m_CrewGroup)
-		{
-			PrintFormat("AFM_DiDExtractionComponent: Failed to spawn crew %1", m_sCrewGroupPrefab, level: LogLevel.ERROR);
-			SCR_EntityHelper.DeleteEntityAndChildren(m_Helicopter);
-			m_Helicopter = null;
-			AbortExtraction("crew could not be spawned");
-			return;
-		}
-
-		m_CrewGroup.REAPER_TeleportGroupInHelicopter(m_Helicopter, true);
+		m_Helicopter = helicopter;
+		m_CrewGroup = crew;
 
 		m_SortieStartTime = GetCurrentTimestamp();
 		m_StateStartTime = m_SortieStartTime;
@@ -403,18 +346,29 @@ class AFM_DiDExtractionComponent: AFM_DiDSpawnerComponent
 			return;
 		}
 
-		// A stuck pilot must never hang the match
-		if (now.DiffSeconds(m_SortieStartTime) >= m_iSortieTimeoutSeconds)
-		{
-			PrintFormat("AFM_DiDExtractionComponent: Sortie timed out after %1 s, counting the extraction as done",
-				m_iSortieTimeoutSeconds, level: LogLevel.WARNING);
-			CompleteExtraction("sortie timed out");
-			return;
-		}
-
+		// Once it is down and the crew is gone, the helicopter is the players' and they take as long as
+		// they take. The timeout below only covers the stretch the AI pilot flies.
 		if (m_eState == AFM_EExtractionState.HANDOVER)
 		{
 			UpdateHandover();
+			return;
+		}
+
+		// A stuck pilot must never hang the match. The sortie is written off rather than counted as done:
+		// nobody is aboard at this point, so completing it would hand the players a win they never flew.
+		// The helicopter goes with it - still airborne and now without waypoints, it would circle the map
+		// for the rest of the match - and the players can call another one.
+		if (now.DiffSeconds(m_SortieStartTime) >= m_iSortieTimeoutSeconds)
+		{
+			PrintFormat("AFM_DiDExtractionComponent: Sortie timed out after %1 s, writing this helicopter off",
+				m_iSortieTimeoutSeconds, level: LogLevel.WARNING);
+
+			SCR_EntityHelper.DeleteEntityAndChildren(m_Helicopter);
+			SCR_EntityHelper.DeleteEntityAndChildren(m_CrewGroup);
+			m_Helicopter = null;
+			m_CrewGroup = null;
+
+			AbortExtraction("helicopter never made it");
 			return;
 		}
 
@@ -425,7 +379,7 @@ class AFM_DiDExtractionComponent: AFM_DiDSpawnerComponent
 			{
 				m_bCrewBoarded = true;
 			}
-			else if (now.DiffSeconds(m_SortieStartTime) > CREW_BOARDING_TIMEOUT_SECONDS)
+			else if (now.DiffSeconds(m_SortieStartTime) > BOARDING_TIMEOUT_SECONDS)
 			{
 				AbortExtraction("crew never boarded");
 				return;
@@ -664,7 +618,7 @@ class AFM_DiDExtractionComponent: AFM_DiDSpawnerComponent
 	{
 		vector landingPos = m_LandingZone.GetOrigin();
 
-		m_MoveInWaypoint = AddWaypoint(MOVE_WAYPOINT_PREFAB, landingPos, m_fApproachSpeed, m_fCruiseHeight, false);
+		m_MoveInWaypoint = AddWaypoint(MOVE_WAYPOINT_PREFAB, landingPos, m_fCruiseSpeed, m_fCruiseHeight, false);
 		m_LandWaypoint = AddWaypoint(LAND_WAYPOINT_PREFAB, landingPos, m_fApproachSpeed, m_fCruiseHeight, false);
 
 		// No waypoint after the landing: the crew is despawned once it is down and the players fly it out
@@ -701,26 +655,10 @@ class AFM_DiDExtractionComponent: AFM_DiDSpawnerComponent
 	//------------------------------------------------------------------------------------------------
 	protected REAPER_AiHelicopterBaseWaypoint AddWaypoint(ResourceName prefab, vector pos, float speedKmh, float heightAGL, bool deleteOnArrival)
 	{
-		BaseWorld world = GetGame().GetWorld();
-		pos[1] = world.GetSurfaceY(pos[0], pos[2]);
+		REAPER_AiHelicopterBaseWaypoint waypoint = CreateWaypoint(prefab, pos, speedKmh, heightAGL, deleteOnArrival);
+		if (waypoint)
+			m_aWaypoints.Insert(waypoint);
 
-		EntitySpawnParams params = new EntitySpawnParams();
-		params.TransformMode = ETransformMode.WORLD;
-		params.Transform[3] = pos;
-
-		REAPER_AiHelicopterBaseWaypoint waypoint = REAPER_AiHelicopterBaseWaypoint.Cast(GetGame().SpawnEntityPrefab(Resource.Load(prefab), world, params));
-		if (!waypoint)
-		{
-			PrintFormat("AFM_DiDExtractionComponent: Failed to spawn waypoint %1", prefab, level: LogLevel.ERROR);
-			return null;
-		}
-
-		// Set before the waypoint is assigned: the mod reads them when it becomes current
-		waypoint.REAPER_SetMaxSpeed(speedKmh);
-		waypoint.REAPER_SetHeightAboveTerrain(heightAGL);
-		waypoint.REAPER_SetDeleteHelicopterAndCrew(deleteOnArrival);
-
-		m_aWaypoints.Insert(waypoint);
 		return waypoint;
 	}
 
@@ -738,14 +676,4 @@ class AFM_DiDExtractionComponent: AFM_DiDSpawnerComponent
 		m_LandWaypoint = null;
 	}
 
-	//------------------------------------------------------------------------------------------------
-	protected bool IsAliveCharacter(IEntity entity)
-	{
-		SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(entity);
-		if (!character)
-			return false;
-
-		SCR_DamageManagerComponent damageManager = character.GetDamageManager();
-		return damageManager && !damageManager.IsDestroyed();
-	}
 }
