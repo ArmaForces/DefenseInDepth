@@ -449,6 +449,62 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Hand a world prop to a faction on every machine.
+	//!
+	//! Faction affiliation does not replicate: SetAffiliatedFactionByKey is a plain engine call, so doing
+	//! it on the server alone leaves every client thinking the prop belongs to whoever placed it. The
+	//! arsenal hid that, because RefreshArsenal broadcasts its item list separately, but a building
+	//! provider does not - SCR_CampaignBuildingStartUserAction decides whether to show the build action on
+	//! the client, comparing the player against the provider's faction as that machine sees it. Vanilla's
+	//! own base capture replicates its faction and applies it per machine; this is the same idea.
+	void SetPropFaction(RplId propId, FactionKey factionKey)
+	{
+		if (!propId.IsValid() || factionKey.IsEmpty())
+			return;
+
+		RPC_DoSetPropFaction(propId, factionKey);
+		Rpc(RPC_DoSetPropFaction, propId, factionKey);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoSetPropFaction(RplId propId, FactionKey factionKey)
+	{
+		RplComponent rplComponent = RplComponent.Cast(Replication.FindItem(propId));
+		if (!rplComponent)
+			return;
+
+		IEntity prop = rplComponent.GetEntity();
+		if (!prop)
+			return;
+
+		SCR_FactionAffiliationComponent affiliation = SCR_FactionAffiliationComponent.Cast(prop.FindComponent(SCR_FactionAffiliationComponent));
+		if (!affiliation)
+			return;
+
+		// Only when it actually changes hands. Setting the same faction again would throw anyone currently
+		// building at this provider out of build mode, and this is re-sent whenever a player joins.
+		if (affiliation.GetAffiliatedFactionKey() == factionKey)
+			return;
+
+		affiliation.SetAffiliatedFactionByKey(factionKey);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! A player who joins mid-match missed the broadcast, so the zone says it again for them
+	override void OnPlayerConnected(int playerId)
+	{
+		super.OnPlayerConnected(playerId);
+
+		if (!m_ZoneSystem)
+			return;
+
+		AFM_DiDZoneComponent zone = m_ZoneSystem.GetActiveZone();
+		if (zone)
+			zone.ApplyDefenderFactionToProps();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! Broadcast a hint to every player
 	void ShowHint(string message, int duration = 10)
 	{

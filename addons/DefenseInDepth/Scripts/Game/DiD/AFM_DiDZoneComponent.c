@@ -75,7 +75,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 
 	// Props under this zone that carry a faction - the arsenal crate, the support station - handed to
 	// whichever side is defending when the zone starts
-	protected ref array<SCR_FactionAffiliationComponent> m_aFactionProps = {};
+	protected ref array<IEntity> m_aFactionProps = {};
 	
 	// Attackers this zone may still send. Sized when the attack starts, then never resized.
 	protected int m_iTicketPool;
@@ -109,6 +109,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected int m_iDefenderCountInsideZone;
 	
 	// Faction configuration
+	protected AFM_GameModeDiD m_GameMode;
 	protected SCR_Faction m_RedforFaction;
 	protected SCR_Faction m_BluforFaction;
 
@@ -193,6 +194,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 			PrintFormat("AFM_DiDZoneComponent %1: Invalid gamemode!", m_sZoneName, level: LogLevel.ERROR);
 			return;
 		}
+		m_GameMode = gamemode;
 		m_RedforFaction = gamemode.GetRedforFaction();
 		m_BluforFaction = gamemode.GetBluforFaction();
 		m_AttackerConfig = gamemode.GetAttackerConfig();
@@ -348,7 +350,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//! Remember anything under this zone that carries a faction, so the zone can hand it to the side that
 	//! is defending. Searches the whole subtree because a crate is a composition and only its root tends
 	//! to carry the affiliation.
-	//! eturn true when the entity, or something under it, carries one
+	//! Returns true when the entity, or something under it, carries one
 	protected bool CollectFactionProps(IEntity entity)
 	{
 		if (!entity)
@@ -359,7 +361,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 		SCR_FactionAffiliationComponent affiliation = SCR_FactionAffiliationComponent.Cast(entity.FindComponent(SCR_FactionAffiliationComponent));
 		if (affiliation)
 		{
-			m_aFactionProps.Insert(affiliation);
+			m_aFactionProps.Insert(entity);
 			found = true;
 		}
 		
@@ -380,36 +382,44 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//! reads its live faction and restocks itself through RefreshArsenal, and the construction manager
 	//! offers that side's compositions.
 	//!
-	//! Done when the zone starts and not again, because changing a building provider's faction throws
-	//! everyone currently using it out of build mode - SCR_CampaignBuildingProviderComponent kicks its
-	//! active users in OnBaseOwnerChanged.
-	protected void ApplyDefenderFactionToProps()
+	//! Sent through the game mode rather than set here, because faction affiliation does not replicate and
+	//! the build action is shown or hidden by each client from its own copy. Every prop is re-sent every
+	//! time; the receiving side ignores one that has not changed hands, which keeps builders from being
+	//! thrown out of build mode by a no-op.
+	void ApplyDefenderFactionToProps()
 	{
-		if (!m_BluforFaction || m_aFactionProps.IsEmpty())
+		if (!m_GameMode || !m_BluforFaction || m_aFactionProps.IsEmpty())
 			return;
 		
 		FactionKey key = m_BluforFaction.GetFactionKey();
 		if (key.IsEmpty())
 			return;
 		
-		int changed = 0;
-		foreach (SCR_FactionAffiliationComponent affiliation : m_aFactionProps)
+		int sent = 0;
+		foreach (IEntity prop : m_aFactionProps)
 		{
-			if (!affiliation)
+			if (!prop)
 				continue;
 			
-			// Nothing to do when it already belongs to them, and setting it anyway would kick any builder
-			Faction current = affiliation.GetAffiliatedFaction();
-			if (current && current.GetFactionKey() == key)
+			RplComponent rplComponent = RplComponent.Cast(prop.FindComponent(RplComponent));
+			if (!rplComponent)
+			{
+				PrintFormat("AFM_DiDZoneComponent %1: Prop %2 is not replicated, only this machine will see it change hands",
+					m_sZoneName, prop.GetPrefabData().GetPrefabName(), level: LogLevel.WARNING);
+				
+				SCR_FactionAffiliationComponent affiliation = SCR_FactionAffiliationComponent.Cast(prop.FindComponent(SCR_FactionAffiliationComponent));
+				if (affiliation && affiliation.GetAffiliatedFactionKey() != key)
+					affiliation.SetAffiliatedFactionByKey(key);
+				
 				continue;
+			}
 			
-			affiliation.SetAffiliatedFactionByKey(key);
-			changed++;
+			m_GameMode.SetPropFaction(Replication.FindItemId(rplComponent), key);
+			sent++;
 		}
 		
-		if (changed > 0)
-			PrintFormat("AFM_DiDZoneComponent %1: %2 of %3 props handed to %4",
-				m_sZoneName, changed, m_aFactionProps.Count(), key);
+		PrintFormat("AFM_DiDZoneComponent %1: %2 of %3 props handed to %4",
+			m_sZoneName, sent, m_aFactionProps.Count(), key);
 	}
 	
 	//------------------------------------------------------------------------------------------------
