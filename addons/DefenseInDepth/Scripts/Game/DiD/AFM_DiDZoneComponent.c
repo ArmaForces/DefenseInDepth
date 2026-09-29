@@ -72,6 +72,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 	
 	// Compositions players built while this zone was active, removed with the zone
 	protected ref array<IEntity> m_aPlayerStructures = {};
+
+	// Props under this zone that carry a faction - the arsenal crate, the support station - handed to
+	// whichever side is defending when the zone starts
+	protected ref array<SCR_FactionAffiliationComponent> m_aFactionProps = {};
 	
 	// Attackers this zone may still send. Sized when the attack starts, then never resized.
 	protected int m_iTicketPool;
@@ -169,7 +173,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 				m_PlayerSpawnPoint = playerSpawnPoint;
 			else if (supplyCache)
 				m_SupplyCache = SCR_ResourceComponent.Cast(e.FindComponent(SCR_ResourceComponent));
-			else
+			else if (!CollectFactionProps(e))
 				PrintFormat("AFM_DiDZoneComponent %1: Unknown type %2", m_sZoneName, e.Type().ToString());
 
 			e = e.GetSibling();
@@ -201,6 +205,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 		}
 
 		ApplyPhaseSettings();
+		
+		// Also done here, not only in ActivateZone: the zone system can start the first zone before its
+		// children have been resolved, and by then there was nothing to hand over
+		ApplyDefenderFactionToProps();
 		
 		m_bInitialized = true;
 		PrintFormat("AFM_DiDZoneComponent %1: Initialized with %2 spawners", m_sZoneName, m_aSpawners.Count());
@@ -334,6 +342,74 @@ class AFM_DiDZoneComponent: ScriptComponent
 		}
 		
 		RemovePlayerStructures();
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Remember anything under this zone that carries a faction, so the zone can hand it to the side that
+	//! is defending. Searches the whole subtree because a crate is a composition and only its root tends
+	//! to carry the affiliation.
+	//! eturn true when the entity, or something under it, carries one
+	protected bool CollectFactionProps(IEntity entity)
+	{
+		if (!entity)
+			return false;
+		
+		bool found = false;
+		
+		SCR_FactionAffiliationComponent affiliation = SCR_FactionAffiliationComponent.Cast(entity.FindComponent(SCR_FactionAffiliationComponent));
+		if (affiliation)
+		{
+			m_aFactionProps.Insert(affiliation);
+			found = true;
+		}
+		
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			if (CollectFactionProps(child))
+				found = true;
+			
+			child = child.GetSibling();
+		}
+		
+		return found;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Point the zone's props at the defending side. Changing the affiliation is all it takes: the arsenal
+	//! reads its live faction and restocks itself through RefreshArsenal, and the construction manager
+	//! offers that side's compositions.
+	//!
+	//! Done when the zone starts and not again, because changing a building provider's faction throws
+	//! everyone currently using it out of build mode - SCR_CampaignBuildingProviderComponent kicks its
+	//! active users in OnBaseOwnerChanged.
+	protected void ApplyDefenderFactionToProps()
+	{
+		if (!m_BluforFaction || m_aFactionProps.IsEmpty())
+			return;
+		
+		FactionKey key = m_BluforFaction.GetFactionKey();
+		if (key.IsEmpty())
+			return;
+		
+		int changed = 0;
+		foreach (SCR_FactionAffiliationComponent affiliation : m_aFactionProps)
+		{
+			if (!affiliation)
+				continue;
+			
+			// Nothing to do when it already belongs to them, and setting it anyway would kick any builder
+			Faction current = affiliation.GetAffiliatedFaction();
+			if (current && current.GetFactionKey() == key)
+				continue;
+			
+			affiliation.SetAffiliatedFactionByKey(key);
+			changed++;
+		}
+		
+		if (changed > 0)
+			PrintFormat("AFM_DiDZoneComponent %1: %2 of %3 props handed to %4",
+				m_sZoneName, changed, m_aFactionProps.Count(), key);
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -903,6 +979,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 		m_iTicketsRemaining = 0;
 		m_iInheritedTickets = 0;
 		m_bTicketPoolSized = false;
+
+		ApplyDefenderFactionToProps();
 
 		PrintFormat("AFM_DiDZoneComponent %1: Entering PREPARE state for %2 seconds, %3 s of contested time allowed",
 		 m_sZoneName, m_iPrepareTimeSeconds, m_iFailureTimeSeconds);
