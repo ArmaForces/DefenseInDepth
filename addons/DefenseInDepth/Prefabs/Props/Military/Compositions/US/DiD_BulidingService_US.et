@@ -29,7 +29,9 @@ GenericEntity : "{7649AC4689618998}Prefabs/Props/Military/Compositions/US/Buildi
     }
    }
   }
+  Hierarchy "{6A793EE31F84203A}" {
+  }
  }
- coords 1528.273 56.44 5923.732
- angles 0 -106.458 0
+ coords -26.749 0.57 16.611
+ angles 0 -6.145 0
 }

@@ -1,7 +1,3 @@
-GenericEntity : "{45C675ED3CFBBEC5}Prefabs/Props/Military/Compositions/US/ArsenalBox_US.et" {
- coords 1068.557 2.722 6016.626
- angles 0 -96.592 0
-}
 AFM_DiDZoneEntity : "{54DE363F12E79F7A}Prefabs/MP/AFM_DiDExtractionZonePrefab.et" {
  components {
   AFM_DiDExtractionZoneComponent "{6A6A77D49F64D9E1}" {
@@ -792,6 +788,32 @@ AFM_DiDZoneEntity : "{54DE363F12E79F7A}Prefabs/MP/AFM_DiDExtractionZonePrefab.et
     }
    }
   }
+  GenericEntity : "{45C675ED3CFBBEC5}Prefabs/Props/Military/Compositions/US/ArsenalBox_US.et" {
+   coords 45.493 0.035 -9.693
+   angles 0 -96.592 0
+  }
+  GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
+   components {
+    ActionsManagerComponent "{5CB66A0F7D87DD32}" {
+     additionalActions {
+      AFM_CallExtractionAction "{6A6A77D2CC9EECA9}" {
+       ParentContextList {
+        "OpenFreeformBuilding"
+       }
+       UIInfo UIInfo "{6A6A77D2CC9EECF1}" {
+        Name "Call for extraction"
+       }
+       ActionTitle "Call for extraction"
+       VisibilityRange 10
+       Duration 1.5
+       "Sort Priority" 2
+      }
+     }
+    }
+   }
+   coords 48.7 0.032 -7.714
+   angles 0 -3.365 0
+  }
   AFM_DiDMechanizedSpawnerComponent : "{8E7842A8534F4260}Prefabs/Spawners/AFM_MechanizedSpawner.et" {
    coords 42.414 0.094 31.443
    m_iMaxActiveVehicles 6
@@ -959,26 +981,4 @@ AFM_DiDZoneEntity : "{54DE363F12E79F7A}Prefabs/MP/AFM_DiDExtractionZonePrefab.et
 PS_ManualMarker : "{5CDEA09445852F9D}PrefabsEditable/Markers/SupportStationMarker.et" {
  coords 1069.093 2.719 6019.984
  angles 0 0 0
-}
-GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
- components {
-  ActionsManagerComponent "{5CB66A0F7D87DD32}" {
-   additionalActions {
-    AFM_CallExtractionAction "{6A6A77D2CC9EECA9}" {
-     ParentContextList {
-      "OpenFreeformBuilding"
-     }
-     UIInfo UIInfo "{6A6A77D2CC9EECF1}" {
-      Name "Call for extraction"
-     }
-     ActionTitle "Call for extraction"
-     VisibilityRange 10
-     Duration 1.5
-     "Sort Priority" 2
-    }
-   }
-  }
- }
- coords 1071.764 2.719 6018.605
- angles 0 -3.365 0
 }

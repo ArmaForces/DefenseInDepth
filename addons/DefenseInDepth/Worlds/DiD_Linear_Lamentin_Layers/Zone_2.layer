@@ -1,14 +1,6 @@
-GenericEntity : "{45C675ED3CFBBEC5}Prefabs/Props/Military/Compositions/US/ArsenalBox_US.et" {
- coords 1293.123 37.561 6020.781
- angles 0 -38.887 0
-}
 PS_ManualMarker : "{5CDEA09445852F9D}PrefabsEditable/Markers/SupportStationMarker.et" {
  coords 1290.432 37.499 6020.635
  angles 0 0 0
-}
-GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
- coords 1289.929 37.453 6018.585
- angles 0 -18.07 0
 }
 AFM_DiDZoneEntity zone2 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
  components {
@@ -446,6 +438,14 @@ AFM_DiDZoneEntity zone2 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
      }
     }
    }
+  }
+  GenericEntity : "{45C675ED3CFBBEC5}Prefabs/Props/Military/Compositions/US/ArsenalBox_US.et" {
+   coords -10.378 -0.65 68.318
+   angles 0 -38.887 0
+  }
+  GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
+   coords -13.572 -0.758 66.122
+   angles 0 -18.07 0
   }
   AFM_DiDCowabungaComponent : "{82F093D3102C27A2}Prefabs/Spawners/AFM_Cowabunga.et" {
    coords -19.195 -1.108 55.105
