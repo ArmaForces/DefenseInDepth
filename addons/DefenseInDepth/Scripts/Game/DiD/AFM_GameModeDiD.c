@@ -13,6 +13,15 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	// Loaded at EOnInit, well before any zone initialises and reads them
 	protected ref AFM_DiDSideConfig m_DefenderConfig;
 	protected ref AFM_DiDSideConfig m_AttackerConfig;
+
+	// Replicated, because a client cannot be relied on to have resolved the configs the same way: the
+	// scenario may name the sides in its header, which is captured on the authority. The HUD needs the
+	// keys to draw the two flags, so the authority states them.
+	[RplProp(onRplName: "OnMatchSituationChanged")]
+	protected string m_sDefenderFactionKeyRpl;
+
+	[RplProp(onRplName: "OnMatchSituationChanged")]
+	protected string m_sAttackerFactionKeyRpl;
 	
 	[Attribute("1", UIWidgets.CheckBox, "Re-equip the loadout a player saved at an arsenal when they respawn", category: "DiD")]
 	protected bool m_bApplySavedLoadouts;
@@ -257,6 +266,15 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		if (m_DefenderConfig && m_AttackerConfig)
 			PrintFormat("AFM_GameModeDiD: %1 defending against %2",
 				m_DefenderConfig.GetLabel(), m_AttackerConfig.GetLabel());
+
+		if (!Replication.IsServer())
+			return;
+
+		if (m_DefenderConfig)
+			m_sDefenderFactionKeyRpl = m_DefenderConfig.m_sFactionKey;
+
+		if (m_AttackerConfig)
+			m_sAttackerFactionKeyRpl = m_AttackerConfig.m_sFactionKey;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -272,8 +290,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! The authority's answer wins. A client may have loaded a different config, or none.
 	FactionKey GetDefenderFactionKey()
 	{
+		if (!m_sDefenderFactionKeyRpl.IsEmpty())
+			return m_sDefenderFactionKeyRpl;
+
 		if (!m_DefenderConfig)
 			return string.Empty;
 
@@ -283,6 +305,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	//------------------------------------------------------------------------------------------------
 	FactionKey GetAttackerFactionKey()
 	{
+		if (!m_sAttackerFactionKeyRpl.IsEmpty())
+			return m_sAttackerFactionKeyRpl;
+
 		if (!m_AttackerConfig)
 			return string.Empty;
 
@@ -676,9 +701,50 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		// 0 means no limit: the whole server goes in here
 		m_PlayerGroup.SetMaxMembers(0);
 
+		// A faction's base group is not necessarily empty, and any AI it brought would stand in the players'
+		// group for the rest of the match. Members arrive over several frames, so this is repeated until the
+		// group says it has finished filling itself.
+		GetGame().GetCallqueue().CallLater(ClearGroupAI, ASSIGN_DELAY_MS, false, m_PlayerGroup, 0);
+
 		PrintFormat("AFM_GameModeDiD: Player group %1 created for the %2 side",
 			groupPrefab, m_DefenderConfig.GetLabel());
 		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Remove the AI the group prefab spawned with, leaving only bodies meant for players. A player body is
+	//! a playable that has been switched on, so anything else in here is the prefab's own squad.
+	protected void ClearGroupAI(SCR_AIGroup group, int attempt)
+	{
+		if (!group)
+			return;
+
+		array<AIAgent> agents = {};
+		group.GetAgents(agents);
+
+		int removed = 0;
+		foreach (AIAgent agent : agents)
+		{
+			if (!agent)
+				continue;
+
+			IEntity member = agent.GetControlledEntity();
+			if (!member)
+				continue;
+
+			PS_PlayableComponent playable = PS_PlayableComponent.Cast(member.FindComponent(PS_PlayableComponent));
+			if (playable && playable.GetPlayable())
+				continue;
+
+			SCR_EntityHelper.DeleteEntityAndChildren(member);
+			removed++;
+		}
+
+		if (removed > 0)
+			PrintFormat("AFM_GameModeDiD: Removed %1 AI the player group prefab spawned with", removed);
+
+		if (!group.IsExpandComplete() && attempt < ASSIGN_MAX_ATTEMPTS)
+			GetGame().GetCallqueue().CallLater(ClearGroupAI, ASSIGN_DELAY_MS, false, group, attempt + 1);
 	}
 
 	//------------------------------------------------------------------------------------------------

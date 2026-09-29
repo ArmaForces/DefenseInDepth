@@ -9,6 +9,10 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 	
 	protected bool m_bInitDone;
 	protected bool m_bPeriodicRefresh;
+
+	// Flags already drawn, so the textures are only loaded when the sides actually change
+	protected FactionKey m_sShownBluforKey;
+	protected FactionKey m_sShownRedforKey;
 	
 	protected AFM_GameModeDiD m_Campaign;
 	
@@ -55,11 +59,7 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 		m_wWinScoreSideLeft = ImageWidget.Cast(m_wRoot.FindAnyWidget("ObjectiveLeft"));
 		m_wWinScoreSideRight = ImageWidget.Cast(m_wRoot.FindAnyWidget("ObjectiveRight"));
 		
-		SCR_Faction factionBLUFOR = m_Campaign.GetBluforFaction();
-		SCR_Faction factionOPFOR = m_Campaign.GetRedforFaction();
-		
-		m_wLeftFlag.LoadImageTexture(0, factionBLUFOR.GetFactionFlag());
-		m_wRightFlag.LoadImageTexture(0, factionOPFOR.GetFactionFlag());
+		RefreshFlags();
 		
 		UpdateHUD();
 	}
@@ -86,8 +86,36 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 	}
 	
 	//------------------------------------------------------------------------------------------------
+	//! Draw each side's flag, once per side. Called on every update rather than only at init: which
+	//! faction each side is comes from the game mode over the wire, so on a client it can arrive after
+	//! this display has already started drawing.
+	protected void RefreshFlags()
+	{
+		if (!m_Campaign)
+			return;
+
+		SCR_Faction blufor = m_Campaign.GetBluforFaction();
+		if (blufor && blufor.GetFactionKey() != m_sShownBluforKey)
+		{
+			m_sShownBluforKey = blufor.GetFactionKey();
+			if (m_wLeftFlag)
+				m_wLeftFlag.LoadImageTexture(0, blufor.GetFactionFlag());
+		}
+
+		SCR_Faction redfor = m_Campaign.GetRedforFaction();
+		if (redfor && redfor.GetFactionKey() != m_sShownRedforKey)
+		{
+			m_sShownRedforKey = redfor.GetFactionKey();
+			if (m_wRightFlag)
+				m_wRightFlag.LoadImageTexture(0, redfor.GetFactionFlag());
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected void UpdateHUDValues()
 	{
+		RefreshFlags();
+		
 		// The AI count inside the zone is already in the status line, so the flag shows what is left to come
 		int redforScore = m_Campaign.GetTicketsRemaining();
 		int bluforScore = m_Campaign.GetDefendersRemaining();
