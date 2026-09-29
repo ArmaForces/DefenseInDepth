@@ -165,7 +165,7 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDAirSpawnerComponent
 		if (m_aHelicopterPrefabs.IsEmpty() || m_sCrewGroupPrefab.IsEmpty())
 		{
 			PrintFormat("AFM_DiDHeliSpawnerComponent: The attacking side (%1) has no helicopters or no crew group, no sorties will fly",
-				side.GetLabel(), level: LogLevel.ERROR);
+				side.GetLabel(), level: LogLevel.WARNING);
 			m_iSortiesFlown = m_iMaxSorties;
 		}
 	}

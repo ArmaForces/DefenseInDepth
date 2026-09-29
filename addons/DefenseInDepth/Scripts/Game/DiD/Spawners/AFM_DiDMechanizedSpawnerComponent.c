@@ -81,7 +81,7 @@ class AFM_DiDMechanizedSpawnerComponent: AFM_DiDSpawnerComponent
 
 		if (m_aVehicles.IsEmpty())
 			PrintFormat("AFM_DiDMechanizedSpawnerComponent: The attacking side (%1) has no vehicles, none will be sent",
-				side.GetLabel(), level: LogLevel.ERROR);
+				side.GetLabel(), level: LogLevel.WARNING);
 	}
 
 	//------------------------------------------------------------------------------------------------

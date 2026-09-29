@@ -81,9 +81,10 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		m_MortarPrefab = side.m_sMortarComposition;
 		m_crewConfig = side.m_MortarCrew;
 
+		// Not every side fields mortars, so this is worth saying without calling it an error
 		if (m_MortarPrefab.IsEmpty() || !m_crewConfig)
-			PrintFormat("AFM_DiDMortarSpawnerComponent: The attacking side (%1) has no mortar composition or no mortar crew",
-				side.GetLabel(), level: LogLevel.ERROR);
+			PrintFormat("AFM_DiDMortarSpawnerComponent: The attacking side (%1) has no mortar composition or no mortar crew, this spawner will do nothing",
+				side.GetLabel(), level: LogLevel.WARNING);
 	}
 
 	//------------------------------------------------------------------------------------------------

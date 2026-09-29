@@ -71,7 +71,7 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 		if (m_sSquadGroupPrefab.IsEmpty() || m_aSquadCharacterPrefabs.IsEmpty())
 		{
 			PrintFormat("AFM_DiDCowabungaComponent: The attacking side (%1) has no COWABUNGA group or characters, the squad will never be sent",
-				side.GetLabel(), level: LogLevel.ERROR);
+				side.GetLabel(), level: LogLevel.WARNING);
 			m_iActivations = m_iMaxActivations;
 		}
 	}
