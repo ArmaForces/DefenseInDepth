@@ -222,6 +222,65 @@ The alternative this replaced - per-faction world wrappers over a shared base wo
 needed. World inheritance was proven working first, so it stays available if the player side ever wants
 authored slots again.
 
+## World-placed content: arsenals, support stations, buildables
+
+Three things still carry a faction the side config does not reach: the arsenal crates, the
+`DiD_BulidingService_US` support station, and the set of compositions players may build. All are
+placed at layer root in each zone rather than under the zone entity - `Zone_1.layer:689` and `:697`.
+
+### Arsenals: spawn from a marker, or re-faction what is placed
+
+**Re-factioning works.** `SCR_ArsenalComponent.GetAssignedFaction()` reads the live affiliated faction,
+and `m_bAlwaysUseDefaultFaction` defaults to `"0"`, so a runtime change is honoured unless a prefab
+opted out. `SetAffiliatedFactionByKey(key)` is the vanilla setter - `SCR_ArmoryComponent.c:30` and
+`SCR_MilitaryBaseComponent.c:530` both use it. `OnFactionChanged` calls `RefreshArsenal()`
+(`SCR_ArsenalComponent.c:480-482`), which broadcasts `RPC_OnArsenalUpdated` when it runs on the server
+outside init (`:425-428`), so clients follow with no replication work of ours.
+
+Its price is finding them. **Nothing registers arsenals** - neither `SCR_ArsenalComponent` nor
+`SCR_ArsenalManagerComponent` keeps a list - so they have to be swept out of the world with
+`BaseWorld.QueryEntitiesBySphere(center, radius, addEntity, filterEntity, flags)` per zone, and the
+crate still looks American whatever it now stocks.
+
+**Spawning from a marker fits the mod better.** The zone's `LateInit` already scans its children for
+`AFM_PlayerSpawnPointEntity`, `AFM_SupplyCacheEntity` and the landing zones; an arsenal marker is one
+more case and about five lines. The spawned crate is the side's own prefab, so contents *and* model are
+right, with no faction mutation, no dependence on `m_bAlwaysUseDefaultFaction` and no world queries. It
+generalises to the support station too, which is US-skinned *and* carries the vote-skip and
+call-extraction actions, so it needs a per-side prefab regardless.
+
+The cost is a content edit: in three worlds, replace each placed crate and support station with a
+marker parented to the zone entity. Mission authors lose the editor preview of where the crate sits
+unless the marker prefab carries a mesh.
+
+Recommendation: markers, with `m_sArsenalPrefab` and `m_sSupportStationPrefab` on the side config.
+
+### Buildables: neither, because it is not a placed entity
+
+`SCR_CampaignBuildingManagerComponent.EOnInit` calls `GetPrefabListFromConfig()` **before** its
+`IsMaster()` early-out (`:335-345`), so every machine loads `m_sPrefabsToBuildResource` for itself and
+the list is never replicated.
+
+That matters more than it looks, because compositions are addressed **by index into that array**:
+`GetCompositionResourceName(prefabID)` (`:385-392`) and `GetCompositionId(resName)` (`:410-412`), and
+the id crosses the wire while placing. Server and clients must therefore end up with identical,
+identically-ordered lists - the same hazard vanilla has with loadouts. A per-side set has to be derived
+from data every machine already has (the mission header, then the side config), never decided at
+runtime on the server.
+
+The mechanism is small: `SCR_PlaceableEntitiesRegistry` is a `configRoot` holding `m_Prefabs`
+(`SCR_PlaceableEntitiesRegistry.c:8-20`), so author one `.conf` per side, add `m_sBuildableCompositions`
+to the side config, and add a `modded class SCR_CampaignBuildingManagerComponent` with a setter that
+assigns `m_sPrefabsToBuildResource` and re-calls the public `GetPrefabListFromConfig()`. Call it from
+the game mode's `LoadSideConfigs()`, which already runs on server and client alike, so it does not
+depend on component init order.
+
+The content behind it is the real work: `PrefabsEditable/Auto/Compositions/.../E_GuardTower_S_US_01.et`
+and `E_TOWPlacement_S_US_01.et` are US-skinned with rank budgets, and a FIA or Soviet build menu wants
+its own equivalents.
+
+---
+
 ## Phases
 
 **Phase 0 - the world-inheritance test.** Done: it works. Kept as a fallback rather than used, since
