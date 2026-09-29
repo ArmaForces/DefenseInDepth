@@ -31,5 +31,13 @@ modded class SCR_CampaignBuildingCompositionComponent
 			return;
 
 		zone.RegisterPlayerStructure(GetOwner());
+
+		AFM_GameModeDiD gameMode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
+		if (!gameMode)
+			return;
+
+		AFM_DiDStatsTracker stats = gameMode.GetStats();
+		if (stats)
+			stats.OnStructureBuilt(m_iBuilderId);
 	}
 }

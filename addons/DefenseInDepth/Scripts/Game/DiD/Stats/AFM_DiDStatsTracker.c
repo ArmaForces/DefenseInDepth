@@ -9,6 +9,9 @@ class AFM_DiDStatsTracker
 {
 	protected ref map<int, ref AFM_DiDPlayerStats> m_mStats = new map<int, ref AFM_DiDPlayerStats>();
 
+	// Build sessions that have not ended yet, by player
+	protected ref map<int, WorldTimestamp> m_mBuildStarted = new map<int, WorldTimestamp>();
+
 	//------------------------------------------------------------------------------------------------
 	//! Count one death. Called for every controllable, so most of the work is deciding what to ignore.
 	void OnControllableDestroyed(notnull SCR_InstigatorContextData context)
@@ -49,6 +52,87 @@ class AFM_DiDStatsTracker
 			killer.Add(AFM_EDiDStat.BOT_KILLS);
 		else if (context.HasAnyVictimCharacterControlType(SCR_ECharacterControlType.PLAYER))
 			killer.Add(AFM_EDiDStat.PLAYER_KILLS);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! One composition finished. The builder id is the only thing separating a player's work from the
+	//! mission's own, and the building component already carries it.
+	void OnStructureBuilt(int playerId)
+	{
+		AFM_DiDPlayerStats stats = GetOrCreate(playerId);
+		if (stats)
+			stats.Add(AFM_EDiDStat.STRUCTURES_BUILT);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Build mode is a stretch of time rather than an event. Both of these are idempotent, because the
+	//! provider adds and drops active users through several paths - leaving the mode, dying,
+	//! disconnecting - and more than one of them can fire for the same visit.
+	void BuildModeEntered(int playerId)
+	{
+		if (playerId <= 0 || m_mBuildStarted.Contains(playerId))
+			return;
+
+		m_mBuildStarted.Set(playerId, GetCurrentTimestamp());
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void BuildModeLeft(int playerId)
+	{
+		WorldTimestamp started;
+		if (!m_mBuildStarted.Find(playerId, started))
+			return;
+
+		m_mBuildStarted.Remove(playerId);
+
+		int seconds = GetCurrentTimestamp().DiffSeconds(started);
+		if (seconds <= 0)
+			return;
+
+		AFM_DiDPlayerStats stats = GetOrCreate(playerId);
+		if (stats)
+			stats.Add(AFM_EDiDStat.BUILD_SECONDS, seconds);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Close any session still open, so a player who was building when the match ended keeps their time
+	void FlushBuildSessions()
+	{
+		array<int> builders = {};
+		foreach (int playerId, WorldTimestamp started : m_mBuildStarted)
+		{
+			builders.Insert(playerId);
+		}
+
+		foreach (int playerId : builders)
+		{
+			BuildModeLeft(playerId);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Reached the end of a stage with a body
+	void OnZoneSurvived(int playerId)
+	{
+		AFM_DiDPlayerStats stats = GetOrCreate(playerId);
+		if (stats)
+			stats.Add(AFM_EDiDStat.ZONES_SURVIVED);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Aboard the helicopter when it flew clear
+	void OnExtracted(int playerId)
+	{
+		AFM_DiDPlayerStats stats = GetOrCreate(playerId);
+		if (stats)
+			stats.Add(AFM_EDiDStat.EXTRACTED);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected WorldTimestamp GetCurrentTimestamp()
+	{
+		ChimeraWorld world = GetGame().GetWorld();
+		return world.GetServerTimestamp();
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -95,6 +179,8 @@ class AFM_DiDStatsTracker
 	//! one, and is the way to tell whether the numbers are believable after a match.
 	void Dump(string reason)
 	{
+		FlushBuildSessions();
+
 		array<int> playerIds = {};
 		array<AFM_DiDPlayerStats> stats = {};
 
@@ -105,8 +191,8 @@ class AFM_DiDStatsTracker
 		}
 
 		PrintFormat("AFM_DiDStatsTracker: Player stats (%1) - %2 players", reason, stats.Count());
-		PrintFormat("AFM_DiDStatsTracker: %1 | %2 | %3 | %4 | %5 | %6",
-			"player", "bots", "players", "friendly", "deaths", "suicides");
+		PrintFormat("AFM_DiDStatsTracker: %1 | %2 | %3 | %4 | %5 | %6 | %7 | %8 | %9",
+			"player", "bots", "players", "friendly", "deaths", "suicides", "built", "build s", "zones");
 
 		// Selection sort on a handful of records: a comparator class would be more machinery than this
 		// is worth
@@ -125,13 +211,16 @@ class AFM_DiDStatsTracker
 			AFM_DiDPlayerStats best = remaining[bestIndex];
 			remaining.Remove(bestIndex);
 
-			PrintFormat("AFM_DiDStatsTracker: %1 | %2 | %3 | %4 | %5 | %6",
+			PrintFormat("AFM_DiDStatsTracker: %1 | %2 | %3 | %4 | %5 | %6 | %7 | %8 | %9",
 				best.GetName(),
 				best.Get(AFM_EDiDStat.BOT_KILLS),
 				best.Get(AFM_EDiDStat.PLAYER_KILLS),
 				best.Get(AFM_EDiDStat.FRIENDLY_KILLS),
 				best.Get(AFM_EDiDStat.DEATHS),
-				best.Get(AFM_EDiDStat.SUICIDES));
+				best.Get(AFM_EDiDStat.SUICIDES),
+				best.Get(AFM_EDiDStat.STRUCTURES_BUILT),
+				best.Get(AFM_EDiDStat.BUILD_SECONDS),
+				best.Get(AFM_EDiDStat.ZONES_SURVIVED));
 		}
 	}
 }

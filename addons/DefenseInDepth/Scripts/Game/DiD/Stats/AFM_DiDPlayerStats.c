@@ -13,6 +13,11 @@ enum AFM_EDiDStat
 	DEATHS,				//!< Times this player's body was destroyed
 	SUICIDES,			//!< Deaths this player brought on themselves
 
+	STRUCTURES_BUILT,	//!< Compositions finished by this player
+	BUILD_SECONDS,		//!< Seconds spent in build mode
+	ZONES_SURVIVED,		//!< Stages this player reached the end of with a body
+	EXTRACTED,			//!< Aboard the helicopter when it flew out
+
 	COUNT				//!< Keep last: the size of every stat record
 }
 

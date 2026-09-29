@@ -189,6 +189,27 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Credit everyone still holding a body when a stage ends. Called as the next zone opens, so the
+	//! survivors are exactly the players the stage did not kill.
+	protected void CreditZoneSurvivors()
+	{
+		if (!m_Stats)
+			return;
+
+		array<int> spectators = {};
+		GetSpectatorPlayerIds(spectators);
+
+		array<int> playerIds = {};
+		GetGame().GetPlayerManager().GetPlayers(playerIds);
+
+		foreach (int playerId : playerIds)
+		{
+			if (!spectators.Contains(playerId))
+				m_Stats.OnZoneSurvived(playerId);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! What this match has recorded so far, or null off the authority
 	AFM_DiDStatsTracker GetStats()
 	{
@@ -359,7 +380,10 @@ class AFM_GameModeDiD: PS_GameModeCoop
 
 		// A snapshot per stage, so a long match does not have to be read back from one dump at the end
 		if (zoneProgressed && m_Stats)
+		{
+			CreditZoneSurvivors();
 			m_Stats.Dump(string.Format("end of stage %1", m_iZoneNumber - 1));
+		}
 
 		GetGame().GetCallqueue().CallLater(PopulateZone, ZONE_TRANSFER_DELAY_MS, false, zoneProgressed);
 

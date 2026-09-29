@@ -532,6 +532,35 @@ class AFM_DiDExtractionComponent: AFM_DiDAirSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Everyone who rode it out gets credited. Being aboard at this moment is the whole achievement, so
+	//! the occupant list is read here rather than tracked over the flight.
+	protected void CreditExtractedPlayers()
+	{
+		AFM_GameModeDiD gameMode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
+		if (!gameMode)
+			return;
+
+		AFM_DiDStatsTracker stats = gameMode.GetStats();
+		if (!stats || !m_Helicopter)
+			return;
+
+		SCR_BaseCompartmentManagerComponent compartments = SCR_BaseCompartmentManagerComponent.Cast(m_Helicopter.FindComponent(SCR_BaseCompartmentManagerComponent));
+		if (!compartments)
+			return;
+
+		array<IEntity> occupants = {};
+		compartments.GetOccupants(occupants);
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		foreach (IEntity occupant : occupants)
+		{
+			int playerId = playerManager.GetPlayerIdFromControlledEntity(occupant);
+			if (playerId > 0)
+				stats.OnExtracted(playerId);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected int CountPlayersAboard()
 	{
 		SCR_BaseCompartmentManagerComponent compartments = SCR_BaseCompartmentManagerComponent.Cast(m_Helicopter.FindComponent(SCR_BaseCompartmentManagerComponent));
@@ -559,6 +588,10 @@ class AFM_DiDExtractionComponent: AFM_DiDAirSpawnerComponent
 		PrintFormat("AFM_DiDExtractionComponent: Extraction complete (%1)", reason);
 
 		m_eState = AFM_EExtractionState.COMPLETE;
+
+		// Before the helicopter is stashed, while its occupants can still be read
+		CreditExtractedPlayers();
+
 		StashLeftovers();
 
 		AFM_DiDExtractionZoneComponent zone = AFM_DiDExtractionZoneComponent.Cast(m_Zone);
