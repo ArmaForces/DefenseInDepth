@@ -40,6 +40,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	// Zone the last transfer was made for, so survivors are only moved when the stage actually changes
 	protected int m_iLastTransferZoneIndex = -1;
 
+	// What this match has recorded about each player. Authority only.
+	protected ref AFM_DiDStatsTracker m_Stats;
+
 	// The one group every player belongs to, made with the first body of the match
 	protected SCR_AIGroup m_PlayerGroup;
 
@@ -172,6 +175,26 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		zone.RequestExtraction();
 	}
 
+	//------------------------------------------------------------------------------------------------
+	//! Every death in the match, AI included, arrives here on the authority. The context says who killed
+	//! whom and what each of them was, so the tracker needs nothing else wired up.
+	override void OnControllableDestroyedEx(notnull SCR_InstigatorContextData instigatorContextData)
+	{
+		super.OnControllableDestroyedEx(instigatorContextData);
+
+		if (!m_Stats || !IsMaster())
+			return;
+
+		m_Stats.OnControllableDestroyed(instigatorContextData);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! What this match has recorded so far, or null off the authority
+	AFM_DiDStatsTracker GetStats()
+	{
+		return m_Stats;
+	}
+
 	override void EOnInit(IEntity owner)
 	{
 		super.EOnInit(owner);
@@ -180,7 +203,11 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			return;
 		
 		LoadSideConfigs();
-		
+
+		// Authority only: every death is reported here, and nothing reads the table from a client yet
+		if (IsMaster())
+			m_Stats = new AFM_DiDStatsTracker();
+
 		m_FactionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
 		if (!m_FactionManager)
 		{
@@ -329,6 +356,10 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		// point moments after the first zone starts.
 		bool zoneProgressed = m_iLastTransferZoneIndex >= 0 && m_iZoneNumber != m_iLastTransferZoneIndex;
 		m_iLastTransferZoneIndex = m_iZoneNumber;
+
+		// A snapshot per stage, so a long match does not have to be read back from one dump at the end
+		if (zoneProgressed && m_Stats)
+			m_Stats.Dump(string.Format("end of stage %1", m_iZoneNumber - 1));
 
 		GetGame().GetCallqueue().CallLater(PopulateZone, ZONE_TRANSFER_DELAY_MS, false, zoneProgressed);
 
@@ -972,6 +1003,10 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	// Server side method to end game with winningFactionKey faction victory
 	protected void GameEnd(FactionKey winningFactionKey)
 	{
+		// Until there is a results page, the log is the results page
+		if (m_Stats)
+			m_Stats.Dump("match over");
+
 		Faction faction = m_FactionManager.GetFactionByKey(winningFactionKey);
 		int factionId = m_FactionManager.GetFactionIndex(faction);
 		SCR_GameModeEndData endData = SCR_GameModeEndData.CreateSimple(EGameOverTypes.ENDREASON_SCORELIMIT, winnerFactionId:factionId);
