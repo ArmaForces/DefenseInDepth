@@ -675,6 +675,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		if (m_PlayerGroup)
 			return true;
 
+		// Must be an empty group: whatever the prefab spawns with would stand in the players' group all match
 		ResourceName groupPrefab = m_DefenderConfig.m_sPlayerGroup;
 		if (groupPrefab.IsEmpty())
 		{
@@ -701,50 +702,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		// 0 means no limit: the whole server goes in here
 		m_PlayerGroup.SetMaxMembers(0);
 
-		// A faction's base group is not necessarily empty, and any AI it brought would stand in the players'
-		// group for the rest of the match. Members arrive over several frames, so this is repeated until the
-		// group says it has finished filling itself.
-		GetGame().GetCallqueue().CallLater(ClearGroupAI, ASSIGN_DELAY_MS, false, m_PlayerGroup, 0);
-
 		PrintFormat("AFM_GameModeDiD: Player group %1 created for the %2 side",
 			groupPrefab, m_DefenderConfig.GetLabel());
 		return true;
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! Remove the AI the group prefab spawned with, leaving only bodies meant for players. A player body is
-	//! a playable that has been switched on, so anything else in here is the prefab's own squad.
-	protected void ClearGroupAI(SCR_AIGroup group, int attempt)
-	{
-		if (!group)
-			return;
-
-		array<AIAgent> agents = {};
-		group.GetAgents(agents);
-
-		int removed = 0;
-		foreach (AIAgent agent : agents)
-		{
-			if (!agent)
-				continue;
-
-			IEntity member = agent.GetControlledEntity();
-			if (!member)
-				continue;
-
-			PS_PlayableComponent playable = PS_PlayableComponent.Cast(member.FindComponent(PS_PlayableComponent));
-			if (playable && playable.GetPlayable())
-				continue;
-
-			SCR_EntityHelper.DeleteEntityAndChildren(member);
-			removed++;
-		}
-
-		if (removed > 0)
-			PrintFormat("AFM_GameModeDiD: Removed %1 AI the player group prefab spawned with", removed);
-
-		if (!group.IsExpandComplete() && attempt < ASSIGN_MAX_ATTEMPTS)
-			GetGame().GetCallqueue().CallLater(ClearGroupAI, ASSIGN_DELAY_MS, false, group, attempt + 1);
 	}
 
 	//------------------------------------------------------------------------------------------------
