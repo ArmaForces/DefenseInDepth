@@ -13,6 +13,10 @@ enum AFM_EDiDStat
 	DEATHS,				//!< Times this player's body was destroyed
 	SUICIDES,			//!< Deaths this player brought on themselves
 
+	LAUNCHER_KILLS,		//!< Kills with a rocket launcher in hand
+	GRENADE_KILLS,		//!< Kills with a grenade or grenade launcher in hand
+	ARSENAL_SECONDS,	//!< Seconds with an arsenal open, as reported by that player's client
+
 	STRUCTURES_BUILT,	//!< Compositions finished by this player
 	BUILD_SECONDS,		//!< Seconds spent in build mode
 	ZONES_SURVIVED,		//!< Stages this player reached the end of with a body
@@ -59,6 +63,13 @@ class AFM_DiDPlayerStats
 			return 0;
 
 		return m_aValues[stat];
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Every stat here counts whole things, so the log does not need six decimal places of them
+	string GetText(AFM_EDiDStat stat)
+	{
+		return Math.Round(Get(stat)).ToString();
 	}
 
 	//------------------------------------------------------------------------------------------------

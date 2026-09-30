@@ -52,6 +52,50 @@ class AFM_DiDStatsTracker
 			killer.Add(AFM_EDiDStat.BOT_KILLS);
 		else if (context.HasAnyVictimCharacterControlType(SCR_ECharacterControlType.PLAYER))
 			killer.Add(AFM_EDiDStat.PLAYER_KILLS);
+		else
+			return;
+
+		CreditWeaponFlavour(killer, context.GetKillerEntity());
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! What the killer was holding when it happened.
+	//!
+	//! An approximation, and knowingly so: the kill context carries no weapon, so this reads the weapon
+	//! in hand at the moment of death. Someone who fires a rocket and swaps to a rifle before the victim
+	//! finishes dying is credited with the rifle. Fine for an award about rockets to the face; anything
+	//! that had to be exact would have to hook damage on every character instead.
+	protected void CreditWeaponFlavour(notnull AFM_DiDPlayerStats killer, IEntity killerEntity)
+	{
+		if (!killerEntity)
+			return;
+
+		BaseWeaponManagerComponent weaponManager = BaseWeaponManagerComponent.Cast(killerEntity.FindComponent(BaseWeaponManagerComponent));
+		if (!weaponManager)
+			return;
+
+		BaseWeaponComponent weapon = weaponManager.GetCurrentWeapon();
+		if (!weapon)
+			return;
+
+		EWeaponType weaponType = weapon.GetWeaponType();
+
+		if (weaponType == EWeaponType.WT_ROCKETLAUNCHER)
+			killer.Add(AFM_EDiDStat.LAUNCHER_KILLS);
+		else if (weaponType == EWeaponType.WT_FRAGGRENADE || weaponType == EWeaponType.WT_GRENADELAUNCHER)
+			killer.Add(AFM_EDiDStat.GRENADE_KILLS);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Reported by a client through AFM_DiDArsenalTimerComponent, which is the only place it is knowable
+	void AddArsenalSeconds(int playerId, int seconds)
+	{
+		if (seconds <= 0)
+			return;
+
+		AFM_DiDPlayerStats stats = GetOrCreate(playerId);
+		if (stats)
+			stats.Add(AFM_EDiDStat.ARSENAL_SECONDS, seconds);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -156,7 +200,29 @@ class AFM_DiDStatsTracker
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! \return false when nobody has done anything worth recording
+	//! One player's line, in the order the header names them
+	protected string BuildRow(notnull AFM_DiDPlayerStats stats)
+	{
+		string row = stats.GetName();
+
+		row = row + " | " + stats.GetText(AFM_EDiDStat.BOT_KILLS);
+		row = row + " | " + stats.GetText(AFM_EDiDStat.PLAYER_KILLS);
+		row = row + " | " + stats.GetText(AFM_EDiDStat.LAUNCHER_KILLS);
+		row = row + " | " + stats.GetText(AFM_EDiDStat.GRENADE_KILLS);
+		row = row + " | " + stats.GetText(AFM_EDiDStat.FRIENDLY_KILLS);
+		row = row + " | " + stats.GetText(AFM_EDiDStat.DEATHS);
+		row = row + " | " + stats.GetText(AFM_EDiDStat.SUICIDES);
+		row = row + " | " + stats.GetText(AFM_EDiDStat.STRUCTURES_BUILT);
+		row = row + " | " + stats.GetText(AFM_EDiDStat.BUILD_SECONDS);
+		row = row + " | " + stats.GetText(AFM_EDiDStat.ARSENAL_SECONDS);
+		row = row + " | " + stats.GetText(AFM_EDiDStat.ZONES_SURVIVED);
+		row = row + " | " + stats.GetText(AFM_EDiDStat.EXTRACTED);
+
+		return row;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns false when nobody has done anything worth recording
 	bool GetStats(notnull array<int> outPlayerIds, notnull array<AFM_DiDPlayerStats> outStats)
 	{
 		outPlayerIds.Clear();
@@ -191,8 +257,7 @@ class AFM_DiDStatsTracker
 		}
 
 		PrintFormat("AFM_DiDStatsTracker: Player stats (%1) - %2 players", reason, stats.Count());
-		PrintFormat("AFM_DiDStatsTracker: %1 | %2 | %3 | %4 | %5 | %6 | %7 | %8 | %9",
-			"player", "bots", "players", "friendly", "deaths", "suicides", "built", "build s", "zones");
+		PrintFormat("AFM_DiDStatsTracker: player | bots | players | rockets | grenades | friendly | deaths | suicides | built | build s | arsenal s | zones | out");
 
 		// Selection sort on a handful of records: a comparator class would be more machinery than this
 		// is worth
@@ -211,16 +276,7 @@ class AFM_DiDStatsTracker
 			AFM_DiDPlayerStats best = remaining[bestIndex];
 			remaining.Remove(bestIndex);
 
-			PrintFormat("AFM_DiDStatsTracker: %1 | %2 | %3 | %4 | %5 | %6 | %7 | %8 | %9",
-				best.GetName(),
-				best.Get(AFM_EDiDStat.BOT_KILLS),
-				best.Get(AFM_EDiDStat.PLAYER_KILLS),
-				best.Get(AFM_EDiDStat.FRIENDLY_KILLS),
-				best.Get(AFM_EDiDStat.DEATHS),
-				best.Get(AFM_EDiDStat.SUICIDES),
-				best.Get(AFM_EDiDStat.STRUCTURES_BUILT),
-				best.Get(AFM_EDiDStat.BUILD_SECONDS),
-				best.Get(AFM_EDiDStat.ZONES_SURVIVED));
+			PrintFormat("AFM_DiDStatsTracker: %1", BuildRow(best));
 		}
 	}
 }
