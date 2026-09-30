@@ -4,7 +4,7 @@
 //! A minimum keeps the joke ones honest: nobody should be crowned "Rockets to the face" with zero of
 //! them, and in a match where nothing of the sort happened the title is simply not handed out.
 //------------------------------------------------------------------------------------------------
-[BaseContainerProps(), BaseContainerCustomStringTitleField("m_sTitle")]
+[BaseContainerProps(), BaseContainerCustomTitleField("m_sTitle")]
 class AFM_DiDAwardEntry
 {
 	[Attribute("", UIWidgets.EditBox, desc: "Title as the results page shows it")]

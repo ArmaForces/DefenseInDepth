@@ -1,0 +1,218 @@
+FrameWidgetClass {
+ Name "DiDResultsFrame"
+ Slot LayoutSlot "{5EBC7340F5460E29}" {
+  Padding 10 10 10 10
+ }
+ components {
+  AFM_DiDResultsFrameComponent "{4D9A0C36B71E582F}" {
+  }
+ }
+ {
+  ImageWidgetClass "{4D9A0C36B71E5830}" {
+   Name "Background"
+   Slot FrameWidgetSlot "{5D6E8206B132EE77}" {
+    OffsetLeft 0
+    OffsetTop 0
+    SizeX 560
+    OffsetRight -560
+    SizeY 710
+    OffsetBottom -710
+   }
+   Color 0 0 0 0.784
+  }
+  SizeLayoutWidgetClass "{4D9A0C36B71E5831}" {
+   Name "DiDResults"
+   Slot FrameWidgetSlot "{5EBEF61BB0F67299}" {
+    PositionX 0
+    OffsetLeft 0
+    PositionY 0
+    OffsetTop 0
+    SizeX 560
+    OffsetRight -560
+    SizeY 710
+    OffsetBottom -710
+   }
+   AllowWidthOverride 1
+   WidthOverride 560
+   {
+    VerticalLayoutWidgetClass "{4D9A0C36B71E5832}" {
+     Name "VerticalLayout0"
+     Slot AlignableSlot "{5EBEF61BBEC4713E}" {
+      VerticalAlign 0
+     }
+     {
+      FrameWidgetClass "{4D9A0C36B71E5833}" {
+       Name "TitleFrame"
+       Slot LayoutSlot "{5EBF1EC9E8008E11}" {
+        Padding 0 10 0 0
+       }
+       {
+        ImageWidgetClass "{4D9A0C36B71E5834}" {
+         Name "TitleColor"
+         Slot FrameWidgetSlot "{5E7CF041119B47ED}" {
+          PositionX 0
+          OffsetLeft 0
+          PositionY 0
+          OffsetTop 0
+          SizeX 540
+          OffsetRight -540
+          SizeY 42
+          OffsetBottom -42
+         }
+         Color 0.082 0.055 0.001 1
+        }
+        TextWidgetClass "{4D9A0C36B71E5835}" {
+         Name "TitleText"
+         Slot FrameWidgetSlot "{5E7CF041119B479A}" {
+          PositionX 0
+          OffsetLeft 0
+          PositionY 0
+          OffsetTop 0
+          SizeX 540
+          OffsetRight -540
+          SizeY 42
+          OffsetBottom -42
+         }
+         Text "Match Report"
+         "Font Size" 28
+         "Min Font Size" 28
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+         FontProperties FontProperties "{5E7CF04E69A9FC94}" {
+          Bold 1
+         }
+        }
+       }
+      }
+      FrameWidgetClass "{4D9A0C36B71E5836}" {
+       Name "AwardsFrame"
+       Slot LayoutSlot "{5EBF1EC025B3375E}" {
+        Padding 0 16 0 0
+       }
+       {
+        ImageWidgetClass "{4D9A0C36B71E5837}" {
+         Name "AwardsColor"
+         Slot FrameWidgetSlot "{5E7CF041119B47ED}" {
+          PositionX 0
+          OffsetLeft 0
+          PositionY 0
+          OffsetTop 0
+          SizeX 540
+          OffsetRight -540
+          SizeY 44
+          OffsetBottom -44
+         }
+         Color 0 0 0 1
+        }
+        TextWidgetClass "{4D9A0C36B71E5838}" {
+         Name "AwardsName"
+         Slot FrameWidgetSlot "{5E7CF041119B479A}" {
+          PositionX 0
+          OffsetLeft 0
+          PositionY 0
+          OffsetTop 0
+          SizeX 540
+          OffsetRight -540
+          SizeY 44
+          OffsetBottom -44
+         }
+         Text "Titles"
+         "Font Size" 28
+         "Min Font Size" 28
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+         FontProperties FontProperties "{5E7CF04E69A9FC94}" {
+          Bold 1
+         }
+        }
+        ScrollLayoutWidgetClass "{4D9A0C36B71E5839}" {
+         Name "AwardsScroll"
+         Slot FrameWidgetSlot "{5EBF1EC161294512}" {
+          PositionX 0
+          OffsetLeft 0
+          PositionY 52
+          OffsetTop 52
+          SizeX 540
+          OffsetRight -540
+          SizeY 220
+          OffsetBottom -272
+         }
+         {
+          VerticalLayoutWidgetClass "{4D9A0C36B71E583A}" {
+           Name "AwardsVerticalLayout"
+           Slot AlignableSlot "{5EBF1EC82B9DAD0C}" {
+           }
+          }
+         }
+        }
+       }
+      }
+      FrameWidgetClass "{4D9A0C36B71E583B}" {
+       Name "PlayersFrame"
+       Slot LayoutSlot "{5EBF1EC025B3375E}" {
+        Padding 0 16 0 0
+       }
+       {
+        ImageWidgetClass "{4D9A0C36B71E583C}" {
+         Name "PlayersColor"
+         Slot FrameWidgetSlot "{5E7CF041119B47ED}" {
+          PositionX 0
+          OffsetLeft 0
+          PositionY 0
+          OffsetTop 0
+          SizeX 540
+          OffsetRight -540
+          SizeY 44
+          OffsetBottom -44
+         }
+         Color 0 0 0 1
+        }
+        TextWidgetClass "{4D9A0C36B71E583D}" {
+         Name "PlayersName"
+         Slot FrameWidgetSlot "{5E7CF041119B479A}" {
+          PositionX 0
+          OffsetLeft 0
+          PositionY 0
+          OffsetTop 0
+          SizeX 540
+          OffsetRight -540
+          SizeY 44
+          OffsetBottom -44
+         }
+         Text "Players"
+         "Font Size" 28
+         "Min Font Size" 28
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+         FontProperties FontProperties "{5E7CF04E69A9FC94}" {
+          Bold 1
+         }
+        }
+        ScrollLayoutWidgetClass "{4D9A0C36B71E583E}" {
+         Name "PlayersScroll"
+         Slot FrameWidgetSlot "{5EBF1EC161294512}" {
+          PositionX 0
+          OffsetLeft 0
+          PositionY 52
+          OffsetTop 52
+          SizeX 540
+          OffsetRight -540
+          SizeY 300
+          OffsetBottom -352
+         }
+         {
+          VerticalLayoutWidgetClass "{4D9A0C36B71E583F}" {
+           Name "PlayersVerticalLayout"
+           Slot AlignableSlot "{5EBF1EC82B9DAD0C}" {
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

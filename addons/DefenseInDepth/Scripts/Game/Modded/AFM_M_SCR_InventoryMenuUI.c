@@ -62,7 +62,6 @@ modded class SCR_InventoryMenuUI
 			return;
 		}
 
-		PrintFormat("AFM: arsenal closed after %1s", seconds);
 		timer.ReportSeconds(seconds);
 	}
 }
