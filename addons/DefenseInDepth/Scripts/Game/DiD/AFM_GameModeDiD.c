@@ -16,7 +16,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	[Attribute("1", UIWidgets.CheckBox, "Supplies as one currency for building, the arsenal and support. Unticking it leaves building free, which is what the mode did before the economy existed", category: "DiD")]
 	protected bool m_bSupplyEconomy;
 
-	[Attribute("{3F8B6D01C49A2E75}Configs/Supplies/DiD_Supplies.conf", UIWidgets.ResourceNamePicker, "What each stage starts with, what carries over and what dismantling refunds", params: "conf class=AFM_DiDSupplyConfig", category: "DiD")]
+	[Attribute("{6B8D4F20E13C957A}Configs/Supplies/DiD_Supplies_Medium.conf", UIWidgets.ResourceNamePicker, "What each stage starts with, what carries over and what dismantling refunds. Easy, Medium and Hard files ship in Configs/Supplies", params: "conf class=AFM_DiDSupplyConfig", category: "DiD")]
 	protected ResourceName m_sSupplyConfigPath;
 
 	// Loaded at EOnInit, well before any zone initialises and reads them
