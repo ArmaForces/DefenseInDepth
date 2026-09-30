@@ -22,6 +22,11 @@ modded class SCR_CampaignBuildingCompositionComponent
 		if (m_iBuilderId == INVALID_PLAYER_ID)
 			return;
 
+		// The supply cost, taken here rather than on the budget event: that event fires while the
+		// composition is still being created, before anyone has set a builder on it, so it cannot tell a
+		// player's sandbags from the mission's own
+		AFM_DiDSupplyBudget.Charge(AFM_DiDSupplyBudget.GetSupplyCost(GetOwner()));
+
 		AFM_DiDZoneSystem zoneSystem = AFM_DiDZoneSystem.GetInstance();
 		if (!zoneSystem)
 			return;

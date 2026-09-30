@@ -6,9 +6,12 @@
 //! the transaction simply never happens, however the resource components are wired. That is why building
 //! showed a price, and a pool, and charged nothing.
 //!
-//! So this listens to the same event the vanilla handler listens to, and does the part that matters here.
-//! The budget change is the composition's supply cost: positive when something was placed, negative when
-//! it was removed.
+//! So this listens to the same event the vanilla handler listens to, and pays back part of the cost when a
+//! composition is removed. Charging for one is not done here: the event fires while the composition is
+//! being created, before SCR_CampaignBuildingPlacingEditorComponent.OnEntityCreatedServer has said who
+//! built it, so there is no way to tell a player's sandbags from the fortifications a mission ships with -
+//! which is how a stage found itself billed for its own headquarters. The charge is taken in
+//! SCR_CampaignBuildingCompositionComponent.SetIsCompositionSpawned instead, where the builder is known.
 //------------------------------------------------------------------------------------------------
 class AFM_DiDSupplyBudget
 {
@@ -42,28 +45,30 @@ class AFM_DiDSupplyBudget
 	//------------------------------------------------------------------------------------------------
 	protected void OnBudgetUpdated(EEditableEntityBudget entityBudget, int originalBudgetValue, int budgetChange, int updatedBudgetValue, SCR_EditableEntityComponent entity)
 	{
-		if (entityBudget != SUPPLY_BUDGET || budgetChange == 0 || !entity)
+		// Removals only. A placement arrives here too early to tell whose it is.
+		if (entityBudget != SUPPLY_BUDGET || budgetChange >= 0 || !entity)
 			return;
 
-		// Content authored into the world is not on the players' bill. Taking it down still pays out, which
-		// is vanilla's own behaviour and gives a use for the sandbags a mission starts with.
 		IEntity owner = entity.GetOwner();
-		if (owner && owner.IsLoaded() && budgetChange > 0)
+		if (!owner)
 			return;
 
-		if (budgetChange > 0)
-		{
-			Charge(budgetChange);
+		// Only what a player paid for pays back. The mission's own fortifications were never charged for,
+		// so dismantling them is not a source of supplies. Player ids count from 1, and vanilla's own
+		// INVALID_PLAYER_ID is protected inside the composition component, so anything at or below zero is
+		// read as nobody.
+		SCR_CampaignBuildingCompositionComponent composition = SCR_CampaignBuildingCompositionComponent.Cast(owner.FindComponent(SCR_CampaignBuildingCompositionComponent));
+		if (!composition || composition.GetBuilderId() <= 0)
 			return;
-		}
 
 		Refund(-budgetChange);
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void Charge(int cost)
+	//! Called from the placement hook, where the builder is known
+	static void Charge(int cost)
 	{
-		if (AFM_DiDSupplies.Spend(cost))
+		if (cost <= 0 || AFM_DiDSupplies.Spend(cost))
 			return;
 
 		// The pool ran out between the check the player's machine made and this charge. Taking what is
@@ -71,7 +76,7 @@ class AFM_DiDSupplyBudget
 		int taken = AFM_DiDSupplies.GetStored();
 		AFM_DiDSupplies.Spend(taken);
 
-		PrintFormat("AFM_DiDSupplyBudget: A composition costing %1 was placed with %2 in the pool", cost, taken, level: LogLevel.WARNING);
+		PrintFormat("AFM_DiDSupplyBudget: A composition costing %1 was built with %2 in the pool", cost, taken, level: LogLevel.WARNING);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -83,5 +88,28 @@ class AFM_DiDSupplyBudget
 
 		int refund = Math.Round(cost * Math.ClampInt(config.m_iCompositionRefundPercentage, 0, 100) * 0.01);
 		AFM_DiDSupplies.Award(refund);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! What a composition and everything under it costs in supplies
+	static int GetSupplyCost(IEntity composition)
+	{
+		if (!composition)
+			return 0;
+
+		SCR_EditableEntityComponent editable = SCR_EditableEntityComponent.Cast(composition.FindComponent(SCR_EditableEntityComponent));
+		if (!editable)
+			return 0;
+
+		array<ref SCR_EntityBudgetValue> budgets = {};
+		editable.GetEntityAndChildrenBudgetCost(budgets);
+
+		foreach (SCR_EntityBudgetValue budget : budgets)
+		{
+			if (budget.GetBudgetType() == SUPPLY_BUDGET)
+				return budget.GetBudgetValue();
+		}
+
+		return 0;
 	}
 }

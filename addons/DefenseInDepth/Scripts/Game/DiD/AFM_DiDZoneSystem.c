@@ -25,6 +25,10 @@ class AFM_DiDZoneSystem: GameSystem
 	// The starting zone has run at least once, so a missing active zone means the run is over
 	protected bool m_bStartingZoneActivated;
 	protected bool m_bZonesValidated;
+
+	// Supplies wait for the active zone to have initialised, since that is when it knows where its cache is
+	protected bool m_bActiveZoneFunded;
+	protected int m_iPendingCarryOverSupplies;
 	
 	protected const int m_iStartingZoneIndex = 1;
 	
@@ -122,7 +126,7 @@ class AFM_DiDZoneSystem: GameSystem
 		
 		m_ActiveZone = m_aZones[m_iStartingZoneIndex];
 		m_ActiveZone.ActivateZone();
-		FundActiveZone(0);
+		ScheduleZoneFunding(0);
 		m_bStartingZoneActivated = true;
 		
 		if (m_OnZoneChanged)
@@ -161,6 +165,9 @@ class AFM_DiDZoneSystem: GameSystem
 		// Children and spawners are resolved a few seconds after the zone registers
 		if (!m_ActiveZone.IsInitialized())
 			return;
+		
+		// Which is also when the zone knows where its supply cache is
+		FundActiveZone();
 		
 		// Every zone has registered by the time the first one has finished initialising
 		if (!m_bZonesValidated)
@@ -220,14 +227,29 @@ class AFM_DiDZoneSystem: GameSystem
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Gives the stage that just started its supplies, and makes sure it is the only stage holding any.
+	//! Remembers what the next stage is owed. The stage cannot be funded yet: a zone finds its own supply
+	//! cache while it initialises, which for the first stage happens after it has already been activated.
+	protected void ScheduleZoneFunding(int carryOverSupplies)
+	{
+		m_iPendingCarryOverSupplies = carryOverSupplies;
+		m_bActiveZoneFunded = false;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Gives the stage its supplies once, and makes sure it is the only stage holding any.
 	//!
 	//! Spenders reach for supplies by range rather than by stage, so a cache belonging to a stage nobody is
 	//! playing has to be empty or it becomes a second wallet.
 	//------------------------------------------------------------------------------------------------
-	protected void FundActiveZone(int carryOverSupplies)
+	protected void FundActiveZone()
 	{
-		AFM_DiDSupplies.SeedZone(m_ActiveZone, carryOverSupplies);
+		if (m_bActiveZoneFunded || !m_ActiveZone)
+			return;
+
+		m_bActiveZoneFunded = true;
+
+		AFM_DiDSupplies.SeedZone(m_ActiveZone, m_iPendingCarryOverSupplies);
+		m_iPendingCarryOverSupplies = 0;
 
 		foreach (int index, AFM_DiDZoneComponent zone : m_aZones)
 		{
@@ -348,7 +370,7 @@ class AFM_DiDZoneSystem: GameSystem
 		
 		// After activation, which is where the new pool is sized and clamped
 		m_ActiveZone.AddTickets(carryOverTickets);
-		FundActiveZone(carryOverSupplies);
+		ScheduleZoneFunding(carryOverSupplies);
 		
 		if (m_OnZoneChanged)
 			m_OnZoneChanged.Invoke();
