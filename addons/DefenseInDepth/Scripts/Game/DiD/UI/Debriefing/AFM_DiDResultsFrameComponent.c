@@ -57,8 +57,22 @@ class AFM_DiDResultsFrameComponent : SCR_ScriptedWidgetComponent
 		ClearChildren(m_wAwards);
 		ClearChildren(m_wPlayers);
 
+		SetHeadline(results.GetHeadline());
 		FillAwards(results);
 		FillPlayers(results);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Who won, in words. The authority says it, because only there do the sides have names rather than
+	//! faction keys. The layout's own text stands if nothing was sent.
+	protected void SetHeadline(string headline)
+	{
+		if (headline.IsEmpty())
+			return;
+
+		TextWidget title = TextWidget.Cast(GetRootWidget().FindAnyWidget("TitleText"));
+		if (title)
+			title.SetText(headline);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -91,6 +105,7 @@ class AFM_DiDResultsFrameComponent : SCR_ScriptedWidgetComponent
 	protected void FillPlayers(notnull AFM_DiDMatchResults results)
 	{
 		Widget header = GetGame().GetWorkspace().CreateWidgets(PLAYER_ROW_LAYOUT, m_wPlayers);
+		SetRankIcon(header, string.Empty);
 		SetText(header, "Label", "Player");
 		SetText(header, "Col1", "Bots");
 		SetText(header, "Col2", "Deaths");
@@ -128,6 +143,7 @@ class AFM_DiDResultsFrameComponent : SCR_ScriptedWidgetComponent
 		if (!row)
 			return;
 
+		SetRankIcon(row, stats.GetRankInsignia());
 		SetText(row, "Label", stats.GetName());
 		SetText(row, "Col1", stats.GetText(AFM_EDiDStat.BOT_KILLS));
 		SetText(row, "Col2", stats.GetText(AFM_EDiDStat.DEATHS));
@@ -144,6 +160,30 @@ class AFM_DiDResultsFrameComponent : SCR_ScriptedWidgetComponent
 			return "-";
 
 		return Math.Round(seconds / 60).ToString() + "m";
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! The insignia is an icon name inside vanilla's nametag imageset, resolved on the authority from
+	//! whatever body the player held - the same set the nametags themselves draw from. Hidden rather than
+	//! left empty for the header row and for anyone who never held a ranked body.
+	protected void SetRankIcon(Widget row, string insignia)
+	{
+		if (!row)
+			return;
+
+		ImageWidget icon = ImageWidget.Cast(row.FindAnyWidget("Rank"));
+		if (!icon)
+			return;
+
+		if (insignia.IsEmpty())
+		{
+			icon.SetVisible(false);
+			return;
+		}
+
+		icon.LoadImageFromSet(0, SCR_XPInfoDisplay.GetRankIconImageSet(), insignia);
+		icon.SetColor(Color.FromInt(UIColors.NEUTRAL_INFORMATION.PackToInt()));
+		icon.SetVisible(true);
 	}
 
 	//------------------------------------------------------------------------------------------------

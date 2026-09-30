@@ -15,14 +15,29 @@ FrameWidgetClass {
    }
    Color 1 1 1 0
   }
+  ImageWidgetClass "{63E1A7D40C82B966}" {
+   Name "Rank"
+   Slot FrameWidgetSlot "{5EA8C93CB43A445D}" {
+    PositionX 6
+    OffsetLeft 6
+    PositionY 3
+    OffsetTop 3
+    SizeX 28
+    OffsetRight -34
+    SizeY 28
+    OffsetBottom -31
+   }
+   Texture "{70E828A2F6EBE7D0}UI/Textures/Nametags/nametagicons.imageset"
+   Size 28 28
+  }
   TextWidgetClass "{63E1A7D40C82B960}" {
    Name "Label"
    Slot FrameWidgetSlot "{5D6D1B96C41F630E}" {
-    PositionX 6
-    OffsetLeft 6
+    PositionX 40
+    OffsetLeft 40
     PositionY 0
     OffsetTop 0
-    SizeX 170
+    SizeX 136
     OffsetRight -176
     SizeY 34
     OffsetBottom -34

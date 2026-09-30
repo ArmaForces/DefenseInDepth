@@ -41,6 +41,10 @@ class AFM_DiDPlayerStats
 	// Titles this player took, filled when the awards are resolved at the end of the match
 	protected ref array<string> m_aTitles = {};
 
+	// Icon name within the nametag imageset, resolved on the authority from whatever body the player
+	// held. Empty when they never had one, or held nothing with a rank at the time.
+	protected string m_sRankInsignia;
+
 	//------------------------------------------------------------------------------------------------
 	void AFM_DiDPlayerStats(string identityId, string name)
 	{
@@ -76,6 +80,23 @@ class AFM_DiDPlayerStats
 	string GetText(AFM_EDiDStat stat)
 	{
 		return Math.Round(Get(stat)).ToString();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Kept as the last rank seen rather than the highest: DiD carries a rank across respawns, so the
+	//! last one is also the best one, and a player who left keeps whatever they had when they did
+	void SetRankInsignia(string insignia)
+	{
+		if (insignia.IsEmpty())
+			return;
+
+		m_sRankInsignia = insignia;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	string GetRankInsignia()
+	{
+		return m_sRankInsignia;
 	}
 
 	//------------------------------------------------------------------------------------------------

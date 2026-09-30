@@ -196,7 +196,26 @@ class AFM_DiDStatsTracker
 
 		stats = new AFM_DiDPlayerStats(identityId, name);
 		m_mStats.Set(playerId, stats);
+
+		CaptureRank(playerId, stats);
 		return stats;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! A rank belongs to a body, and in this game mode a player gets through several of them, so it is
+	//! read off whatever they hold at the time and kept. Nothing to read from a spectator, or from
+	//! someone whose corpse has already been cleaned up - the last one seen stands in those cases.
+	protected void CaptureRank(int playerId, notnull AFM_DiDPlayerStats stats)
+	{
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return;
+
+		IEntity character = playerManager.GetPlayerControlledEntity(playerId);
+		if (!character)
+			return;
+
+		stats.SetRankInsignia(SCR_CharacterRankComponent.GetCharacterRankInsignia(character));
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -258,9 +277,12 @@ class AFM_DiDStatsTracker
 		if (!GetStats(playerIds, stats))
 			return results;
 
-		foreach (AFM_DiDPlayerStats row : stats)
+		// Ranks last: a promotion during the match should show, and everyone still connected has a body
+		// to read one from right now
+		for (int i = 0; i < stats.Count(); i++)
 		{
-			results.AddRow(row);
+			CaptureRank(playerIds[i], stats[i]);
+			results.AddRow(stats[i]);
 		}
 
 		if (config)

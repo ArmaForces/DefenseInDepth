@@ -1065,23 +1065,57 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	// Server side method to end game with winningFactionKey faction victory
+	//! Server side. Ends the match with winningFactionKey's victory.
+	//!
+	//! Through PS's state machine rather than EndGameMode. PS runs a mission as a sequence of its own
+	//! states and shows its debriefing screen on the way out; EndGameMode belongs to vanilla's own flow
+	//! and opened vanilla's game-over screen while leaving PS sitting in GAME, which is why the
+	//! debriefing used to appear only once an admin typed /adv.
+	//------------------------------------------------------------------------------------------------
 	protected void GameEnd(FactionKey winningFactionKey)
 	{
+		// A held zone and a completed extraction can both report a win for the same match
+		if (!m_bIsGameRunning)
+			return;
+
+		m_bIsGameRunning = false;
+
 		// The log keeps the full table; the page gets it over the wire
 		if (m_Stats)
 		{
 			m_Stats.Dump("match over");
-			BroadcastMatchResults();
+			BroadcastMatchResults(winningFactionKey);
 		}
 
-		Faction faction = m_FactionManager.GetFactionByKey(winningFactionKey);
-		int factionId = m_FactionManager.GetFactionIndex(faction);
-		SCR_GameModeEndData endData = SCR_GameModeEndData.CreateSimple(EGameOverTypes.ENDREASON_SCORELIMIT, winnerFactionId:factionId);
-		EndGameMode(endData);
-		m_bIsGameRunning = false;
+		if (GetState() != SCR_EGameModeState.GAME)
+		{
+			PrintFormat("AFM_GameModeDiD: Match ended while in state %1, leaving it to the admins", GetState(), level: LogLevel.WARNING);
+			return;
+		}
+
+		// GAME -> DEBRIEFING, and PS opens that menu on every machine as it goes
+		AdvanceGameState(SCR_EGameModeState.NULL);
 	}
-	
+
+	//------------------------------------------------------------------------------------------------
+	//! What the results page says above the table. Built here because the sides only have names on the
+	//! authority - a client has the faction keys, not the configs behind them.
+	protected string BuildResultsHeadline(FactionKey winningFactionKey)
+	{
+		string defenders = "Defenders";
+		if (m_DefenderConfig)
+			defenders = m_DefenderConfig.GetLabel();
+
+		string attackers = "Attackers";
+		if (m_AttackerConfig)
+			attackers = m_AttackerConfig.GetLabel();
+
+		if (winningFactionKey == GetDefenderFactionKey())
+			return defenders + " held the line";
+
+		return attackers + " broke through";
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//! Send the finished table out once, at the end of the match.
 	//!
@@ -1092,23 +1126,26 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	//! Each call runs locally too, so a listen server's own client assembles its copy the same way a
 	//! remote one does, rather than reading the server's records directly.
 	//------------------------------------------------------------------------------------------------
-	protected void BroadcastMatchResults()
+	protected void BroadcastMatchResults(FactionKey winningFactionKey)
 	{
 		AFM_DiDMatchResults results = m_Stats.BuildResults(m_AwardConfig);
 		if (!results || results.IsEmpty())
 			return;
 
-		RPC_DoResultsBegin();
-		Rpc(RPC_DoResultsBegin);
+		string headline = BuildResultsHeadline(winningFactionKey);
+
+		RPC_DoResultsBegin(headline);
+		Rpc(RPC_DoResultsBegin, headline);
 
 		foreach (AFM_DiDPlayerStats row : results.GetRows())
 		{
 			string name = row.GetName();
 			string values = row.EncodeValues();
 			string titles = string.Join(AFM_DiDMatchResults.TITLE_SEPARATOR, row.GetTitles(), true);
+			string rank = row.GetRankInsignia();
 
-			RPC_DoResultsRow(name, values, titles);
-			Rpc(RPC_DoResultsRow, name, values, titles);
+			RPC_DoResultsRow(name, values, titles, rank);
+			Rpc(RPC_DoResultsRow, name, values, titles, rank);
 		}
 
 		foreach (AFM_DiDAwardResult award : results.GetAwards())
@@ -1129,20 +1166,22 @@ class AFM_GameModeDiD: PS_GameModeCoop
 
 	//------------------------------------------------------------------------------------------------
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
-	protected void RPC_DoResultsBegin()
+	protected void RPC_DoResultsBegin(string headline)
 	{
 		m_MatchResults = new AFM_DiDMatchResults();
+		m_MatchResults.SetHeadline(headline);
 	}
 
 	//------------------------------------------------------------------------------------------------
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
-	protected void RPC_DoResultsRow(string name, string values, string titles)
+	protected void RPC_DoResultsRow(string name, string values, string titles, string rankInsignia)
 	{
 		if (!m_MatchResults)
 			return;
 
 		AFM_DiDPlayerStats row = new AFM_DiDPlayerStats(string.Empty, name);
 		row.DecodeValues(values);
+		row.SetRankInsignia(rankInsignia);
 
 		array<string> titleList = {};
 		titles.Split(AFM_DiDMatchResults.TITLE_SEPARATOR, titleList, true);

@@ -54,6 +54,21 @@ class AFM_DiDMatchResults
 	protected ref array<ref AFM_DiDPlayerStats> m_aRows = {};
 	protected ref array<ref AFM_DiDAwardResult> m_aAwards = {};
 
+	// How the match ended, in words. Built on the authority, where the sides have names rather than keys.
+	protected string m_sHeadline;
+
+	//------------------------------------------------------------------------------------------------
+	void SetHeadline(string headline)
+	{
+		m_sHeadline = headline;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	string GetHeadline()
+	{
+		return m_sHeadline;
+	}
+
 	//------------------------------------------------------------------------------------------------
 	void AddRow(notnull AFM_DiDPlayerStats row)
 	{

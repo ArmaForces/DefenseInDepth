@@ -148,10 +148,15 @@ class AFM_DiDZoneSystem: GameSystem
 				return;
 		}
 		
-		// Don't process zones that are already finished
+		// A zone can finish outside its own Process: the extraction zone does, the moment the helicopter
+		// flies clear. Returning here without looking at the state left the match running forever with a
+		// finished zone, which is what "zone finished" in the log and nothing happening afterwards was.
 		if (m_ActiveZone.IsZoneFinished())
+		{
+			HandleZoneFinished(m_ActiveZone.GetZoneIndex(), m_ActiveZone.GetZoneState());
 			return;
-		
+		}
+
 		// Children and spawners are resolved a few seconds after the zone registers
 		if (!m_ActiveZone.IsInitialized())
 			return;
@@ -173,28 +178,44 @@ class AFM_DiDZoneSystem: GameSystem
 			OnZoneStateChanged(zoneIndex, previousState, currentState);
 		}
 		
-		// Handle zone completion states (both regular zones and wave zones use FINISHED_HELD)
-		if (currentState == EAFMZoneState.FINISHED_HELD)
+		// Both regular zones and wave zones finish through these two states
+		if (HandleZoneFinished(zoneIndex, currentState))
+			return;
+
+		if (m_OnZoneUpdate)
+			m_OnZoneUpdate.Invoke();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! What a finished zone leads to: the match is over when one was held, and the next zone starts when
+	//! one was lost.
+	//!
+	//! Reached from two places, because a zone does not have to finish inside its own Process - so this
+	//! either stops the system or progresses past the zone, and in both cases nothing ticks it again.
+	//!
+	//! Returns true when the zone was finished and handled.
+	//------------------------------------------------------------------------------------------------
+	protected bool HandleZoneFinished(int zoneIndex, EAFMZoneState state)
+	{
+		if (state == EAFMZoneState.FINISHED_HELD)
 		{
 			PrintFormat("AFM_DiDZoneSystem: Zone %1 completed - defenders held!", zoneIndex);
 			if (m_OnZoneHeld)
 				m_OnZoneHeld.Invoke();
 			StopZoneSystem();
-			return;
+			return true;
 		}
-		
-		// Handle zone failure (all defenders eliminated) - fire event with old index before progressing
-		if (currentState == EAFMZoneState.FINISHED_FAILED)
+
+		if (state == EAFMZoneState.FINISHED_FAILED)
 		{
 			PrintFormat("AFM_DiDZoneSystem: All defenders eliminated in zone %1", zoneIndex);
 			if (m_OnZoneFailed)
 				m_OnZoneFailed.Invoke(zoneIndex);
 			ProgressToNextZone();
-			return;
+			return true;
 		}
-		
-		if (m_OnZoneUpdate)
-			m_OnZoneUpdate.Invoke();
+
+		return false;
 	}
 
 	//------------------------------------------------------------------------------------------------
