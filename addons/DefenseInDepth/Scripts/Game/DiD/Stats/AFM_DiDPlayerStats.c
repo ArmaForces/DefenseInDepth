@@ -14,7 +14,7 @@ enum AFM_EDiDStat
 	SUICIDES,			//!< Deaths this player brought on themselves
 
 	LAUNCHER_KILLS,		//!< Kills with a rocket launcher in hand
-	GRENADE_KILLS,		//!< Kills with a grenade or grenade launcher in hand
+	GRENADE_KILLS,		//!< Kills with a grenade or grenade launcher in hand, or from any crewed gun
 	ARSENAL_SECONDS,	//!< Seconds with an arsenal open, as reported by that player's client
 
 	STRUCTURES_BUILT,	//!< Compositions finished by this player

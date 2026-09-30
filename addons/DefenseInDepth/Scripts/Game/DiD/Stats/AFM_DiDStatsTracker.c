@@ -65,10 +65,20 @@ class AFM_DiDStatsTracker
 	//! in hand at the moment of death. Someone who fires a rocket and swaps to a rifle before the victim
 	//! finishes dying is credited with the rifle. Fine for an award about rockets to the face; anything
 	//! that had to be exact would have to hook damage on every character instead.
+	//!
+	//! A crewed gun is credited by the seat instead of the weapon, and counts as a grenade kill. The
+	//! weapon type is no use there - the Soviet mortar reports itself as a machine gun - and lobbing
+	//! things at people from a mortar is the same joke as lobbing them by hand.
 	protected void CreditWeaponFlavour(notnull AFM_DiDPlayerStats killer, IEntity killerEntity)
 	{
 		if (!killerEntity)
 			return;
+
+		if (IsTurretKill(killerEntity))
+		{
+			killer.Add(AFM_EDiDStat.GRENADE_KILLS);
+			return;
+		}
 
 		BaseWeaponManagerComponent weaponManager = BaseWeaponManagerComponent.Cast(killerEntity.FindComponent(BaseWeaponManagerComponent));
 		if (!weaponManager)
@@ -84,6 +94,27 @@ class AFM_DiDStatsTracker
 			killer.Add(AFM_EDiDStat.LAUNCHER_KILLS);
 		else if (weaponType == EWeaponType.WT_FRAGGRENADE || weaponType == EWeaponType.WT_GRENADELAUNCHER)
 			killer.Add(AFM_EDiDStat.GRENADE_KILLS);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Whether the kill came from a seat rather than from a pair of hands: a mortar, a vehicle gun, any
+	//! turret.
+	//!
+	//! The killer is normally the character, so the seat is found through its compartment - the weapon
+	//! itself hangs off the turret, not off the character. An instigator resolved to the turret instead is
+	//! checked for directly, which costs one lookup and saves wondering which one it was.
+	//------------------------------------------------------------------------------------------------
+	protected bool IsTurretKill(notnull IEntity killerEntity)
+	{
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(killerEntity.FindComponent(SCR_CompartmentAccessComponent));
+		if (access && access.IsInCompartment())
+		{
+			BaseCompartmentSlot slot = access.GetCompartment();
+			if (TurretCompartmentSlot.Cast(slot))
+				return true;
+		}
+
+		return TurretControllerComponent.Cast(killerEntity.FindComponent(TurretControllerComponent)) != null;
 	}
 
 	//------------------------------------------------------------------------------------------------
