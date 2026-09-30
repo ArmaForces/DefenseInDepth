@@ -24,6 +24,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	protected ref AFM_DiDSideConfig m_AttackerConfig;
 	protected ref AFM_DiDAwardConfig m_AwardConfig;
 	protected ref AFM_DiDSupplyConfig m_SupplyConfig;
+	protected ref AFM_DiDSupplyBudget m_SupplyBudget;
 
 	// Replicated, because a client cannot be relied on to have resolved the configs the same way: the
 	// scenario may name the sides in its header, which is captured on the authority. The HUD needs the
@@ -398,6 +399,10 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		}
 
 		ApplyCompositionRefund();
+
+		// Vanilla charges for compositions only in Conflict, so the charging is ours
+		m_SupplyBudget = new AFM_DiDSupplyBudget();
+		m_SupplyBudget.Start();
 
 		PrintFormat("AFM_GameModeDiD: Supply economy on - stage 1 starts with %1, %2%% carries over, %3%% refunded on dismantle",
 			m_SupplyConfig.GetStartingSupplies(1), Math.Round(m_SupplyConfig.m_fCarryOverFraction * 100), m_SupplyConfig.m_iCompositionRefundPercentage);
