@@ -11,10 +11,12 @@ modded class SCR_CampaignBuildingProviderComponent
 	//------------------------------------------------------------------------------------------------
 	//! Where the supplies for building come from.
 	//!
-	//! Vanilla looks for a resource component on the provider itself and leaves the rest to proximity: a
-	//! Conflict building service stands in a base next to its storage. Our stages each have their own
-	//! cache, and which one is in play is a matter of which stage is running rather than which is nearest,
-	//! so the active zone's cache is named outright.
+	//! The provider keeps vanilla's own resource component - its consumer is the DEFAULT one the building
+	//! budget looks up, and handing the budget the cache's component instead does not work, because a
+	//! consumer authored for storage answers to a different identifier and the budget then finds nothing.
+	//! What changes is which supplies that consumer can see: vanilla settles it by proximity, which suits
+	//! a Conflict base and not a mission that moves from stage to stage, so the active stage's cache is
+	//! registered with it directly.
 	//!
 	//! Null while the economy is off, which is how vanilla expresses an unlimited budget - so building
 	//! stays free, exactly as it was before any of this existed.
@@ -24,12 +26,17 @@ modded class SCR_CampaignBuildingProviderComponent
 		if (!AFM_DiDSupplies.IsEnabled())
 			return null;
 
+		SCR_ResourceComponent own = super.GetResourceComponent();
+		if (own && AFM_DiDSupplies.LinkSpender(own))
+			return own;
+
+		// The provider has no consumer the budget can use. The stage's cache carries one of its own, so the
+		// budget can read it there instead.
 		SCR_ResourceComponent cache = AFM_DiDSupplies.GetActiveCache();
 		if (cache)
 			return cache;
 
-		// No stage running, or a stage with no cache placed: fall back to whatever vanilla would find
-		return super.GetResourceComponent();
+		return own;
 	}
 
 	//------------------------------------------------------------------------------------------------

@@ -122,7 +122,7 @@ class AFM_DiDZoneSystem: GameSystem
 		
 		m_ActiveZone = m_aZones[m_iStartingZoneIndex];
 		m_ActiveZone.ActivateZone();
-		AFM_DiDSupplies.SeedZone(m_ActiveZone, 0);
+		FundActiveZone(0);
 		m_bStartingZoneActivated = true;
 		
 		if (m_OnZoneChanged)
@@ -217,6 +217,23 @@ class AFM_DiDZoneSystem: GameSystem
 		}
 
 		return false;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Gives the stage that just started its supplies, and makes sure it is the only stage holding any.
+	//!
+	//! Spenders reach for supplies by range rather than by stage, so a cache belonging to a stage nobody is
+	//! playing has to be empty or it becomes a second wallet.
+	//------------------------------------------------------------------------------------------------
+	protected void FundActiveZone(int carryOverSupplies)
+	{
+		AFM_DiDSupplies.SeedZone(m_ActiveZone, carryOverSupplies);
+
+		foreach (int index, AFM_DiDZoneComponent zone : m_aZones)
+		{
+			if (zone != m_ActiveZone)
+				AFM_DiDSupplies.DrainZone(zone);
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -331,7 +348,7 @@ class AFM_DiDZoneSystem: GameSystem
 		
 		// After activation, which is where the new pool is sized and clamped
 		m_ActiveZone.AddTickets(carryOverTickets);
-		AFM_DiDSupplies.SeedZone(m_ActiveZone, carryOverSupplies);
+		FundActiveZone(carryOverSupplies);
 		
 		if (m_OnZoneChanged)
 			m_OnZoneChanged.Invoke();

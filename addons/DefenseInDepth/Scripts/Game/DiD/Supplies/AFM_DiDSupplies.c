@@ -12,6 +12,47 @@
 //------------------------------------------------------------------------------------------------
 class AFM_DiDSupplies
 {
+	//! How far a spender is allowed to reach for the stage's cache. Generous on purpose: the cache and the
+	//! thing spending from it are both somewhere in the same zone, and the grid drops links that fall out
+	//! of a consumer's range on its next sweep.
+	protected static const float LINK_RANGE_M = 1000;
+
+	//------------------------------------------------------------------------------------------------
+	//! Puts the active stage's supplies into a spender's own consumer queue.
+	//!
+	//! Vanilla pairs consumers with containers by proximity through the resource grid, which is right for
+	//! a Conflict base and no use here: our pool is whichever stage is running. So the container is
+	//! registered outright, and the consumer's range widened so the grid's next sweep does not unlink it
+	//! again for being too far away.
+	//!
+	//! The consumer has to be the DEFAULT one. A consumer authored without an identifier is
+	//! DEFAULT_STORAGE, and everything that spends supplies - the building budget, the arsenal - looks up
+	//! DEFAULT, which is why a pool wired only for storage reads as zero.
+	//!
+	//! Returns true when the spender can see the stage's supplies.
+	//------------------------------------------------------------------------------------------------
+	static bool LinkSpender(SCR_ResourceComponent spender)
+	{
+		if (!spender || !IsEnabled())
+			return false;
+
+		SCR_ResourceContainer container = GetActiveContainer();
+		if (!container)
+			return false;
+
+		SCR_ResourceConsumer consumer = spender.GetConsumer(EResourceGeneratorID.DEFAULT, EResourceType.SUPPLIES);
+		if (!consumer)
+			return false;
+
+		if (consumer.GetResourceRange() < LINK_RANGE_M)
+			consumer.SetResourceRange(LINK_RANGE_M);
+
+		if (consumer.FindContainer(container) != SCR_ResourceContainerQueueBase.INVALID_CONTAINER_INDEX)
+			return true;
+
+		return consumer.RegisterContainerForced(container);
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//! Vanilla's flag rather than one of ours: it is replicated, admins can flip it, and every vanilla
 	//! consumer of supplies already honours it
@@ -64,6 +105,46 @@ class AFM_DiDSupplies
 
 		PrintFormat("AFM_DiDSupplies: Stage %1 funded with %2 supplies (%3 its own, %4 carried over, ceiling %5)",
 			zone.GetZoneIndex(), total, starting, carryOver, config.m_iCacheMaximum);
+
+		ReportCacheWiring(zone);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Says whether the pool can actually be spent from, because the failure is otherwise silent: a cache
+	//! full of supplies that no spender can see looks exactly like an empty one
+	protected static void ReportCacheWiring(notnull AFM_DiDZoneComponent zone)
+	{
+		SCR_ResourceComponent cache = zone.GetSupplyCache();
+		if (!cache)
+			return;
+
+		SCR_ResourceConsumer spending = cache.GetConsumer(EResourceGeneratorID.DEFAULT, EResourceType.SUPPLIES);
+		if (!spending)
+		{
+			PrintFormat("AFM_DiDSupplies: Stage %1 cache has no DEFAULT supplies consumer, so nothing can spend from it", zone.GetZoneIndex(), level: LogLevel.ERROR);
+			return;
+		}
+
+		PrintFormat("AFM_DiDSupplies: Stage %1 cache can be spent from - %2 of %3 visible within %4 m",
+			zone.GetZoneIndex(), spending.GetAggregatedResourceValue(), spending.GetAggregatedMaxResourceValue(), spending.GetResourceRange());
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Empties a cache that is not in play.
+	//!
+	//! Spenders find supplies through the resource grid, by range, and every stage's cache sits in the same
+	//! world. Leaving a stage that has not started yet holding its prefab's supplies would let an arsenal
+	//! or a builder quietly draw from it, so only the stage being played holds anything.
+	static void DrainZone(AFM_DiDZoneComponent zone)
+	{
+		if (!zone || !IsEnabled())
+			return;
+
+		SCR_ResourceContainer container = GetContainer(zone);
+		if (!container || container.GetResourceValue() <= 0)
+			return;
+
+		container.SetResourceValue(0);
 	}
 
 	//------------------------------------------------------------------------------------------------
