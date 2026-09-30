@@ -1,0 +1,34 @@
+//------------------------------------------------------------------------------------------------
+//! Hands the groups a service point garrisons the position with to the stage that paid for them.
+//!
+//! Same reasoning as the catalog spawner: a defending group belongs to the stage it was bought in, and
+//! left standing it wanders into the next one with no orders. The zone clears them when the stage ends.
+//------------------------------------------------------------------------------------------------
+modded class SCR_DefenderSpawnerComponent
+{
+	//------------------------------------------------------------------------------------------------
+	protected override void EOnInit(IEntity owner)
+	{
+		super.EOnInit(owner);
+
+		if (!AFM_DiDSupplies.IsEnabled())
+			return;
+
+		GetOnDefenderGroupSpawned().Insert(AFM_OnGroupSpawned);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void AFM_OnGroupSpawned(SCR_DefenderSpawnerComponent spawner, SCR_AIGroup group)
+	{
+		if (!group)
+			return;
+
+		AFM_DiDZoneSystem zoneSystem = AFM_DiDZoneSystem.GetInstance();
+		if (!zoneSystem)
+			return;
+
+		AFM_DiDZoneComponent zone = zoneSystem.GetActiveZone();
+		if (zone)
+			zone.RegisterServiceSpawn(group);
+	}
+}

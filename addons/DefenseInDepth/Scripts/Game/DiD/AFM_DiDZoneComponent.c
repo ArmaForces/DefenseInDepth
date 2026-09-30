@@ -73,6 +73,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	// Compositions players built while this zone was active, removed with the zone
 	protected ref array<IEntity> m_aPlayerStructures = {};
 
+	// What the service point spawned for the players this stage - soldiers, groups, vehicles
+	protected ref array<IEntity> m_aServiceSpawns = {};
+
 	// Props under this zone that carry a faction - the arsenal crate, the support station - handed to
 	// whichever side is defending when the zone starts
 	protected ref array<IEntity> m_aFactionProps = {};
@@ -344,6 +347,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 		}
 		
 		RemovePlayerStructures();
+		RemoveServiceSpawns();
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -462,6 +466,40 @@ class AFM_DiDZoneComponent: ScriptComponent
 		m_aPlayerStructures.Clear();
 	}
 	
+	//------------------------------------------------------------------------------------------------
+	//! Anything the stage's service point handed the players: hired soldiers, groups, vehicles.
+	//!
+	//! Tracked separately from structures because it always goes at the end of a stage. A group left behind
+	//! walks into the next fight with no orders, and an abandoned vehicle is cover the attackers get for
+	//! free - and unlike a wall, nobody chose to leave it there.
+	//------------------------------------------------------------------------------------------------
+	void RegisterServiceSpawn(IEntity spawned)
+	{
+		if (!spawned || m_aServiceSpawns.Contains(spawned))
+			return;
+
+		m_aServiceSpawns.Insert(spawned);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void RemoveServiceSpawns()
+	{
+		int removed = 0;
+		foreach (IEntity spawned : m_aServiceSpawns)
+		{
+			if (!spawned)
+				continue;
+
+			SCR_EntityHelper.DeleteEntityAndChildren(spawned);
+			removed++;
+		}
+
+		if (removed > 0)
+			PrintFormat("AFM_DiDZoneComponent %1: Removed %2 units and vehicles the service spawned", m_sZoneName, removed);
+
+		m_aServiceSpawns.Clear();
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//! How many compositions players have built in this zone
 	int GetPlayerStructureCount()
