@@ -271,7 +271,25 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		OnMatchSituationChanged();
 		Replication.BumpMe();
 	}
-	
+
+	//------------------------------------------------------------------------------------------------
+	//! PS hooks this to the editor closing and then reads the local player controller without checking
+	//! it, which throws on every machine that has none - a dedicated server, and any machine where the
+	//! editor is torn down at match end after the controller has gone. Nothing below it applies there
+	//! either: it exists to take the local player out of observer mode.
+	//------------------------------------------------------------------------------------------------
+	override void EditorClosed()
+	{
+		PlayerController playerController = GetGame().GetPlayerController();
+		if (!playerController)
+			return;
+
+		if (!playerController.FindComponent(PS_PlayableControllerComponent))
+			return;
+
+		super.EditorClosed();
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//! Who the two sides are comes from a config file per side rather than from attributes here, so a
 	//! scenario can be re-sided without re-authoring it: the zones, spawn points and timings do not care

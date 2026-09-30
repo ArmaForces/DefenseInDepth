@@ -16,10 +16,13 @@ modded class SCR_InventoryMenuUI
 	//------------------------------------------------------------------------------------------------
 	override void OnMenuOpen()
 	{
-		super.OnMenuOpen();
-
+		// Before super, and this order matters: opening a crate directly gets its contents built during
+		// OnMenuOpen (SetOpenStorage -> Traverse -> GetAllItems), so the arsenal is entered before super
+		// returns. Listening afterwards only ever caught a second crate picked from the vicinity list.
 		s_iAFM_ArsenalOpenedAt = 0;
 		SCR_InventoryStorageBaseUI.GetOnArsenalEnter().Insert(AFM_OnArsenalEntered);
+
+		super.OnMenuOpen();
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -53,7 +56,13 @@ modded class SCR_InventoryMenuUI
 			return;
 
 		AFM_DiDArsenalTimerComponent timer = AFM_DiDArsenalTimerComponent.GetLocal();
-		if (timer)
-			timer.ReportSeconds(seconds);
+		if (!timer)
+		{
+			Print("AFM: arsenal time not reported, no timer component on the player controller", LogLevel.WARNING);
+			return;
+		}
+
+		PrintFormat("AFM: arsenal closed after %1s", seconds);
+		timer.ReportSeconds(seconds);
 	}
 }
