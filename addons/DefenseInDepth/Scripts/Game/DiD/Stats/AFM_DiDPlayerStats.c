@@ -28,12 +28,18 @@ enum AFM_EDiDStat
 //------------------------------------------------------------------------------------------------
 class AFM_DiDPlayerStats
 {
+	//! Values travel joined into one string, so that this is not a character any of them can contain
+	static const string VALUE_SEPARATOR = "|";
+
 	// The player id changes across a reconnect; the identity does not, and is what a result page
 	// should fold on so one player's match does not end up split in two
 	protected string m_sIdentityId;
 	protected string m_sName;
 
 	protected ref array<float> m_aValues = {};
+
+	// Titles this player took, filled when the awards are resolved at the end of the match
+	protected ref array<string> m_aTitles = {};
 
 	//------------------------------------------------------------------------------------------------
 	void AFM_DiDPlayerStats(string identityId, string name)
@@ -70,6 +76,52 @@ class AFM_DiDPlayerStats
 	string GetText(AFM_EDiDStat stat)
 	{
 		return Math.Round(Get(stat)).ToString();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	void AddTitle(string title)
+	{
+		if (title.IsEmpty())
+			return;
+
+		m_aTitles.Insert(title);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	array<string> GetTitles()
+	{
+		return m_aTitles;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Every value in enum order, as one string. Whole numbers throughout, so this is both the wire
+	//! form and readable.
+	string EncodeValues()
+	{
+		array<string> parts = {};
+		for (int i = 0; i < AFM_EDiDStat.COUNT; i++)
+		{
+			parts.Insert(GetText(i));
+		}
+
+		return string.Join(VALUE_SEPARATOR, parts, false);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! The other end of EncodeValues. A payload from an older build with fewer stats fills what it can
+	//! and leaves the rest at zero.
+	void DecodeValues(string encoded)
+	{
+		array<string> parts = {};
+		encoded.Split(VALUE_SEPARATOR, parts, false);
+
+		for (int i = 0; i < AFM_EDiDStat.COUNT; i++)
+		{
+			if (!parts.IsIndexValid(i))
+				return;
+
+			m_aValues[i] = parts[i].ToFloat();
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------

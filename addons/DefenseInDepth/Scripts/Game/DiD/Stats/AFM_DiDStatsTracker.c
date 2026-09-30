@@ -241,6 +241,123 @@ class AFM_DiDStatsTracker
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Everything the results page needs, resolved once at the end of the match.
+	//!
+	//! The rows are the live records rather than copies - the match is over, nothing else will touch
+	//! them - and the titles are written onto those same rows as well as collected into their own list,
+	//! so the page can show them either against a player or as a roll of honour.
+	//------------------------------------------------------------------------------------------------
+	AFM_DiDMatchResults BuildResults(AFM_DiDAwardConfig config)
+	{
+		FlushBuildSessions();
+
+		AFM_DiDMatchResults results = new AFM_DiDMatchResults();
+
+		array<int> playerIds = {};
+		array<AFM_DiDPlayerStats> stats = {};
+		if (!GetStats(playerIds, stats))
+			return results;
+
+		foreach (AFM_DiDPlayerStats row : stats)
+		{
+			results.AddRow(row);
+		}
+
+		if (config)
+			ResolveAwards(config, results);
+
+		return results;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void ResolveAwards(notnull AFM_DiDAwardConfig config, notnull AFM_DiDMatchResults results)
+	{
+		array<ref AFM_DiDAwardEntry> awards = config.GetAwards();
+		if (!awards)
+			return;
+
+		foreach (AFM_DiDAwardEntry award : awards)
+		{
+			if (!award || award.m_sTitle.IsEmpty())
+				continue;
+
+			// COUNT is the size of a record, not a stat anyone can win
+			if (award.m_eStat == AFM_EDiDStat.COUNT)
+			{
+				PrintFormat("AFM_DiDStatsTracker: Award '%1' names no real stat and was skipped", award.m_sTitle, level: LogLevel.WARNING);
+				continue;
+			}
+
+			ResolveAward(award, results);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! One title. Everyone below the minimum is out of the running, which is what keeps a match where
+	//! nobody fired a rocket from crowning someone with none.
+	protected void ResolveAward(notnull AFM_DiDAwardEntry award, notnull AFM_DiDMatchResults results)
+	{
+		array<AFM_DiDPlayerStats> winners = {};
+		float best = 0;
+
+		foreach (AFM_DiDPlayerStats row : results.GetRows())
+		{
+			float value = row.Get(award.m_eStat);
+			if (value < award.m_fMinimum)
+				continue;
+
+			if (winners.IsEmpty())
+			{
+				best = value;
+				winners.Insert(row);
+				continue;
+			}
+
+			if (value == best)
+			{
+				winners.Insert(row);
+				continue;
+			}
+
+			bool better = value > best;
+			if (!award.m_bHighestWins)
+				better = value < best;
+
+			if (!better)
+				continue;
+
+			best = value;
+			winners.Clear();
+			winners.Insert(row);
+		}
+
+		if (winners.IsEmpty())
+			return;
+
+		if (winners.Count() > 1 && !award.m_bAwardTies)
+			return;
+
+		array<string> names = {};
+		foreach (AFM_DiDPlayerStats winner : winners)
+		{
+			winner.AddTitle(award.m_sTitle);
+			names.Insert(winner.GetName());
+		}
+
+		results.AddAward(award.m_sTitle, string.Join(", ", names, true), FormatValue(best, award.m_sUnit));
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected string FormatValue(float value, string unit)
+	{
+		string text = Math.Round(value).ToString();
+		if (unit.IsEmpty())
+			return text;
+
+		return text + " " + unit;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! Write the table to the log, best bot killer first. Stands in for the results page until there is
 	//! one, and is the way to tell whether the numbers are believable after a match.
 	void Dump(string reason)

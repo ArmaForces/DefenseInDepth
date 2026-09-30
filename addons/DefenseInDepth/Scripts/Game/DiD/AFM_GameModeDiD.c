@@ -10,9 +10,13 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	[Attribute("{CB5CAE38E68AEBE5}Configs/Factions/DiD_Side_USSR.conf", UIWidgets.ResourceNamePicker, "The side that attacks: its faction, infantry groups, vehicles, mortars, helicopters and COWABUNGA squad", params: "conf class=AFM_DiDSideConfig", category: "DiD")]
 	protected ResourceName m_sAttackerConfigPath;
 
+	[Attribute("{9D1C4E7A3B052F68}Configs/Awards/DiD_Awards.conf", UIWidgets.ResourceNamePicker, "Titles handed out when the match ends. Read on the authority only", params: "conf class=AFM_DiDAwardConfig", category: "DiD")]
+	protected ResourceName m_sAwardConfigPath;
+
 	// Loaded at EOnInit, well before any zone initialises and reads them
 	protected ref AFM_DiDSideConfig m_DefenderConfig;
 	protected ref AFM_DiDSideConfig m_AttackerConfig;
+	protected ref AFM_DiDAwardConfig m_AwardConfig;
 
 	// Replicated, because a client cannot be relied on to have resolved the configs the same way: the
 	// scenario may name the sides in its header, which is captured on the authority. The HUD needs the
@@ -42,6 +46,10 @@ class AFM_GameModeDiD: PS_GameModeCoop
 
 	// What this match has recorded about each player. Authority only.
 	protected ref AFM_DiDStatsTracker m_Stats;
+
+	// The finished table, on every machine once the match has ended
+	protected ref AFM_DiDMatchResults m_MatchResults;
+	protected ref ScriptInvokerVoid m_OnMatchResults;
 
 	// The one group every player belongs to, made with the first body of the match
 	protected SCR_AIGroup m_PlayerGroup;
@@ -225,9 +233,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		
 		LoadSideConfigs();
 
-		// Authority only: every death is reported here, and nothing reads the table from a client yet
+		// Authority only: every death is reported here, and a client is told the finished table instead
 		if (IsMaster())
+		{
 			m_Stats = new AFM_DiDStatsTracker();
+			LoadAwardConfig();
+		}
 
 		m_FactionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
 		if (!m_FactionManager)
@@ -298,6 +309,18 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	//! Loaded on server and client alike. These are files, identical on every machine, and the HUD needs
 	//! the faction keys as much as the spawners need the prefabs - loading them only on the authority
 	//! would leave clients with no flags.
+	//------------------------------------------------------------------------------------------------
+	//! Unlike the side configs this is wanted on the authority alone: it decides the winners there, and
+	//! what crosses the wire is the finished list of titles rather than the rules for them
+	protected void LoadAwardConfig()
+	{
+		m_AwardConfig = SCR_ConfigHelperT<AFM_DiDAwardConfig>.GetConfigObject(m_sAwardConfigPath);
+
+		if (!m_AwardConfig)
+			PrintFormat("AFM_GameModeDiD: Award config '%1' could not be loaded, the match will end with stats but no titles",
+				m_sAwardConfigPath, level: LogLevel.WARNING);
+	}
+
 	//------------------------------------------------------------------------------------------------
 	protected void LoadSideConfigs()
 	{
@@ -1045,9 +1068,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	// Server side method to end game with winningFactionKey faction victory
 	protected void GameEnd(FactionKey winningFactionKey)
 	{
-		// Until there is a results page, the log is the results page
+		// The log keeps the full table; the page gets it over the wire
 		if (m_Stats)
+		{
 			m_Stats.Dump("match over");
+			BroadcastMatchResults();
+		}
 
 		Faction faction = m_FactionManager.GetFactionByKey(winningFactionKey);
 		int factionId = m_FactionManager.GetFactionIndex(faction);
@@ -1056,6 +1082,117 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		m_bIsGameRunning = false;
 	}
 	
+	//------------------------------------------------------------------------------------------------
+	//! Send the finished table out once, at the end of the match.
+	//!
+	//! Row by row rather than as one payload, because an RPC takes plain values: each row is its name,
+	//! its numbers joined in enum order, and the titles it took. Nothing here is replicated state - the
+	//! live table stays on the authority for the whole match and only its conclusion travels.
+	//!
+	//! Each call runs locally too, so a listen server's own client assembles its copy the same way a
+	//! remote one does, rather than reading the server's records directly.
+	//------------------------------------------------------------------------------------------------
+	protected void BroadcastMatchResults()
+	{
+		AFM_DiDMatchResults results = m_Stats.BuildResults(m_AwardConfig);
+		if (!results || results.IsEmpty())
+			return;
+
+		RPC_DoResultsBegin();
+		Rpc(RPC_DoResultsBegin);
+
+		foreach (AFM_DiDPlayerStats row : results.GetRows())
+		{
+			string name = row.GetName();
+			string values = row.EncodeValues();
+			string titles = string.Join(AFM_DiDMatchResults.TITLE_SEPARATOR, row.GetTitles(), true);
+
+			RPC_DoResultsRow(name, values, titles);
+			Rpc(RPC_DoResultsRow, name, values, titles);
+		}
+
+		foreach (AFM_DiDAwardResult award : results.GetAwards())
+		{
+			string title = award.GetTitle();
+			string winners = award.GetWinners();
+			string value = award.GetValue();
+
+			PrintFormat("AFM_GameModeDiD: Award '%1' goes to %2 with %3", title, winners, value);
+
+			RPC_DoResultsAward(title, winners, value);
+			Rpc(RPC_DoResultsAward, title, winners, value);
+		}
+
+		RPC_DoResultsEnd();
+		Rpc(RPC_DoResultsEnd);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoResultsBegin()
+	{
+		m_MatchResults = new AFM_DiDMatchResults();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoResultsRow(string name, string values, string titles)
+	{
+		if (!m_MatchResults)
+			return;
+
+		AFM_DiDPlayerStats row = new AFM_DiDPlayerStats(string.Empty, name);
+		row.DecodeValues(values);
+
+		array<string> titleList = {};
+		titles.Split(AFM_DiDMatchResults.TITLE_SEPARATOR, titleList, true);
+
+		foreach (string title : titleList)
+		{
+			row.AddTitle(title);
+		}
+
+		m_MatchResults.AddRow(row);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoResultsAward(string title, string winners, string value)
+	{
+		if (!m_MatchResults)
+			return;
+
+		m_MatchResults.AddAward(title, winners, value);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! The table is whole from here on, which is what a page already on screen waits for
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RPC_DoResultsEnd()
+	{
+		if (m_OnMatchResults)
+			m_OnMatchResults.Invoke();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Null until the match has ended
+	AFM_DiDMatchResults GetMatchResults()
+	{
+		return m_MatchResults;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Fires on every machine once the whole table has arrived. The debriefing menu may well open
+	//! before the last row does, so a page reads GetMatchResults on open and listens to this as well.
+	ScriptInvokerVoid GetOnMatchResults()
+	{
+		if (!m_OnMatchResults)
+			m_OnMatchResults = new ScriptInvokerVoid();
+
+		return m_OnMatchResults;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected void GameEndDefendersWin()
 	{
 		Print("Defenders win!");
