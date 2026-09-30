@@ -40,11 +40,10 @@ class AFM_DiDSupplies
 		if (!container)
 			return false;
 
-		// The generator is what a refund flows back through, so it needs the same container
-		SCR_ResourceGenerator generator = spender.GetGenerator(EResourceGeneratorID.DEFAULT, EResourceType.SUPPLIES);
-		if (generator)
-			LinkInteractor(generator, container);
-
+		// Only the consumer. A generator's queue is what it hands resources out FROM, so registering the
+		// pool with one offers it to anything nearby that draws supplies - which is how 1400 of a stage's
+		// 1600 disappeared between the fund and the zone ending. Refunds come back through our own accounting
+		// instead.
 		SCR_ResourceConsumer consumer = spender.GetConsumer(EResourceGeneratorID.DEFAULT, EResourceType.SUPPLIES);
 		if (!consumer)
 			return false;
@@ -115,30 +114,11 @@ class AFM_DiDSupplies
 
 		container.SetResourceValue(total);
 
-		PrintFormat("AFM_DiDSupplies: Stage %1 funded with %2 supplies (%3 its own, %4 carried over, ceiling %5)",
-			zone.GetZoneIndex(), total, starting, carryOver, config.m_iCacheMaximum);
-
-		ReportCacheWiring(zone);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! Says whether the pool can actually be spent from, because the failure is otherwise silent: a cache
-	//! full of supplies that no spender can see looks exactly like an empty one
-	protected static void ReportCacheWiring(notnull AFM_DiDZoneComponent zone)
-	{
-		SCR_ResourceComponent cache = zone.GetSupplyCache();
-		if (!cache)
-			return;
-
-		SCR_ResourceConsumer spending = cache.GetConsumer(EResourceGeneratorID.DEFAULT, EResourceType.SUPPLIES);
-		if (!spending)
-		{
-			PrintFormat("AFM_DiDSupplies: Stage %1 cache has no DEFAULT supplies consumer, so nothing can spend from it", zone.GetZoneIndex(), level: LogLevel.ERROR);
-			return;
-		}
-
-		PrintFormat("AFM_DiDSupplies: Stage %1 cache can be spent from - %2 of %3 visible within %4 m",
-			zone.GetZoneIndex(), spending.GetAggregatedResourceValue(), spending.GetAggregatedMaxResourceValue(), spending.GetResourceRange());
+		// Read back rather than reporting what was asked for: a container can refuse or clamp a value, and
+		// anything that quietly drains the pool later shows up as a gap between this line and the one the
+		// stage ends with
+		PrintFormat("AFM_DiDSupplies: Stage %1 funded with %2 supplies, asked for %3 (%4 its own, %5 carried over, ceiling %6)",
+			zone.GetZoneIndex(), Math.Round(container.GetResourceValue()), total, starting, carryOver, config.m_iCacheMaximum);
 	}
 
 	//------------------------------------------------------------------------------------------------
