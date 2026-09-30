@@ -14,8 +14,48 @@ GenericEntity : "{7649AC4689618998}Prefabs/Props/Military/Compositions/US/Buildi
     }
    }
    m_aAvailableTraits {
-    TRAIT_FORTIFICATION THEME_MILITARY
+    TRAIT_FORTIFICATION THEME_MILITARY GROUPTYPE_ESSENTIAL
    }
+  }
+  SCR_CatalogEntitySpawnerComponent "{7B4E29C05D13A880}" {
+   m_eType BARRACKS
+   m_aCatalogTypes {
+    CHARACTER GROUP
+   }
+   m_aAllowedLabels {
+    ROLE_RIFLEMAN ROLE_AMMOBEARER ROLE_LEADER ROLE_GRENADIER ROLE_MACHINEGUNNER ROLE_ANTITANK
+   }
+   m_fMaxSlotDistance 6
+   m_bNeedAllLabels 0
+   m_bSuppliesConsumptionEnabled 1
+   m_bEnableGracePeriod 1
+   m_fGracePeriodTime 60
+   m_fGracePeriodAreaRange 100
+   m_fPostGracePeriodRefundMultiplier 0.25
+  }
+  SCR_CatalogEntitySpawnerComponent "{7B4E29C05D13A881}" {
+   m_eType LIGHT_VEHICLE_DEPOT
+   m_aCatalogTypes {
+    VEHICLE
+   }
+   m_fMaxSlotDistance 10
+   m_bNeedAllLabels 0
+   m_bSuppliesConsumptionEnabled 1
+   m_bEnableGracePeriod 1
+   m_fGracePeriodTime 60
+   m_fGracePeriodAreaRange 250
+   m_fPostGracePeriodRefundMultiplier 0.25
+  }
+  SCR_DefenderSpawnerComponent "{7B4E29C05D13A882}" {
+   m_fMaxSlotDistance 6
+   m_aAllowedLabels {
+    GROUPSIZE_SMALL GROUPSIZE_MEDIUM
+   }
+   m_aIgnoredLabels {
+    TRAIT_MEDICAL TRAIT_OPTICS
+   }
+   m_bSuppliesConsumptionEnabled 1
+   m_eMinimumRankForEnabling PRIVATE
   }
   ActionsManagerComponent "{5CB66A0F7D87DD32}" {
    additionalActions {
