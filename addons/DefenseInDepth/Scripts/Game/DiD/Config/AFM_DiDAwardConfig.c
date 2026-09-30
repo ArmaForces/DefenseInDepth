@@ -7,6 +7,9 @@
 [BaseContainerProps(), BaseContainerCustomTitleField("m_sTitle")]
 class AFM_DiDAwardEntry
 {
+	[Attribute("1", UIWidgets.CheckBox, desc: "Hand this title out at all. Uncheck to keep the entry without using it")]
+	bool m_bEnabled;
+
 	[Attribute("", UIWidgets.EditBox, desc: "Title as the results page shows it")]
 	string m_sTitle;
 

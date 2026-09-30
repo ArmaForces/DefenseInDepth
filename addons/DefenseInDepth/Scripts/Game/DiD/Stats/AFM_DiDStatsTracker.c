@@ -333,7 +333,7 @@ class AFM_DiDStatsTracker
 
 		foreach (AFM_DiDAwardEntry award : awards)
 		{
-			if (!award || award.m_sTitle.IsEmpty())
+			if (!award || !award.m_bEnabled || award.m_sTitle.IsEmpty())
 				continue;
 
 			// COUNT is the size of a record, not a stat anyone can win
