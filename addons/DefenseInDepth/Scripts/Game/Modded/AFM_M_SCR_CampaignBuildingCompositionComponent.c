@@ -13,6 +13,26 @@
 //------------------------------------------------------------------------------------------------
 modded class SCR_CampaignBuildingCompositionComponent
 {
+	// Set the moment this composition is paid for, so neither hook can charge for it twice
+	protected bool m_bAFM_SuppliesCharged;
+
+	//------------------------------------------------------------------------------------------------
+	//! Takes the composition's supply cost from the stage's pool, once.
+	//!
+	//! Called when the ghost is placed rather than when it is finished: a player who has committed the
+	//! supplies should see them gone, and the build menu should refuse the next piece it cannot afford.
+	//! Charging on completion also made the refund an exploit - place ghosts for nothing, dismantle them
+	//! for supplies.
+	//------------------------------------------------------------------------------------------------
+	void AFM_ChargeSuppliesOnce()
+	{
+		if (m_bAFM_SuppliesCharged || m_iBuilderId == INVALID_PLAYER_ID)
+			return;
+
+		m_bAFM_SuppliesCharged = true;
+		AFM_DiDSupplyBudget.Charge(AFM_DiDSupplyBudget.GetSupplyCost(GetOwner()));
+	}
+
 	//------------------------------------------------------------------------------------------------
 	override protected void SetIsCompositionSpawned()
 	{
@@ -22,10 +42,9 @@ modded class SCR_CampaignBuildingCompositionComponent
 		if (m_iBuilderId == INVALID_PLAYER_ID)
 			return;
 
-		// The supply cost, taken here rather than on the budget event: that event fires while the
-		// composition is still being created, before anyone has set a builder on it, so it cannot tell a
-		// player's sandbags from the mission's own
-		AFM_DiDSupplyBudget.Charge(AFM_DiDSupplyBudget.GetSupplyCost(GetOwner()));
+		// Normally already paid for when the ghost was placed. This catches a composition that reached the
+		// world by some other path, and cannot charge twice.
+		AFM_ChargeSuppliesOnce();
 
 		AFM_DiDZoneSystem zoneSystem = AFM_DiDZoneSystem.GetInstance();
 		if (!zoneSystem)
