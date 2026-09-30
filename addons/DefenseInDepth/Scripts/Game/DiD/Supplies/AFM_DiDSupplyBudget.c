@@ -61,6 +61,14 @@ class AFM_DiDSupplyBudget
 		if (!composition || composition.GetBuilderId() <= 0)
 			return;
 
+		// A ghost nobody has finished building is a decision not yet acted on, so taking it down costs
+		// nothing. The haircut is for tearing down something that was actually built.
+		if (!composition.IsCompositionSpawned())
+		{
+			AFM_DiDSupplies.Award(-budgetChange);
+			return;
+		}
+
 		Refund(-budgetChange);
 	}
 
