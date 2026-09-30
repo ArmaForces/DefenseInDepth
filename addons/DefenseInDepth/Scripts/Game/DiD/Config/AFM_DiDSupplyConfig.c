@@ -25,8 +25,20 @@ class AFM_DiDSupplyConfig
 	[Attribute("0.5", UIWidgets.Slider, desc: "How much of what is left over follows the players to the next stage. Holding well should make the next stage easier; 1.0 lets stage 1 fund the whole match", params: "0 1 0.05", category: "Pool")]
 	float m_fCarryOverFraction;
 
-	[Attribute("50", UIWidgets.Slider, desc: "What dismantling a composition gives back. At 100 players rearrange endlessly for free and placement carries no weight", params: "0 100 5", category: "Building")]
+	[Attribute("50", UIWidgets.Slider, desc: "What dismantling a finished composition gives back. At 100 players rearrange endlessly for free and placement carries no weight. A ghost nobody built always refunds in full", params: "0 100 5", category: "Building")]
 	int m_iCompositionRefundPercentage;
+
+	[Attribute("2", UIWidgets.EditBox, desc: "Supplies for killing an attacking soldier. A busy stage is 150-250 kills", category: "Income")]
+	int m_iRewardPerInfantryKill;
+
+	[Attribute("50", UIWidgets.EditBox, desc: "Supplies for destroying an attacking vehicle", category: "Income")]
+	int m_iRewardPerVehicleKill;
+
+	[Attribute("25", UIWidgets.EditBox, desc: "Supplies per minute the stage is held. Stops while attackers hold the zone, so pushing them out pays", category: "Income")]
+	int m_iRewardPerMinuteHeld;
+
+	[Attribute("600", UIWidgets.EditBox, desc: "Most one stage can earn from kills, so a long grind cannot fund everything. 0 for no cap", category: "Income")]
+	int m_iKillIncomeCapPerZone;
 
 	//------------------------------------------------------------------------------------------------
 	//! \return what stage zoneIndex starts with, counting stages from 1

@@ -25,6 +25,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	protected ref AFM_DiDAwardConfig m_AwardConfig;
 	protected ref AFM_DiDSupplyConfig m_SupplyConfig;
 	protected ref AFM_DiDSupplyBudget m_SupplyBudget;
+	protected ref AFM_DiDSupplyIncome m_SupplyIncome;
 
 	// Replicated, because a client cannot be relied on to have resolved the configs the same way: the
 	// scenario may name the sides in its header, which is captured on the authority. The HUD needs the
@@ -201,10 +202,14 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	{
 		super.OnControllableDestroyedEx(instigatorContextData);
 
-		if (!m_Stats || !IsMaster())
+		if (!IsMaster())
 			return;
 
-		m_Stats.OnControllableDestroyed(instigatorContextData);
+		if (m_Stats)
+			m_Stats.OnControllableDestroyed(instigatorContextData);
+
+		if (m_SupplyIncome)
+			m_SupplyIncome.OnControllableDestroyed(instigatorContextData);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -404,6 +409,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		m_SupplyBudget = new AFM_DiDSupplyBudget();
 		m_SupplyBudget.Start();
 
+		m_SupplyIncome = new AFM_DiDSupplyIncome();
+
 		PrintFormat("AFM_GameModeDiD: Supply economy on - stage 1 starts with %1, %2%% carries over, %3%% refunded on dismantle",
 			m_SupplyConfig.GetStartingSupplies(1), Math.Round(m_SupplyConfig.m_fCarryOverFraction * 100), m_SupplyConfig.m_iCompositionRefundPercentage);
 	}
@@ -540,6 +547,10 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		bool zoneProgressed = m_iLastTransferZoneIndex >= 0 && m_iZoneNumber != m_iLastTransferZoneIndex;
 		m_iLastTransferZoneIndex = m_iZoneNumber;
 
+		// Each stage earns on its own account
+		if (m_SupplyIncome && zoneProgressed)
+			m_SupplyIncome.OnZoneChanged();
+
 		// A snapshot per stage, so a long match does not have to be read back from one dump at the end
 		if (zoneProgressed && m_Stats)
 		{
@@ -580,6 +591,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		UpdateLocalGameState();
 		OnMatchSituationChanged();
 		Replication.BumpMe();
+
+		if (m_SupplyIncome)
+			m_SupplyIncome.OnZoneUpdate();
 	}
 	
 	protected void OnAllZonesCompleted()
