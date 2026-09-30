@@ -41,6 +41,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	// Let the new zone settle before moving anyone into it
 	protected static const int ZONE_TRANSFER_DELAY_MS = 5000;
 
+	// Where everyone talks once the match is over. PS's own room for players without a group.
+	protected static const string DEBRIEF_VOICE_ROOM = "#PS-VoNRoom_Global";
+
 	// Zone the last transfer was made for, so survivors are only moved when the stage actually changes
 	protected int m_iLastTransferZoneIndex = -1;
 
@@ -267,11 +270,15 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	override void OnGameStateChanged()
 	{
 		super.OnGameStateChanged();
-		
+
 		SCR_EGameModeState state = GetState();
+
+		if (state == SCR_EGameModeState.DEBRIEFING)
+			GatherEveryoneInOneVoiceRoom();
+
 		if (state != SCR_EGameModeState.GAME)
 			return;
-		
+
 		ChimeraWorld world = GetGame().GetWorld();
 		m_bIsGameRunning = true;
 		m_bShowUI = true;
@@ -281,6 +288,49 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		
 		OnMatchSituationChanged();
 		Replication.BumpMe();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Puts everyone in one voice room for the debrief.
+	//!
+	//! PS keeps players in per-group rooms through a match, which is right while it is being played and
+	//! wrong once it is over - a debrief where each squad can only hear itself is not a debrief. This is
+	//! the same room PS puts unassigned players in, so nobody ends up somewhere the rooms manager does not
+	//! know about.
+	//!
+	//! Being in the room is only half of it: the debriefing screen also needs a transmit key, which the
+	//! modded PS_DebriefingMenu adds.
+	//------------------------------------------------------------------------------------------------
+	protected void GatherEveryoneInOneVoiceRoom()
+	{
+		if (!Replication.IsServer())
+			return;
+
+		PS_VoNRoomsManager rooms = PS_VoNRoomsManager.GetInstance();
+		if (!rooms)
+			return;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+
+		foreach (int playerId : playerIds)
+		{
+			PlayerController controller = playerManager.GetPlayerController(playerId);
+			if (!controller)
+				continue;
+
+			PS_PlayableControllerComponent playableController = PS_PlayableControllerComponent.Cast(controller.FindComponent(PS_PlayableControllerComponent));
+			if (!playableController)
+				continue;
+
+			// MoveToRoom retunes this transceiver without checking it, and a player with no radio on their
+			// lobby entity has none to retune
+			if (!playableController.GetTransceiver(EChannelType.PRIMARY))
+				continue;
+
+			rooms.MoveToRoom(playerId, string.Empty, DEBRIEF_VOICE_ROOM);
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------
