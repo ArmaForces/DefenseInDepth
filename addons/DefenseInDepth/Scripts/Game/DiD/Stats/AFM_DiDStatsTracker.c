@@ -202,20 +202,53 @@ class AFM_DiDStatsTracker
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! A rank belongs to a body, and in this game mode a player gets through several of them, so it is
-	//! read off whatever they hold at the time and kept. Nothing to read from a spectator, or from
-	//! someone whose corpse has already been cleaned up - the last one seen stands in those cases.
+	//! The higher of the two ranks a player has, resolved to an insignia.
+	//!
+	//! Two sources, because neither alone is right. The XP handler on the player controller is where a
+	//! promotion during the match lands, and it outlives every body - reading the body alone showed the
+	//! rank of a prefab that had been replaced since. The body's own rank component can still be the
+	//! higher of the two, because DiD carries a rank forward onto each new body itself.
+	//!
+	//! An empty result changes nothing, so a player in a vehicle, in the respawn screen or long gone keeps
+	//! whatever was last read for them.
+	//------------------------------------------------------------------------------------------------
 	protected void CaptureRank(int playerId, notnull AFM_DiDPlayerStats stats)
 	{
 		PlayerManager playerManager = GetGame().GetPlayerManager();
 		if (!playerManager)
 			return;
 
-		IEntity character = playerManager.GetPlayerControlledEntity(playerId);
-		if (!character)
+		PlayerController controller = playerManager.GetPlayerController(playerId);
+		if (!controller)
 			return;
 
-		stats.SetRankInsignia(SCR_CharacterRankComponent.GetCharacterRankInsignia(character));
+		SCR_ECharacterRank rank = SCR_ECharacterRank.INVALID;
+
+		SCR_PlayerXPHandlerComponent xpHandler = SCR_PlayerXPHandlerComponent.Cast(controller.FindComponent(SCR_PlayerXPHandlerComponent));
+		if (xpHandler)
+			rank = xpHandler.GetPlayerRankByXP();
+
+		// INVALID is the last value of the enum rather than the lowest, so it has to be kept out of the
+		// comparison rather than just losing it
+		SCR_ECharacterRank bodyRank = SCR_CharacterRankComponent.GetCharacterRank(controller.GetControlledEntity());
+		if (bodyRank != SCR_ECharacterRank.INVALID)
+		{
+			if (rank == SCR_ECharacterRank.INVALID || bodyRank > rank)
+				rank = bodyRank;
+		}
+
+		if (rank == SCR_ECharacterRank.INVALID)
+			return;
+
+		SCR_FactionManager factionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
+		if (!factionManager)
+			return;
+
+		SCR_RankContainer ranks = factionManager.GetFactionRanks(playerId);
+		if (!ranks)
+			return;
+
+		stats.SetRankInsignia(ranks.GetRankInsignia(rank));
 	}
 
 	//------------------------------------------------------------------------------------------------
