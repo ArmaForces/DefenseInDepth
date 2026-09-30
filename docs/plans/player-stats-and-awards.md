@@ -3,7 +3,7 @@
 Goal: a results page at the end of a match that shows what each player did and hands out titles -
 most bots killed, most RPGs to the face, most time spent building, most time in the arsenal.
 Written 2026-09-29 from reading the vanilla data collection subsystem and the hooks a bespoke
-tracker would need. **Plan only - nothing implemented.**
+tracker would need. **Phases 1-4 are implemented and playtested; phase 5 is the page.**
 
 ---
 
@@ -122,19 +122,23 @@ existing end-of-match flow rather than bolting a second screen onto it.
 
 ## Phases
 
-**Phase 1 - the table and kills.** `AFM_DiDStatsComponent`, the stat enum, `OnControllableDestroyedEx`
+**Phase 1 - the table and kills. Done.** `AFM_DiDStatsComponent`, the stat enum, `OnControllableDestroyedEx`
 wired to bot kills, player kills, friendly fire, deaths. A console dump so the numbers can be read in
 the log before any UI exists.
 
-**Phase 2 - the things we already know.** Structures built, build-mode seconds, zones survived,
+**Phase 2 - the things we already know. Done.** Structures built, build-mode seconds, zones survived,
 extraction. All authority-side.
 
-**Phase 3 - weapon flavour and arsenal time.** Killer's weapon at kill time; client-reported arsenal
+**Phase 3 - weapon flavour and arsenal time. Done.** Killer's weapon at kill time; client-reported arsenal
 seconds with a cap.
 
-**Phase 4 - awards.** The config class, the resolution pass at match end, and the broadcast.
+**Phase 4 - awards. Done.** `AFM_DiDAwardConfig` with an entry per title (stat, unit, minimum,
+highest-or-lowest, tie handling), resolved on the authority in `AFM_DiDStatsTracker.BuildResults` and
+broadcast row by row from `AFM_GameModeDiD.BroadcastMatchResults`. Default titles in
+`Configs/Awards/DiD_Awards.conf`. Every machine assembles its own `AFM_DiDMatchResults`.
 
-**Phase 5 - the page.** A layout and a modded `PS_DebriefingMenu` that appends it.
+**Phase 5 - the page.** A layout and a modded `PS_DebriefingMenu` that appends it, reading
+`AFM_GameModeDiD.GetMatchResults` on open and `GetOnMatchResults` for rows that arrive after it.
 
 Phase 1 is worth playtesting on its own: if the kill numbers in the log look right after a match, the
 rest is presentation.
