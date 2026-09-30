@@ -40,17 +40,29 @@ class AFM_DiDSupplies
 		if (!container)
 			return false;
 
+		// The generator is what a refund flows back through, so it needs the same container
+		SCR_ResourceGenerator generator = spender.GetGenerator(EResourceGeneratorID.DEFAULT, EResourceType.SUPPLIES);
+		if (generator)
+			LinkInteractor(generator, container);
+
 		SCR_ResourceConsumer consumer = spender.GetConsumer(EResourceGeneratorID.DEFAULT, EResourceType.SUPPLIES);
 		if (!consumer)
 			return false;
 
+		// Only the consumer has a range to widen, and it is the one the grid would otherwise unlink
 		if (consumer.GetResourceRange() < LINK_RANGE_M)
 			consumer.SetResourceRange(LINK_RANGE_M);
 
-		if (consumer.FindContainer(container) != SCR_ResourceContainerQueueBase.INVALID_CONTAINER_INDEX)
+		return LinkInteractor(consumer, container);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected static bool LinkInteractor(notnull SCR_ResourceInteractor interactor, notnull SCR_ResourceContainer container)
+	{
+		if (interactor.FindContainer(container) != SCR_ResourceContainerQueueBase.INVALID_CONTAINER_INDEX)
 			return true;
 
-		return consumer.RegisterContainerForced(container);
+		return interactor.RegisterContainerForced(container);
 	}
 
 	//------------------------------------------------------------------------------------------------
