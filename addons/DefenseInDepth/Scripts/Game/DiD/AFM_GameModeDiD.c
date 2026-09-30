@@ -13,7 +13,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	[Attribute("{9D1C4E7A3B052F68}Configs/Awards/DiD_Awards.conf", UIWidgets.ResourceNamePicker, "Titles handed out when the match ends. Read on the authority only", params: "conf class=AFM_DiDAwardConfig", category: "DiD")]
 	protected ResourceName m_sAwardConfigPath;
 
-	[Attribute("0", UIWidgets.CheckBox, "Supplies as one currency for building, the arsenal and support. Off leaves building free, which is what the mode did before the economy existed", category: "DiD")]
+	[Attribute("1", UIWidgets.CheckBox, "Supplies as one currency for building, the arsenal and support. Unticking it leaves building free, which is what the mode did before the economy existed", category: "DiD")]
 	protected bool m_bSupplyEconomy;
 
 	[Attribute("{3F8B6D01C49A2E75}Configs/Supplies/DiD_Supplies.conf", UIWidgets.ResourceNamePicker, "What each stage starts with, what carries over and what dismantling refunds", params: "conf class=AFM_DiDSupplyConfig", category: "DiD")]

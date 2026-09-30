@@ -122,7 +122,6 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
  m_bAutoPlayerRespawn 0
  m_bAllowFactionChange 0
  m_aDisabledResourceTypes {
-  SUPPLIES
  }
  m_bTeamSwitch 1
  m_bPublicCommandBriefing 1
