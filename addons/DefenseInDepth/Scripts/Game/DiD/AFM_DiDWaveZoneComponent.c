@@ -29,9 +29,6 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 	[Attribute("15", UIWidgets.EditBox, "Time to wait before next wave starts (seconds)", category: "DiD Wave Zone")]
 	protected int m_iWaveTransitionTime;
 	
-	[Attribute("-1", UIWidgets.EditBox, "Supply reward on wave finish. Requires supply cache as a child entity", category: "DiD")]
-	protected int m_iSupplyReward;
-	
 	
 	// Wave-specific state
 	protected int m_iCurrentWave = 1;
@@ -253,20 +250,14 @@ class AFM_DiDWaveZoneComponent: AFM_DiDZoneComponent
 		}
 	}
 
+	//! Clearing a wave pays into the stage's pool, with the figure coming from the supply config
 	protected void AwardSupplyRewards()
 	{
-		if (!m_SupplyCache || m_iSupplyReward < 0)
+		AFM_DiDSupplyConfig config = AFM_DiDSupplies.GetConfig();
+		if (!config)
 			return;
 		
-		SCR_ResourceContainer container = m_SupplyCache.GetContainer(EResourceType.SUPPLIES);
-		if (!container)
-			return;
-		
-		if (!container.SetResourceValue(container.GetResourceValue() + m_iSupplyReward))
-		{
-			PrintFormat("AFM_DiDWaveZoneComponent %1: Failed to update container resource values",
-				m_sZoneName, level:LogLevel.WARNING);
-		}
+		AFM_DiDSupplies.Award(config.m_iRewardPerWaveCleared);
 	}	
 
 	

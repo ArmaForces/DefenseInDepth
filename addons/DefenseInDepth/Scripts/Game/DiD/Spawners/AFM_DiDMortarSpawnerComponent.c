@@ -156,6 +156,7 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 			// The dead crew's salvo waypoints are nobody's now, and the map entry keyed on the destroyed
 			// mortar would keep them alive until the zone ends
 			DropLostFireMissions();
+			AwardMortarReward();
 			
 			PrintFormat("AFM_DiDMortarSpawnerComponent: Mortar lost, the next one arrives in %1 s", m_iRespawnDelaySeconds);
 			return;
@@ -166,6 +167,18 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		
 		m_bMortarLost = false;
 		SpawnSingleGroup();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Killing the crew that has been shelling you is worth something. Paid once per mortar, when it is
+	//! first noticed to be gone, rather than every tick it stays gone.
+	protected void AwardMortarReward()
+	{
+		AFM_DiDSupplyConfig config = AFM_DiDSupplies.GetConfig();
+		if (!config)
+			return;
+
+		AFM_DiDSupplies.Award(config.m_iRewardPerMortarKill);
 	}
 
 	//------------------------------------------------------------------------------------------------

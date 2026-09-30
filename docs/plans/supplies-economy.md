@@ -1,6 +1,9 @@
 # Supplies economy – investigation and plan
 
-Goal: use the vanilla supplies system as one currency for **loadouts**, **buildings** and **support**, so players trade the same pool between staying alive, digging in and calling things in.
+Goal: use the vanilla supplies system as one currency for **loadouts** and **buildings**, so players trade the same pool between kitting out and digging in.
+
+**Status (2026-09-30):** implemented and playtested. Support purchases are dropped for now, so the pool pays
+for building and the arsenal only.
 
 ## What we have today
 
@@ -29,7 +32,7 @@ The zone's supply cache is the team's budget for that stage. It pays for buildin
 
 ### a) Loadouts
 - **Spawning stays free.** Death is already punishing enough, and charging for respawns makes a losing stage unrecoverable.
-- **The arsenal costs supplies** from the zone pool. Note that measured vanilla item costs are small next to buildings (a kit is 20–60, a bunker is 100), so this is a mild tax rather than a real choice unless the costs are raised.
+- **The arsenal costs supplies** from the zone pool, and it is a real cost rather than a tax. **Corrected 2026-09-30 from play:** one player kitting out properly runs past 200 supplies - the rifle is cheap, but optics (75), a launcher (30), a radio backpack (50), grenades and a machine gun add up fast. Ten players re-kitting is closer to 2000 than to 400, which is more than a whole stage's starting pool.
 - **Keep Military Supply Allocation off** for now. It's rank-gated, and the group voted 5–3 against rank-gated gear. Reconsider only if arsenal spam becomes a problem; it would then cap each player rather than the team.
 
 ### b) Buildings
@@ -38,7 +41,9 @@ The zone's supply cache is the team's budget for that stage. It pays for buildin
 - AA emplacements already have vanilla prices (200 for the US M2HB, 250 for the USSR NSV), so nothing needs hand-pricing.
 - Decide what to do with vanilla's rank requirements on bunkers, MG nests, AA, mortars and helipads.
 
-### c) Support
+### c) Support - dropped for now
+Not implemented. Kept here for the record; the pool pays for building and the arsenal only.
+
 New user actions at the building service, each consuming from the same pool:
 
 | Support | Cost | Notes |
@@ -82,7 +87,7 @@ Read out of the game paks, so these are the numbers the game will actually charg
 
 ### What this changed in the plan
 - My earlier guesses were mostly too cheap. Real bunkers are 100 (I said 100), AA is 200 (I said 200), but field hospitals are 250–300 (I said 150) and ammo storage is 325 (I priced an ammo crate at 100).
-- **Arsenal items are cheap compared to buildings.** Ten players re-kitting costs roughly 400, which is about one AA emplacement. Charging for the arsenal is therefore a minor tax, not a real trade-off; the pool is mostly about building and support.
+- ~~**Arsenal items are cheap compared to buildings.**~~ **Wrong - corrected 2026-09-30 from play.** A single player can take 200+ supplies of gear, so a full lobby re-kitting can outspend everything they build. The arsenal is the dominant cost, not a rounding error, and the budgets below were written on the wrong assumption. Either the starting pools go up, or the arsenal gets its own limit: a per-player allowance, free kit during prep, or cheaper items.
 - **Vanilla compositions already carry rank requirements**: bunkers, MG nests, AA and field hospitals need Corporal; mortars, player hubs and helipads need Sergeant. That's the rank-locked building menu you already have. It's worth a decision, because the group rejected rank-gated *gear* 5–3, and this is rank-gated *building*.
 
 ## Proposed budgets
@@ -104,10 +109,10 @@ A plausible stage 1 spend, using real prices:
 | MG nest | 85 | 2 | 170 |
 | Bunker | 100 | 1 | 100 |
 | AA emplacement | 200 | 1 | 200 |
-| Arsenal re-kits | ~40 | 10 | ~400 |
-| One support call | 150–300 | 1 | ~250 |
+| Arsenal re-kits | **~200** | 10 | **~2000** |
 
-That totals about 1420 of 1600. Ammo storage (325) or a mortar placement (400) would mean giving up the AA gun or most of the fortifications, which is the kind of choice worth having.
+That totals about 2770 against a 1600 pool - the arsenal alone outspends everything built, which is the
+correction above and the thing to balance next. Ammo storage (325) or a mortar placement (400) would mean giving up the AA gun or most of the fortifications, which is the kind of choice worth having.
 
 Income during a stage:
 - **+150 per repelled wave** in wave zones (existing reward, currently off).
@@ -156,6 +161,9 @@ One component on the game mode, `AFM_DiDSupplyRewardsComponent`, with a value pe
 Existing settings (`m_iSupplyRewardOnKill`, `m_iSupplyReward`) stay where they are, since they already live next to the thing that triggers them.
 
 ## Work involved
+
+Items 1-4 and 7 are done; 5 works through vanilla's own arsenal pricing; 6 is dropped; 8 is done as a
+figure on the status line.
 
 1. **Wire the cache to the provider:** a resource component on the building service composition, or move the provider onto the cache. Confirm the cache's 200 m generator range covers the whole defended area.
 2. **Set the cache's starting value per zone** (2000 / 1200 / 800) and raise the maximum above the starting value.

@@ -37,7 +37,16 @@ class AFM_DiDSupplyConfig
 	[Attribute("25", UIWidgets.EditBox, desc: "Supplies per minute the stage is held. Stops while attackers hold the zone, so pushing them out pays", category: "Income")]
 	int m_iRewardPerMinuteHeld;
 
-	[Attribute("600", UIWidgets.EditBox, desc: "Most one stage can earn from kills, so a long grind cannot fund everything. 0 for no cap", category: "Income")]
+	[Attribute("250", UIWidgets.EditBox, desc: "Supplies for shooting the attack helicopter down. One AA emplacement paying for itself", category: "Income")]
+	int m_iRewardPerHelicopterKill;
+
+	[Attribute("150", UIWidgets.EditBox, desc: "Supplies for destroying a mortar team, which is a reason to go looking for one", category: "Income")]
+	int m_iRewardPerMortarKill;
+
+	[Attribute("150", UIWidgets.EditBox, desc: "Supplies for clearing a wave. Wave zones only", category: "Income")]
+	int m_iRewardPerWaveCleared;
+
+	[Attribute("600", UIWidgets.EditBox, desc: "Most one stage can earn from kills, so a long grind cannot fund everything. Counts soldiers and vehicles; the helicopter, the mortar and waves are outside it. 0 for no cap", category: "Income")]
 	int m_iKillIncomeCapPerZone;
 
 	//------------------------------------------------------------------------------------------------

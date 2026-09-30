@@ -106,9 +106,6 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDAirSpawnerComponent
 	[Attribute("50", UIWidgets.EditBox, "Never aim within this distance (meters) of attacker AI", category: "DiD Heli Targeting")]
 	protected float m_fFriendlyFireRadius;
 
-	[Attribute("0", UIWidgets.EditBox, "Supplies added to the zone's supply cache when the helicopter is shot down", category: "DiD Heli Spawner")]
-	protected int m_iSupplyRewardOnKill;
-
 	protected static const ResourceName HOVER_WAYPOINT_PREFAB = "{471EDCB44D26C193}Prefabs/AI/Waypoints/REAPER_AiHelicopterHoverWaypoint.et";
 
 	protected static const int SORTIE_RETRY_SECONDS = 60;
@@ -697,21 +694,15 @@ class AFM_DiDHeliSpawnerComponent: AFM_DiDAirSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! The figure lives with the rest of the economy rather than on this spawner, so a balance pass is one
+	//! file rather than one per world
 	protected void AwardShootDownReward()
 	{
-		if (m_iSupplyRewardOnKill <= 0)
+		AFM_DiDSupplyConfig config = AFM_DiDSupplies.GetConfig();
+		if (!config)
 			return;
 
-		SCR_ResourceComponent supplyCache = m_Zone.GetSupplyCache();
-		if (!supplyCache)
-			return;
-
-		SCR_ResourceContainer container = supplyCache.GetContainer(EResourceType.SUPPLIES);
-		if (!container)
-			return;
-
-		if (!container.SetResourceValue(container.GetResourceValue() + m_iSupplyRewardOnKill))
-			PrintFormat("AFM_DiDHeliSpawnerComponent: Failed to add shoot-down reward to the supply cache", level: LogLevel.WARNING);
+		AFM_DiDSupplies.Award(config.m_iRewardPerHelicopterKill);
 	}
 }
 
