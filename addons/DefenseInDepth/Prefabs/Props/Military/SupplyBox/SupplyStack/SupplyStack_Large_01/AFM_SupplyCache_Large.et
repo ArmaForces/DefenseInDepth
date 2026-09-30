@@ -13,7 +13,7 @@ AFM_SupplyCacheEntity : "{3260189525F39062}Prefabs/Props/Military/SupplyBox/Supp
    }
    m_aConsumers {
     SCR_ResourceConsumer "{5D3CDAE76719C077}" {
-     m_fResourceRange 20
+     m_fResourceRange 250
     }
    }
    m_aGenerators {

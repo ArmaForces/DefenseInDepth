@@ -13,10 +13,17 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	[Attribute("{9D1C4E7A3B052F68}Configs/Awards/DiD_Awards.conf", UIWidgets.ResourceNamePicker, "Titles handed out when the match ends. Read on the authority only", params: "conf class=AFM_DiDAwardConfig", category: "DiD")]
 	protected ResourceName m_sAwardConfigPath;
 
+	[Attribute("0", UIWidgets.CheckBox, "Supplies as one currency for building, the arsenal and support. Off leaves building free, which is what the mode did before the economy existed", category: "DiD")]
+	protected bool m_bSupplyEconomy;
+
+	[Attribute("{3F8B6D01C49A2E75}Configs/Supplies/DiD_Supplies.conf", UIWidgets.ResourceNamePicker, "What each stage starts with, what carries over and what dismantling refunds", params: "conf class=AFM_DiDSupplyConfig", category: "DiD")]
+	protected ResourceName m_sSupplyConfigPath;
+
 	// Loaded at EOnInit, well before any zone initialises and reads them
 	protected ref AFM_DiDSideConfig m_DefenderConfig;
 	protected ref AFM_DiDSideConfig m_AttackerConfig;
 	protected ref AFM_DiDAwardConfig m_AwardConfig;
+	protected ref AFM_DiDSupplyConfig m_SupplyConfig;
 
 	// Replicated, because a client cannot be relied on to have resolved the configs the same way: the
 	// scenario may name the sides in its header, which is captured on the authority. The HUD needs the
@@ -241,6 +248,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		{
 			m_Stats = new AFM_DiDStatsTracker();
 			LoadAwardConfig();
+			StartSupplyEconomy();
 		}
 
 		m_FactionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
@@ -359,6 +367,64 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	//! Loaded on server and client alike. These are files, identical on every machine, and the HUD needs
 	//! the faction keys as much as the spawners need the prefabs - loading them only on the authority
 	//! would leave clients with no flags.
+	//------------------------------------------------------------------------------------------------
+	//! Turns the economy on or off for the whole match, and loads the numbers behind it.
+	//!
+	//! The switch is vanilla's own global supply flag rather than a flag of ours. Everything that spends
+	//! supplies already honours it - composition budgets resolve to unlimited without it, arsenal items
+	//! stop costing anything, and the building UI hides its supply bar - and it replicates, so clients
+	//! agree without being told separately. The game mode prefab ships with SUPPLIES disabled, which is
+	//! why building has been free.
+	//------------------------------------------------------------------------------------------------
+	protected void StartSupplyEconomy()
+	{
+		SetResourceTypeEnabled(m_bSupplyEconomy, EResourceType.SUPPLIES);
+
+		if (!m_bSupplyEconomy)
+		{
+			Print("AFM_GameModeDiD: Supply economy is off, building and the arsenal are free");
+			return;
+		}
+
+		m_SupplyConfig = SCR_ConfigHelperT<AFM_DiDSupplyConfig>.GetConfigObject(m_sSupplyConfigPath);
+		if (!m_SupplyConfig)
+		{
+			PrintFormat("AFM_GameModeDiD: Supply config '%1' could not be loaded, turning the economy back off rather than leaving stages unfunded",
+				m_sSupplyConfigPath, level: LogLevel.ERROR);
+
+			m_bSupplyEconomy = false;
+			SetResourceTypeEnabled(false, EResourceType.SUPPLIES);
+			return;
+		}
+
+		ApplyCompositionRefund();
+
+		PrintFormat("AFM_GameModeDiD: Supply economy on - stage 1 starts with %1, %2%% carries over, %3%% refunded on dismantle",
+			m_SupplyConfig.GetStartingSupplies(1), Math.Round(m_SupplyConfig.m_fCarryOverFraction * 100), m_SupplyConfig.m_iCompositionRefundPercentage);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Vanilla keeps the refund percentage in the building manager's own attribute; this moves the
+	//! decision into the config file with the rest of the economy
+	protected void ApplyCompositionRefund()
+	{
+		SCR_CampaignBuildingManagerComponent buildingManager = SCR_CampaignBuildingManagerComponent.Cast(FindComponent(SCR_CampaignBuildingManagerComponent));
+		if (!buildingManager)
+		{
+			Print("AFM_GameModeDiD: No building manager component, the configured refund percentage was not applied", LogLevel.WARNING);
+			return;
+		}
+
+		buildingManager.AFM_SetCompositionRefundPercentage(m_SupplyConfig.m_iCompositionRefundPercentage);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Null when the economy is off, which is also how the rest of the mode tells
+	AFM_DiDSupplyConfig GetSupplyConfig()
+	{
+		return m_SupplyConfig;
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//! Unlike the side configs this is wanted on the authority alone: it decides the winners there, and
 	//! what crosses the wire is the finished list of titles rather than the rules for them

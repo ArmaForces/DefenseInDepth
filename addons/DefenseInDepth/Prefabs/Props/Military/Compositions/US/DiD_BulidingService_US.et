@@ -8,6 +8,10 @@ GenericEntity : "{7649AC4689618998}Prefabs/Props/Military/Compositions/US/Buildi
     SCR_CampaignBuildingMaxValueBudgetToEvaluateData "{5EFAB309E9D51D29}" {
      m_eBudget VEHICLES
     }
+    SCR_CampaignBuildingCampaignBudgetToEvaluateData "{7B4E29C05D13A86F}" {
+     m_eBudget CAMPAIGN
+     m_bShowBudgetInUI 1
+    }
    }
    m_aAvailableTraits {
     TRAIT_FORTIFICATION THEME_MILITARY

@@ -122,6 +122,7 @@ class AFM_DiDZoneSystem: GameSystem
 		
 		m_ActiveZone = m_aZones[m_iStartingZoneIndex];
 		m_ActiveZone.ActivateZone();
+		AFM_DiDSupplies.SeedZone(m_ActiveZone, 0);
 		m_bStartingZoneActivated = true;
 		
 		if (m_OnZoneChanged)
@@ -294,12 +295,14 @@ class AFM_DiDZoneSystem: GameSystem
 	{
 		int newZoneIndex = m_iStartingZoneIndex;
 		int carryOverTickets = 0;
+		int carryOverSupplies = 0;
 		if (m_ActiveZone)
 		{
 			newZoneIndex = m_ActiveZone.GetZoneIndex() + 1;
 			
 			// Read before deactivating: the zone still knows whether it was lost and what it had left
 			carryOverTickets = m_ActiveZone.GetCarryOverTickets();
+			carryOverSupplies = AFM_DiDSupplies.TakeCarryOver(m_ActiveZone);
 			m_ActiveZone.DeactivateZone();
 		}
 		
@@ -328,6 +331,7 @@ class AFM_DiDZoneSystem: GameSystem
 		
 		// After activation, which is where the new pool is sized and clamped
 		m_ActiveZone.AddTickets(carryOverTickets);
+		AFM_DiDSupplies.SeedZone(m_ActiveZone, carryOverSupplies);
 		
 		if (m_OnZoneChanged)
 			m_OnZoneChanged.Invoke();
