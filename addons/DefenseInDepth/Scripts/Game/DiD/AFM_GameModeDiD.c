@@ -414,8 +414,6 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			return;
 		}
 
-		ApplyCompositionRefund();
-
 		// Vanilla charges for compositions only in Conflict, so the charging is ours
 		m_SupplyBudget = new AFM_DiDSupplyBudget();
 		m_SupplyBudget.Start();
@@ -424,21 +422,6 @@ class AFM_GameModeDiD: PS_GameModeCoop
 
 		PrintFormat("AFM_GameModeDiD: Supply economy on - stage 1 starts with %1, %2%% carries over, %3%% refunded on dismantle",
 			m_SupplyConfig.GetStartingSupplies(1), Math.Round(m_SupplyConfig.m_fCarryOverFraction * 100), m_SupplyConfig.m_iCompositionRefundPercentage);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! Vanilla keeps the refund percentage in the building manager's own attribute; this moves the
-	//! decision into the config file with the rest of the economy
-	protected void ApplyCompositionRefund()
-	{
-		SCR_CampaignBuildingManagerComponent buildingManager = SCR_CampaignBuildingManagerComponent.Cast(FindComponent(SCR_CampaignBuildingManagerComponent));
-		if (!buildingManager)
-		{
-			Print("AFM_GameModeDiD: No building manager component, the configured refund percentage was not applied", LogLevel.WARNING);
-			return;
-		}
-
-		buildingManager.AFM_SetCompositionRefundPercentage(m_SupplyConfig.m_iCompositionRefundPercentage);
 	}
 
 	//------------------------------------------------------------------------------------------------

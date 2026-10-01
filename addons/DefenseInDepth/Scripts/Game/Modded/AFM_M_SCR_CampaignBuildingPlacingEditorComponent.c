@@ -1,35 +1,17 @@
 //------------------------------------------------------------------------------------------------
-//! Charges for a composition when its ghost is placed, not when it is finished.
+//! Charges for everything players place, and hands the AI among it to the stage.
 //!
-//! SetProviderAndBuilder is the first moment on the authority where a composition is known to be a
-//! player's: it runs from OnEntityCreatedServer and is what stamps the builder onto it. Everything earlier
-//! - the entity core's budget event - fires while the composition is still being created, when a player's
-//! sandbags and the fortifications a mission ships with are indistinguishable.
+//! One hook for the lot. Fortifications, soldiers, groups and vehicles all reach the world the same way -
+//! as build menu entries, filtered by the provider's traits, placed through the editor - and this is where
+//! that lands on the authority. Nothing comes from the service point's catalog spawner, which is why its
+//! prices never applied to any of it.
 //!
-//! Charging here rather than on completion matters for two reasons players notice. A ghost that costs
-//! nothing lets the pool look affordable until the shovelling starts, and a refund on a never-built ghost
-//! is free supplies.
+//! It is also the right moment rather than merely a convenient one: a ghost is charged for as soon as it is
+//! placed, so the pool stops looking affordable before the shovelling starts, and a ghost that is deleted
+//! again refunds exactly what it took.
 //------------------------------------------------------------------------------------------------
 modded class SCR_CampaignBuildingPlacingEditorComponent
 {
-	//------------------------------------------------------------------------------------------------
-	override protected void SetProviderAndBuilder(notnull SCR_CampaignBuildingCompositionComponent compositionComponent)
-	{
-		super.SetProviderAndBuilder(compositionComponent);
-
-		compositionComponent.AFM_ChargeSuppliesOnce();
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! Charges for soldiers, groups and vehicles, and hands them to the stage.
-	//!
-	//! These do not come from the service point's catalog spawner at all - they are build menu entries,
-	//! filtered by the provider's own traits, and they arrive here like any other placement. So the catalog
-	//! spawner's prices and hooks never see them, which is why they were free and why nothing cleared them
-	//! at the end of a stage.
-	//!
-	//! Compositions are skipped: SetProviderAndBuilder above already charges those, and charging here too
-	//! would bill them twice.
 	//------------------------------------------------------------------------------------------------
 	override protected void OnEntityCreatedServer(array<SCR_EditableEntityComponent> entities)
 	{
@@ -51,7 +33,7 @@ modded class SCR_CampaignBuildingPlacingEditorComponent
 			return;
 
 		IEntity owner = editable.GetOwnerScripted();
-		if (!owner || owner.FindComponent(SCR_CampaignBuildingCompositionComponent))
+		if (!owner)
 			return;
 
 		EEditableEntityType type = editable.GetEntityType();
@@ -64,8 +46,8 @@ modded class SCR_CampaignBuildingPlacingEditorComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! The entity's own CAMPAIGN budget if it carries one, and our configured price for its kind otherwise -
-	//! vehicle and group prefabs are not priced in supplies by the game
+	//! The entity's own CAMPAIGN budget if it carries one - which is how compositions are priced - and our
+	//! configured price for its kind otherwise, since vehicle and group prefabs carry no supply price
 	protected int AFM_GetPlacementCost(notnull SCR_EditableEntityComponent editable, EEditableEntityType type)
 	{
 		int budgetCost = AFM_DiDSupplyBudget.GetSupplyCost(editable.GetOwnerScripted());
@@ -110,7 +92,7 @@ modded class SCR_CampaignBuildingPlacingEditorComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void AFM_TrackForZone(notnull IEntity spawned)
+	protected void AFM_TrackForZone(notnull IEntity unit)
 	{
 		AFM_DiDZoneSystem zoneSystem = AFM_DiDZoneSystem.GetInstance();
 		if (!zoneSystem)
@@ -118,6 +100,6 @@ modded class SCR_CampaignBuildingPlacingEditorComponent
 
 		AFM_DiDZoneComponent zone = zoneSystem.GetActiveZone();
 		if (zone)
-			zone.RegisterServiceSpawn(spawned);
+			zone.RegisterBoughtUnit(unit);
 	}
 }

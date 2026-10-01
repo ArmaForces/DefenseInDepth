@@ -73,8 +73,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 	// Compositions players built while this zone was active, removed with the zone
 	protected ref array<IEntity> m_aPlayerStructures = {};
 
-	// What the service point spawned for the players this stage - soldiers, groups, vehicles
-	protected ref array<IEntity> m_aServiceSpawns = {};
+	// Soldiers and groups the players bought this stage
+	protected ref array<IEntity> m_aBoughtUnits = {};
 
 	// Props under this zone that carry a faction - the arsenal crate, the support station - handed to
 	// whichever side is defending when the zone starts
@@ -347,7 +347,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 		}
 		
 		RemovePlayerStructures();
-		RemoveServiceSpawns();
+		RemoveBoughtUnits();
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -392,14 +392,7 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//! thrown out of build mode by a no-op.
 	void ApplyDefenderFactionToProps()
 	{
-		if (!m_GameMode || !m_BluforFaction)
-			return;
-
-		// The service point offers what this faction's catalogs hold, and those ship with no prices, so they
-		// are given ours here - the one moment the defending side is known on every machine
-		AFM_DiDSupplies.PriceFactionCatalogs(m_BluforFaction);
-
-		if (m_aFactionProps.IsEmpty())
+		if (!m_GameMode || !m_BluforFaction || m_aFactionProps.IsEmpty())
 			return;
 		
 		FactionKey key = m_BluforFaction.GetFactionKey();
@@ -474,41 +467,33 @@ class AFM_DiDZoneComponent: ScriptComponent
 	}
 	
 	//------------------------------------------------------------------------------------------------
-	//! Anything the stage's service point handed the players: hired soldiers, groups, vehicles.
+	//! A soldier or group the players bought from the build menu this stage.
 	//!
-	//! Tracked separately from structures because it always goes at the end of a stage. A group left behind
-	//! walks into the next fight with no orders, and an abandoned vehicle is cover the attackers get for
-	//! free - and unlike a wall, nobody chose to leave it there.
+	//! Tracked separately from structures because it always goes at the end of a stage: a group left behind
+	//! walks into the next fight with no orders, and unlike a wall nobody chose to leave it there.
 	//------------------------------------------------------------------------------------------------
-	void RegisterServiceSpawn(IEntity spawned)
+	void RegisterBoughtUnit(IEntity unit)
 	{
-		if (!spawned || m_aServiceSpawns.Contains(spawned))
+		if (!unit || m_aBoughtUnits.Contains(unit))
 			return;
 
-		m_aServiceSpawns.Insert(spawned);
+		m_aBoughtUnits.Insert(unit);
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void RemoveServiceSpawns()
+	protected void RemoveBoughtUnits()
 	{
 		int removed = 0;
-		foreach (IEntity spawned : m_aServiceSpawns)
+		foreach (IEntity unit : m_aBoughtUnits)
 		{
-			if (!spawned)
-				continue;
-
-			// Vehicles are left standing. They are worth having in the next stage, and one being deleted with
-			// a player in it is worse than one abandoned in a zone nobody returns to.
-			if (Vehicle.Cast(spawned))
-				continue;
-
-			removed += RemoveServiceSpawn(spawned);
+			if (unit)
+				removed += RemoveBoughtUnit(unit);
 		}
 
 		if (removed > 0)
-			PrintFormat("AFM_DiDZoneComponent %1: Removed %2 units the service spawned", m_sZoneName, removed);
+			PrintFormat("AFM_DiDZoneComponent %1: Removed %2 bought units", m_sZoneName, removed);
 
-		m_aServiceSpawns.Clear();
+		m_aBoughtUnits.Clear();
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -518,12 +503,12 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//! soldiers standing where they were - which is why the zone's own spawners delete agents one at a
 	//! time, and why this does the same.
 	//------------------------------------------------------------------------------------------------
-	protected int RemoveServiceSpawn(notnull IEntity spawned)
+	protected int RemoveBoughtUnit(notnull IEntity unit)
 	{
-		SCR_AIGroup group = SCR_AIGroup.Cast(spawned);
+		SCR_AIGroup group = SCR_AIGroup.Cast(unit);
 		if (!group)
 		{
-			SCR_EntityHelper.DeleteEntityAndChildren(spawned);
+			SCR_EntityHelper.DeleteEntityAndChildren(unit);
 			return 1;
 		}
 
