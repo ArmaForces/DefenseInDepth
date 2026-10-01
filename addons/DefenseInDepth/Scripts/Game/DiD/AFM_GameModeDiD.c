@@ -299,7 +299,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		SCR_EGameModeState state = GetState();
 
 		if (state == SCR_EGameModeState.DEBRIEFING)
+		{
+			// Order matters: the room move retunes the radio on a player's observer entity, so everyone has to
+			// be on one first
+			MoveEveryoneToSpectator();
 			GatherEveryoneInOneVoiceRoom();
+		}
 
 		if (state != SCR_EGameModeState.GAME)
 			return;
@@ -313,6 +318,38 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		
 		OnMatchSituationChanged();
 		Replication.BumpMe();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Takes everyone out of their body for the debrief.
+	//!
+	//! Players who were still alive when the match ended keep talking through their character's radio, while
+	//! everyone already in spectator is on the lobby VoN - two separate conversations, which is no way to hold
+	//! a debrief. Moving the survivors to their observer puts the whole lobby in one place, and PS opens the
+	//! debriefing screen for them in the same breath.
+	//!
+	//! The match report is built and sent before this runs, so nothing of it depends on who still had a body.
+	//------------------------------------------------------------------------------------------------
+	protected void MoveEveryoneToSpectator()
+	{
+		if (!Replication.IsServer())
+			return;
+
+		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
+		if (!playableManager)
+			return;
+
+		array<int> playerIds = {};
+		GetGame().GetPlayerManager().GetPlayers(playerIds);
+
+		foreach (int playerId : playerIds)
+		{
+			// Anyone already watching is left alone rather than handed a second observer
+			if (playableManager.GetPlayableByPlayer(playerId) == RplId.Invalid())
+				continue;
+
+			SwitchToInitialEntity(playerId);
+		}
 	}
 
 	//------------------------------------------------------------------------------------------------
