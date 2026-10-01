@@ -11,9 +11,7 @@ modded class SCR_DefenderSpawnerComponent
 	{
 		super.EOnInit(owner);
 
-		if (!AFM_DiDSupplies.IsEnabled())
-			return;
-
+		// See the catalog spawner: component init can run before the economy is switched on
 		GetOnDefenderGroupSpawned().Insert(AFM_OnGroupSpawned);
 	}
 

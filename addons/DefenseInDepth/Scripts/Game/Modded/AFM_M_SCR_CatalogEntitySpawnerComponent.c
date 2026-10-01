@@ -18,9 +18,8 @@ modded class SCR_CatalogEntitySpawnerComponent
 	{
 		super.EOnInit(owner);
 
-		if (!AFM_DiDSupplies.IsEnabled())
-			return;
-
+		// Subscribed unconditionally: the game mode may not have switched the economy on yet when a
+		// component initialises, and the handler checks for a stage rather than trusting a flag read here
 		GetOnEntitySpawned().Insert(AFM_OnEntitySpawned);
 	}
 
@@ -35,6 +34,63 @@ modded class SCR_CatalogEntitySpawnerComponent
 		AFM_DiDZoneComponent zone = zoneSystem.GetActiveZone();
 		if (zone)
 			zone.RegisterServiceSpawn(spawned);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Prices the entries as they are collected.
+	//!
+	//! The catalog's own cost is always zero in this version - the field has no Attribute and nothing
+	//! assigns it - so a price has to come from somewhere, and this is the one place every entry passes
+	//! through. Stamped onto the entry data rather than charged separately, so the menu shows the figure and
+	//! vanilla's own affordability check and charge work on it unchanged.
+	//------------------------------------------------------------------------------------------------
+	protected override void AddAssetsFromCatalog(notnull SCR_EntityCatalog entityCatalog, bool overwriteOld = false)
+	{
+		super.AddAssetsFromCatalog(entityCatalog, overwriteOld);
+
+		AFM_DiDSupplyConfig config = AFM_DiDSupplies.GetConfig();
+		if (!config || !m_aAssetList)
+			return;
+
+		foreach (SCR_EntityCatalogEntry entry : m_aAssetList)
+		{
+			AFM_PriceEntry(entry, config);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void AFM_PriceEntry(SCR_EntityCatalogEntry entry, notnull AFM_DiDSupplyConfig config)
+	{
+		if (!entry)
+			return;
+
+		SCR_EntityCatalogSpawnerData data = SCR_EntityCatalogSpawnerData.Cast(entry.GetEntityDataOfType(SCR_EntityCatalogSpawnerData));
+		if (!data)
+			return;
+
+		SCR_EntityCatalog parent = entry.GetCatalogParent();
+		if (!parent)
+			return;
+
+		int cost;
+		switch (parent.GetCatalogType())
+		{
+			case EEntityCatalogType.CHARACTER:
+				cost = config.m_iCostPerCharacter;
+				break;
+
+			case EEntityCatalogType.GROUP:
+				// Entity count is how many the prefab brings, so a rifle squad costs more than a fire team
+				cost = config.m_iCostPerGroupMember * Math.Max(1, data.GetEntityCount());
+				break;
+
+			case EEntityCatalogType.VEHICLE:
+				cost = config.m_iCostPerVehicle;
+				break;
+		}
+
+		if (cost > 0)
+			data.AFM_SetSupplyCost(cost);
 	}
 
 	//------------------------------------------------------------------------------------------------

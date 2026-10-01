@@ -392,7 +392,14 @@ class AFM_DiDZoneComponent: ScriptComponent
 	//! thrown out of build mode by a no-op.
 	void ApplyDefenderFactionToProps()
 	{
-		if (!m_GameMode || !m_BluforFaction || m_aFactionProps.IsEmpty())
+		if (!m_GameMode || !m_BluforFaction)
+			return;
+
+		// The service point offers what this faction's catalogs hold, and those ship with no prices, so they
+		// are given ours here - the one moment the defending side is known on every machine
+		AFM_DiDSupplies.PriceFactionCatalogs(m_BluforFaction);
+
+		if (m_aFactionProps.IsEmpty())
 			return;
 		
 		FactionKey key = m_BluforFaction.GetFactionKey();

@@ -18,6 +18,76 @@ class AFM_DiDSupplies
 	protected static const float LINK_RANGE_M = 1000;
 
 	//------------------------------------------------------------------------------------------------
+	//! Gives every spawnable thing in a faction's catalogs a price.
+	//!
+	//! The catalogs ship without one: SCR_EntityCatalogSpawnerData.m_iSupplyCost has no Attribute in this
+	//! version of the game and nothing assigns it, which is why vanilla's own catalog configs log
+	//! "Unknown keyword/data 'm_iSupplyCost'" and why GetSupplyCost() answers zero everywhere.
+	//!
+	//! Done to the faction's catalogs rather than to one spawner's asset list, because the two spawners read
+	//! them by different routes - the catalog spawner collects a filtered list of its own, while the defender
+	//! spawner goes to the GROUP catalog directly - and both have to see the same price.
+	//!
+	//! Runs on every machine, since the menu reads the price locally and the authority charges it.
+	//------------------------------------------------------------------------------------------------
+	static void PriceFactionCatalogs(Faction faction)
+	{
+		AFM_DiDSupplyConfig config = GetConfig();
+		SCR_Faction scrFaction = SCR_Faction.Cast(faction);
+		if (!config || !scrFaction)
+			return;
+
+		int priced = 0;
+		priced += PriceCatalog(scrFaction, EEntityCatalogType.CHARACTER, config.m_iCostPerCharacter, false);
+		priced += PriceCatalog(scrFaction, EEntityCatalogType.GROUP, config.m_iCostPerGroupMember, true);
+		priced += PriceCatalog(scrFaction, EEntityCatalogType.VEHICLE, config.m_iCostPerVehicle, false);
+
+		PrintFormat("AFM_DiDSupplies: Priced %1 spawnable entries for %2", priced, scrFaction.GetFactionKey());
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns how many entries were priced. perMember multiplies by the entry's own entity count, so a
+	//! rifle squad costs more than a fire team.
+	protected static int PriceCatalog(notnull SCR_Faction faction, EEntityCatalogType catalogType, int cost, bool perMember)
+	{
+		if (cost <= 0)
+			return 0;
+
+		SCR_EntityCatalog catalog = faction.GetFactionEntityCatalogOfType(catalogType);
+		if (!catalog)
+			return 0;
+
+		array<SCR_EntityCatalogEntry> entries = {};
+		array<typename> includedDataClasses = {};
+		includedDataClasses.Insert(SCR_EntityCatalogSpawnerData);
+
+		// Empty label lists rather than null: a null include list filters everything out, which is how this
+		// priced nothing at all on its first run
+		array<EEditableEntityLabel> noLabels = {};
+		catalog.GetFullFilteredEntityList(entries, noLabels, noLabels, includedDataClasses, null, false);
+
+		int priced = 0;
+		foreach (SCR_EntityCatalogEntry entry : entries)
+		{
+			if (!entry)
+				continue;
+
+			SCR_EntityCatalogSpawnerData data = SCR_EntityCatalogSpawnerData.Cast(entry.GetEntityDataOfType(SCR_EntityCatalogSpawnerData));
+			if (!data)
+				continue;
+
+			int entryCost = cost;
+			if (perMember)
+				entryCost = cost * Math.Max(1, data.GetEntityCount());
+
+			data.AFM_SetSupplyCost(entryCost);
+			priced++;
+		}
+
+		return priced;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! Puts the active stage's supplies into a spender's own consumer queue.
 	//!
 	//! Vanilla pairs consumers with containers by proximity through the resource grid, which is right for

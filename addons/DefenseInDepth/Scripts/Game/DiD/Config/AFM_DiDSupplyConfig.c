@@ -46,6 +46,15 @@ class AFM_DiDSupplyConfig
 	[Attribute("150", UIWidgets.EditBox, desc: "Supplies for clearing a wave. Wave zones only", category: "Income")]
 	int m_iRewardPerWaveCleared;
 
+	[Attribute("60", UIWidgets.EditBox, desc: "What a single soldier costs at the service point. The game ships no price for these - the catalog's own field is not settable in this version - so these are ours", category: "Spawning")]
+	int m_iCostPerCharacter;
+
+	[Attribute("60", UIWidgets.EditBox, desc: "What each member of a bought group costs, so a bigger group costs more", category: "Spawning")]
+	int m_iCostPerGroupMember;
+
+	[Attribute("200", UIWidgets.EditBox, desc: "What a vehicle costs at the service point", category: "Spawning")]
+	int m_iCostPerVehicle;
+
 	[Attribute("600", UIWidgets.EditBox, desc: "Most one stage can earn from kills, so a long grind cannot fund everything. Counts soldiers and vehicles; the helicopter, the mortar and waves are outside it. 0 for no cap", category: "Income")]
 	int m_iKillIncomeCapPerZone;
 

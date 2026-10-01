@@ -249,6 +249,10 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		
 		LoadSideConfigs();
 
+		// Every machine: the prices it stamps on the spawn catalogs have to match what the authority charges,
+		// and the HUD reads the pool locally
+		LoadSupplyConfig();
+
 		// Authority only: every death is reported here, and a client is told the finished table instead
 		if (IsMaster())
 		{
@@ -382,6 +386,15 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	//! agree without being told separately. The game mode prefab ships with SUPPLIES disabled, which is
 	//! why building has been free.
 	//------------------------------------------------------------------------------------------------
+	protected void LoadSupplyConfig()
+	{
+		m_SupplyConfig = SCR_ConfigHelperT<AFM_DiDSupplyConfig>.GetConfigObject(m_sSupplyConfigPath);
+
+		if (!m_SupplyConfig)
+			PrintFormat("AFM_GameModeDiD: Supply config '%1' could not be loaded", m_sSupplyConfigPath, level: LogLevel.ERROR);
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected void StartSupplyEconomy()
 	{
 		SetResourceTypeEnabled(m_bSupplyEconomy, EResourceType.SUPPLIES);
@@ -392,11 +405,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			return;
 		}
 
-		m_SupplyConfig = SCR_ConfigHelperT<AFM_DiDSupplyConfig>.GetConfigObject(m_sSupplyConfigPath);
 		if (!m_SupplyConfig)
 		{
-			PrintFormat("AFM_GameModeDiD: Supply config '%1' could not be loaded, turning the economy back off rather than leaving stages unfunded",
-				m_sSupplyConfigPath, level: LogLevel.ERROR);
+			Print("AFM_GameModeDiD: No supply config, turning the economy back off rather than leaving stages unfunded", LogLevel.ERROR);
 
 			m_bSupplyEconomy = false;
 			SetResourceTypeEnabled(false, EResourceType.SUPPLIES);
