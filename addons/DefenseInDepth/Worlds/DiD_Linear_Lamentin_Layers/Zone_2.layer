@@ -533,6 +533,10 @@ AFM_DiDZoneEntity zone2 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
   AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
    coords -10.534 -0.886 52.448
   }
+  AFM_SupplyCacheEntity : "{C15324DF2F7957B1}Prefabs/Props/Military/SupplyBox/SupplyStack/SupplyStack_Large_01/AFM_SupplyCache_Large.et" {
+   coords -14.759 -0.859 63.727
+   angles 0 -70.509 0
+  }
   AFM_DiDHeliSpawnerComponent : "{DFD7DF164B791F0F}Prefabs/Spawners/AFM_HeliSpawner.et" {
    coords 591.239 59.983 -247.805
    m_iFirstSortieDelay 5

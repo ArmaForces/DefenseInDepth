@@ -905,6 +905,9 @@ AFM_DiDZoneEntity : "{54DE363F12E79F7A}Prefabs/MP/AFM_DiDExtractionZonePrefab.et
   AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
    coords 43.396 0.256 -4.266
   }
+  AFM_SupplyCacheEntity : "{C15324DF2F7957B1}Prefabs/Props/Military/SupplyBox/SupplyStack/SupplyStack_Large_01/AFM_SupplyCache_Large.et" {
+   coords 45.674 0.032 -8.553
+  }
   AFM_DiDExtractionComponent : "{D531CA060629DC24}Prefabs/Spawners/AFM_ExtractionSpawner.et" {
    coords 1.438 0 2.44
    {

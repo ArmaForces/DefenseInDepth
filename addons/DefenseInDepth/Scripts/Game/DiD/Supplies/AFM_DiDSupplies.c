@@ -77,6 +77,17 @@ class AFM_DiDSupplies
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Null on a client and in any other game mode, which is also how callers tell not to bother
+	static AFM_DiDStatsTracker GetStats()
+	{
+		AFM_GameModeDiD gameMode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
+		if (!gameMode)
+			return null;
+
+		return gameMode.GetStats();
+	}
+
+	//------------------------------------------------------------------------------------------------
 	static AFM_DiDSupplyConfig GetConfig()
 	{
 		AFM_GameModeDiD gameMode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());

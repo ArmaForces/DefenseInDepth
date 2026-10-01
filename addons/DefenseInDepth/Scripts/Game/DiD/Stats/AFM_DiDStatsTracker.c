@@ -130,6 +130,32 @@ class AFM_DiDStatsTracker
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! What a player took out of the stage's pool. Placements only - the arsenal spends through vanilla's own
+	//! path, which never says who was at the crate.
+	void OnSuppliesSpent(int playerId, int amount)
+	{
+		if (amount <= 0)
+			return;
+
+		AFM_DiDPlayerStats stats = GetOrCreate(playerId);
+		if (stats)
+			stats.Add(AFM_EDiDStat.SUPPLIES_SPENT, amount);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! What a player's kills paid into the pool. The hold drip and the one-off rewards belong to the team
+	//! rather than to anyone, so they are not counted here.
+	void OnSuppliesEarned(int playerId, int amount)
+	{
+		if (amount <= 0)
+			return;
+
+		AFM_DiDPlayerStats stats = GetOrCreate(playerId);
+		if (stats)
+			stats.Add(AFM_EDiDStat.SUPPLIES_EARNED, amount);
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! One composition finished. The builder id is the only thing separating a player's work from the
 	//! mission's own, and the building component already carries it.
 	void OnStructureBuilt(int playerId)
@@ -300,6 +326,8 @@ class AFM_DiDStatsTracker
 		row = row + " | " + stats.GetText(AFM_EDiDStat.ARSENAL_SECONDS);
 		row = row + " | " + stats.GetText(AFM_EDiDStat.ZONES_SURVIVED);
 		row = row + " | " + stats.GetText(AFM_EDiDStat.EXTRACTED);
+		row = row + " | " + stats.GetText(AFM_EDiDStat.SUPPLIES_SPENT);
+		row = row + " | " + stats.GetText(AFM_EDiDStat.SUPPLIES_EARNED);
 
 		return row;
 	}
@@ -460,7 +488,7 @@ class AFM_DiDStatsTracker
 		}
 
 		PrintFormat("AFM_DiDStatsTracker: Player stats (%1) - %2 players", reason, stats.Count());
-		PrintFormat("AFM_DiDStatsTracker: player | bots | players | rockets | grenades | friendly | deaths | suicides | built | build s | arsenal s | zones | out");
+		PrintFormat("AFM_DiDStatsTracker: player | bots | players | rockets | grenades | friendly | deaths | suicides | built | build s | arsenal s | zones | out | spent | earned");
 
 		// Selection sort on a handful of records: a comparator class would be more machinery than this
 		// is worth

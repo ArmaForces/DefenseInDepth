@@ -14,16 +14,20 @@ GenericEntity : "{7649AC4689618998}Prefabs/Props/Military/Compositions/US/Buildi
     }
    }
    m_aAvailableTraits {
-    TRAIT_FORTIFICATION THEME_MILITARY GROUPTYPE_ESSENTIAL
+    TRAIT_FORTIFICATION THEME_MILITARY GROUPTYPE_ESSENTIAL VEHICLE_CAR VEHICLE_APC VEHICLE_TURRET
    }
   }
   SCR_CatalogEntitySpawnerComponent "{7B4E29C05D13A880}" {
+   m_fMaxSlotDistance 10
+   m_sDefaultWaypointPrefab "{0AB63F524C44E0D2}PrefabsEditable/Auto/AI/Waypoints/E_AIWaypoint_DefendSmall.et"
    m_eType LIGHT_VEHICLE_DEPOT
    m_eBuildingLabel SERVICE_VEHICLE_DEPOT_LIGHT
    m_aCatalogTypes {
     CHARACTER GROUP VEHICLE
    }
-   m_fMaxSlotDistance 10
+   m_aAllowedLabels {
+    VEHICLE_CAR VEHICLE_APC VEHICLE_TURRET
+   }
    m_bNeedAllLabels 0
    m_bSuppliesConsumptionEnabled 1
    m_bEnableGracePeriod 1
@@ -61,6 +65,6 @@ GenericEntity : "{7649AC4689618998}Prefabs/Props/Military/Compositions/US/Buildi
   Hierarchy "{6A793EE31F84203A}" {
   }
  }
- coords -26.749 0.57 16.611
- angles 0 -6.145 0
+ coords 94.727 5.47 53.229
+ angles 0 -106.458 0
 }

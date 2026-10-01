@@ -43,7 +43,7 @@ class AFM_DiDSupplyIncome
 		if (Vehicle.Cast(context.GetVictimEntity()))
 			reward = config.m_iRewardPerVehicleKill;
 
-		AwardKillIncome(reward, config);
+		AwardKillIncome(reward, config, context.GetKillerPlayerID());
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -89,7 +89,7 @@ class AFM_DiDSupplyIncome
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void AwardKillIncome(int reward, notnull AFM_DiDSupplyConfig config)
+	protected void AwardKillIncome(int reward, notnull AFM_DiDSupplyConfig config, int killerId)
 	{
 		if (reward <= 0)
 			return;
@@ -105,6 +105,11 @@ class AFM_DiDSupplyIncome
 
 		m_iKillIncomeThisZone = m_iKillIncomeThisZone + reward;
 		AFM_DiDSupplies.Award(reward);
+
+		// Credited after the cap, so the figure on the results page is what the team actually received
+		AFM_DiDStatsTracker stats = AFM_DiDSupplies.GetStats();
+		if (stats)
+			stats.OnSuppliesEarned(killerId, reward);
 	}
 
 	//------------------------------------------------------------------------------------------------

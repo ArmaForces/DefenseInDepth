@@ -20,14 +20,20 @@ modded class SCR_CampaignBuildingPlacingEditorComponent
 		if (!entities || !AFM_DiDSupplies.IsEnabled())
 			return;
 
+		// Whoever has this editor open is the one spending
+		int playerId = 0;
+		SCR_EditorManagerEntity manager = GetManager();
+		if (manager)
+			playerId = manager.GetPlayerID();
+
 		foreach (SCR_EditableEntityComponent editable : entities)
 		{
-			AFM_ChargeAndTrack(editable);
+			AFM_ChargeAndTrack(editable, playerId);
 		}
 	}
 
 	//------------------------------------------------------------------------------------------------
-	protected void AFM_ChargeAndTrack(SCR_EditableEntityComponent editable)
+	protected void AFM_ChargeAndTrack(SCR_EditableEntityComponent editable, int playerId)
 	{
 		if (!editable)
 			return;
@@ -38,7 +44,14 @@ modded class SCR_CampaignBuildingPlacingEditorComponent
 
 		EEditableEntityType type = editable.GetEntityType();
 
-		AFM_DiDSupplyBudget.Charge(AFM_GetPlacementCost(editable, type));
+		int cost = AFM_GetPlacementCost(editable, type);
+		AFM_DiDSupplyBudget.Charge(cost);
+
+		// For the results page. Deliberately counted at placement, so a ghost that is deleted again and the
+		// supplies returned still leaves the commitment on the record - it was spent, then refunded.
+		AFM_DiDStatsTracker stats = AFM_DiDSupplies.GetStats();
+		if (stats)
+			stats.OnSuppliesSpent(playerId, cost);
 
 		// Bought AI belongs to the stage that paid for it. Vehicles are left alone, as they are elsewhere.
 		if (type == EEditableEntityType.GROUP || type == EEditableEntityType.CHARACTER)

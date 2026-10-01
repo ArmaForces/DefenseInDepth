@@ -22,6 +22,6 @@ PerceptionManager PerceptionManager1 : "{028DAEAD63E056BE}Prefabs/World/Game/Per
 }
 AFM_GameModeDiD AFM_GameMode_DiD1 : "{E508D7FF014D49F1}Prefabs/MP/Modes/AFM_GameMode_DiD.et" {
  coords 5802.404 4.811 9838.536
- m_sDefenderConfigPath "{6152635517205774}Configs/Factions/DiD_Side_RF_RHS.conf"
- m_sAttackerConfigPath "{EFDF6366B76AFDE6}Configs/Factions/DiD_Side_US_RHS.conf"
+ m_sDefenderConfigPath "{C233B7D23878B10F}Configs/Factions/DiD_Side_FIA.conf"
+ m_sAttackerConfigPath "{2FF4CFE9D80F6F76}Configs/Factions/DiD_Side_US.conf"
 }
