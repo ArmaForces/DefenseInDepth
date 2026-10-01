@@ -196,9 +196,10 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 		if (waveCount > 0)
 			parts.Insert(string.Format("Wave %1/%2", m_Campaign.GetWave(), waveCount));
 
-		// The container replicates, so this reads the stage's real pool on every machine
+		// From the game mode rather than from the pool: a client never subscribes to the stage's container, so
+		// reading it locally shows whatever it held when the match started
 		if (AFM_DiDSupplies.IsEnabled())
-			parts.Insert(string.Format("Supplies: %1", AFM_DiDSupplies.GetStored()));
+			parts.Insert(string.Format("Supplies: %1", m_Campaign.GetSupplies()));
 
 		if (isWarmup)
 		{

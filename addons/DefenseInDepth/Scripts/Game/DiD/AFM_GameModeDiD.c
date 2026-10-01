@@ -120,6 +120,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected int m_iTicketsRemaining = -1;	// -1 when no spawner of the zone uses tickets
 
+	// The stage's pool, sent the same way as every other figure on the status line. The container itself only
+	// reaches a client that has subscribed to it, which the arsenal and the build menu do while they are open
+	// and the HUD never does.
+	[RplProp(onRplName: "OnMatchSituationChanged")]
+	protected int m_iSupplies;
+
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected bool m_bIsContested = false;
 
@@ -629,6 +635,10 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		m_fTimeoutTimestamp = m_ZoneSystem.GetZoneTimeoutTimestamp();
 		m_bIsContested = m_ZoneSystem.IsContested();
 		m_iZoneCount = m_ZoneSystem.GetMaxZoneIndex();
+
+		// Read from the pool itself, which is only authoritative here
+		if (IsMaster())
+			m_iSupplies = AFM_DiDSupplies.GetStored();
 
 		AFM_DiDZoneComponent zone = m_ZoneSystem.GetActiveZone();
 		if (!zone)
@@ -1438,6 +1448,13 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	int GetEnemiesRemaining()
 	{
 		return m_iEnemiesRemaining;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! What the stage has left to spend, as the authority last saw it
+	int GetSupplies()
+	{
+		return m_iSupplies;
 	}
 
 	//! Spawn tickets left in the active zone, or -1 when none of its spawners use tickets
