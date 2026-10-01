@@ -143,6 +143,23 @@ class AFM_DiDStatsTracker
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Kit bought at an arsenal. Counted twice on purpose: once against everything this player spent, and
+	//! once on its own, because what somebody spends on themselves is a different story from what they spend
+	//! on the position.
+	void OnArsenalSuppliesSpent(int playerId, int amount)
+	{
+		if (amount <= 0)
+			return;
+
+		AFM_DiDPlayerStats stats = GetOrCreate(playerId);
+		if (!stats)
+			return;
+
+		stats.Add(AFM_EDiDStat.SUPPLIES_SPENT, amount);
+		stats.Add(AFM_EDiDStat.ARSENAL_SUPPLIES, amount);
+	}
+
+	//------------------------------------------------------------------------------------------------
 	//! What a player's kills paid into the pool. The hold drip and the one-off rewards belong to the team
 	//! rather than to anyone, so they are not counted here.
 	void OnSuppliesEarned(int playerId, int amount)
@@ -328,6 +345,7 @@ class AFM_DiDStatsTracker
 		row = row + " | " + stats.GetText(AFM_EDiDStat.EXTRACTED);
 		row = row + " | " + stats.GetText(AFM_EDiDStat.SUPPLIES_SPENT);
 		row = row + " | " + stats.GetText(AFM_EDiDStat.SUPPLIES_EARNED);
+		row = row + " | " + stats.GetText(AFM_EDiDStat.ARSENAL_SUPPLIES);
 
 		return row;
 	}
@@ -488,7 +506,7 @@ class AFM_DiDStatsTracker
 		}
 
 		PrintFormat("AFM_DiDStatsTracker: Player stats (%1) - %2 players", reason, stats.Count());
-		PrintFormat("AFM_DiDStatsTracker: player | bots | players | rockets | grenades | friendly | deaths | suicides | built | build s | arsenal s | zones | out | spent | earned");
+		PrintFormat("AFM_DiDStatsTracker: player | bots | players | rockets | grenades | friendly | deaths | suicides | built | build s | arsenal s | zones | out | spent | earned | on kit");
 
 		// Selection sort on a handful of records: a comparator class would be more machinery than this
 		// is worth

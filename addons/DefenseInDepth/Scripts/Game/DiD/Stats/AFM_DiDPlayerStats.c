@@ -22,8 +22,9 @@ enum AFM_EDiDStat
 	ZONES_SURVIVED,		//!< Stages this player reached the end of with a body
 	EXTRACTED,			//!< Aboard the helicopter when it flew out
 
-	SUPPLIES_SPENT,		//!< Supplies this player committed, placing structures and buying units
+	SUPPLIES_SPENT,		//!< Supplies this player committed, on placements and at arsenals alike
 	SUPPLIES_EARNED,	//!< Supplies this player's own kills paid into the pool
+	ARSENAL_SUPPLIES,	//!< The arsenal's share of what they spent
 
 	COUNT				//!< Keep last: the size of every stat record
 }
