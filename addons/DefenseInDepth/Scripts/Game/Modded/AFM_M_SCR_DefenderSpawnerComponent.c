@@ -18,6 +18,22 @@ modded class SCR_DefenderSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Same as the catalog spawner: the charge runs on the authority, so the pool is registered there
+	override void AddSupplies(float value)
+	{
+		if (AFM_DiDSupplies.LinkSpender(m_ResourceComponent))
+		{
+			super.AddSupplies(value);
+			return;
+		}
+
+		if (value < 0)
+			AFM_DiDSupplies.Spend(Math.Round(-value));
+		else
+			AFM_DiDSupplies.Award(Math.Round(value));
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected void AFM_OnGroupSpawned(SCR_DefenderSpawnerComponent spawner, SCR_AIGroup group)
 	{
 		if (!group)

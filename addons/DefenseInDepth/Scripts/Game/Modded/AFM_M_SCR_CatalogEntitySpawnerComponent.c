@@ -38,6 +38,25 @@ modded class SCR_CatalogEntitySpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
+	//! Where the supplies actually move, and the one hook that has to be right: the figure players see is
+	//! read on their own machine, the charge happens on the authority, and the pool has to be registered on
+	//! whichever one is acting. Linking only where the menu asks left spawning free.
+	override void AddSpawnerSupplies(float supplies)
+	{
+		if (AFM_DiDSupplies.LinkSpender(m_ResourceComponent))
+		{
+			super.AddSpawnerSupplies(supplies);
+			return;
+		}
+
+		// No consumer to work through, so the stage is charged directly rather than letting it through free
+		if (supplies < 0)
+			AFM_DiDSupplies.Spend(Math.Round(-supplies));
+		else
+			AFM_DiDSupplies.Award(Math.Round(supplies));
+	}
+
+	//------------------------------------------------------------------------------------------------
 	override SCR_EEntityRequestStatus GetRequestState(notnull SCR_EntityCatalogEntry entityEntry, IEntity user = null)
 	{
 		AFM_DiDSupplies.LinkSpender(m_ResourceComponent);

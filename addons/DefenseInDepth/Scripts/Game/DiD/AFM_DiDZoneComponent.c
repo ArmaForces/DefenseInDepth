@@ -490,14 +490,55 @@ class AFM_DiDZoneComponent: ScriptComponent
 			if (!spawned)
 				continue;
 
-			SCR_EntityHelper.DeleteEntityAndChildren(spawned);
-			removed++;
+			// Vehicles are left standing. They are worth having in the next stage, and one being deleted with
+			// a player in it is worse than one abandoned in a zone nobody returns to.
+			if (Vehicle.Cast(spawned))
+				continue;
+
+			removed += RemoveServiceSpawn(spawned);
 		}
 
 		if (removed > 0)
-			PrintFormat("AFM_DiDZoneComponent %1: Removed %2 units and vehicles the service spawned", m_sZoneName, removed);
+			PrintFormat("AFM_DiDZoneComponent %1: Removed %2 units the service spawned", m_sZoneName, removed);
 
 		m_aServiceSpawns.Clear();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns how many bodies were removed.
+	//!
+	//! A group's members are not its children in the scene, so deleting the group entity leaves the
+	//! soldiers standing where they were - which is why the zone's own spawners delete agents one at a
+	//! time, and why this does the same.
+	//------------------------------------------------------------------------------------------------
+	protected int RemoveServiceSpawn(notnull IEntity spawned)
+	{
+		SCR_AIGroup group = SCR_AIGroup.Cast(spawned);
+		if (!group)
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(spawned);
+			return 1;
+		}
+
+		int removed = 0;
+		array<AIAgent> agents = {};
+		group.GetAgents(agents);
+
+		foreach (AIAgent agent : agents)
+		{
+			if (!agent)
+				continue;
+
+			IEntity member = agent.GetControlledEntity();
+			if (!member)
+				continue;
+
+			SCR_EntityHelper.DeleteEntityAndChildren(member);
+			removed++;
+		}
+
+		SCR_EntityHelper.DeleteEntityAndChildren(group);
+		return removed;
 	}
 
 	//------------------------------------------------------------------------------------------------
