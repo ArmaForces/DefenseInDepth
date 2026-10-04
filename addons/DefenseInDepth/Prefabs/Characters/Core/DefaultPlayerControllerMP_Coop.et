@@ -1,6 +1,8 @@
 SCR_PlayerController : "{225E51284CC95CFA}Prefabs/Characters/Core/DefaultPlayerControllerMP.et" {
  ID "1A9BA6BEFA06E3B1"
  components {
+  AFM_DiDArsenalTimerComponent "{6A7C1E5504B3A821}" {
+  }
   SCR_HUDManagerComponent "{2FDC275D9EBCDB8B}" {
    InfoDisplays {
     AFM_ScoreInfoDisplay "{66B0FE74C122F849}" {

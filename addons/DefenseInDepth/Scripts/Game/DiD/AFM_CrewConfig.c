@@ -62,7 +62,7 @@ class AFM_CrewConfig
 		{
 			IEntity driver = SpawnCharacterInSlot(driverSlot, m_sDriverPrefab, aiGroup);
 			if (driver)
-				PrintFormat("AFM_CrewConfig: Spawned driver in %1", driverSlot.GetCompartmentName(), LogLevel.DEBUG);
+				PrintFormat("AFM_CrewConfig: Spawned driver in %1", driverSlot.GetCompartmentName(), level: LogLevel.DEBUG);
 		}
 		
 		// Spawn gunner
@@ -71,7 +71,7 @@ class AFM_CrewConfig
 			IEntity gunner = SpawnCharacterInSlot(gunnerSlot, m_sGunnerPrefab, aiGroup);
 			if (gunner)
 			{
-				PrintFormat("AFM_CrewConfig: Spawned gunner in %1", gunnerSlot.GetCompartmentName(), LogLevel.DEBUG);
+				PrintFormat("AFM_CrewConfig: Spawned gunner in %1", gunnerSlot.GetCompartmentName(), level: LogLevel.DEBUG);
 				
 				// Prevent dismount if configured
 				if (m_bNoTurretDismount)
@@ -87,7 +87,7 @@ class AFM_CrewConfig
 		if (assignedWaypoint)
 		{
 			aiGroup.AddWaypoint(assignedWaypoint);
-			PrintFormat("AFM_CrewConfig: Assigned waypoint to AI group", LogLevel.DEBUG);
+			PrintFormat("AFM_CrewConfig: Assigned waypoint to AI group", level: LogLevel.DEBUG);
 		}
 		
 		return aiGroup;

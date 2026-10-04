@@ -1,0 +1,54 @@
+FrameWidgetClass {
+ Name "DiDAwardRow"
+ Slot LayoutSlot "{5EBF1EC9E8008D16}" {
+ }
+ {
+  ImageWidgetClass "{1B6F40D29AC5837E}" {
+   Name "Background"
+   Slot FrameWidgetSlot "{5EB11767D337F688}" {
+    OffsetLeft 0
+    OffsetTop 0
+    SizeX 530
+    OffsetRight -530
+    SizeY 38
+    OffsetBottom -38
+   }
+   Color 1 1 1 0
+  }
+  TextWidgetClass "{1B6F40D29AC5837F}" {
+   Name "Label"
+   Slot FrameWidgetSlot "{5D6D1B96C41F630E}" {
+    PositionX 6
+    OffsetLeft 6
+    PositionY 0
+    OffsetTop 0
+    SizeX 264
+    OffsetRight -270
+    SizeY 38
+    OffsetBottom -38
+   }
+   Text "Title"
+   "Font Size" 20
+   "Min Font Size" 20
+   "Vertical Alignment" Center
+  }
+  TextWidgetClass "{1B6F40D29AC58380}" {
+   Name "Value"
+   Slot FrameWidgetSlot "{5D6D1B96C41F630E}" {
+    PositionX 274
+    OffsetLeft 274
+    PositionY 0
+    OffsetTop 0
+    SizeX 256
+    OffsetRight -530
+    SizeY 38
+    OffsetBottom -38
+   }
+   Text "Winner"
+   "Font Size" 20
+   "Min Font Size" 20
+   "Horizontal Alignment" Right
+   "Vertical Alignment" Center
+  }
+ }
+}

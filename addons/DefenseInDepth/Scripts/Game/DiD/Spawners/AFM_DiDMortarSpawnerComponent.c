@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------------------------
-//! Mortar fire support spawner - spawns mortar teams with intelligent target selection
-//! Uses Monte Carlo sampling to find optimal fire positions within the zone
+//! Mortar fire support spawner - spawns a mortar team that shells the densest group of players,
+//! walking its fire in over consecutive salvos
 //------------------------------------------------------------------------------------------------
 class AFM_DiDMortarSpawnerComponentClass: AFM_DiDSpawnerComponentClass
 {
@@ -9,20 +9,21 @@ class AFM_DiDMortarSpawnerComponentClass: AFM_DiDSpawnerComponentClass
 //------------------------------------------------------------------------------------------------
 class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 {
-	[Attribute("", UIWidgets.Object, desc: "Crew configuration for mortar", category: "DiD Mortar Spawner")]
-	protected ref AFM_CrewConfig m_crewConfig;
-	
-	[Attribute("", UIWidgets.Auto, desc: "Mortar vehicle prefabs to spawn", category: "DiD Mortar Spawner")]
+	// The attacking side's mortar composition and the crew that mans it
 	protected ResourceName m_MortarPrefab;
+	protected ref AFM_CrewConfig m_crewConfig;
 	
 	[Attribute("30", UIWidgets.EditBox, "Fire mission update interval (seconds)", category: "DiD Mortar Spawner")]
 	protected int m_iFireMissionUpdateInterval;
+
+	[Attribute("300", UIWidgets.EditBox, "Seconds before a destroyed mortar team is replaced. Silencing the mortars should be worth the trip out to them", category: "DiD Mortar Spawner")]
+	protected int m_iRespawnDelaySeconds;
 	
-	[Attribute("10", UIWidgets.EditBox, "Number of sample points for Monte Carlo targeting (higher = more accurate, slower)", category: "DiD Mortar Spawner")]
+	[Attribute("10", UIWidgets.EditBox, "Attempts to find a random spot in the zone for harassing fire when no player can be targeted", category: "DiD Mortar Spawner")]
 	protected int m_iMonteCarloSamples;
-	
-	[Attribute("50", UIWidgets.EditBox, "Radius (meters) around each sample point to check for targets", category: "DiD Mortar Spawner")]
-	protected float m_fSampleRadius;
+
+	[Attribute("40", UIWidgets.EditBox, "Players within this distance (meters) of each other count as one group; the mortar aims at the centre of the largest one", category: "DiD Mortar Spawner")]
+	protected float m_fTargetGroupRadius;
 	
 	[Attribute("100", UIWidgets.EditBox, "Minimum distance from mortar to target (meters)", category: "DiD Mortar Spawner")]
 	protected float m_fMinTargetDistance;
@@ -30,17 +31,33 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 	[Attribute("800", UIWidgets.EditBox, "Maximum distance from mortar to target (meters)", category: "DiD Mortar Spawner")]
 	protected float m_fMaxTargetDistance;
 	
-	[Attribute("1", UIWidgets.CheckBox, "Enable debug visualization of sample points", category: "DiD Mortar Spawner")]
-	protected bool m_bDebugVisualization;
-	
+	[Attribute("60", UIWidgets.EditBox, "Scatter (meters) of the first salvo on a new target area. Rounds land between half and full scatter from the aim point", category: "DiD Mortar Accuracy")]
+	protected float m_fInitialDispersion;
+
+	[Attribute("12", UIWidgets.EditBox, "Scatter (meters) once fire has walked in. Rounds land anywhere within this radius", category: "DiD Mortar Accuracy")]
+	protected float m_fMinDispersion;
+
+	[Attribute("0.5", UIWidgets.EditBox, "Scatter multiplier for each consecutive salvo on the same target area", category: "DiD Mortar Accuracy")]
+	protected float m_fDispersionStep;
+
+	[Attribute("75", UIWidgets.EditBox, "Aim points closer than this (meters) to the previous aim point count as the same target area", category: "DiD Mortar Accuracy")]
+	protected float m_fSameTargetRadius;
+
+	[Attribute("30", UIWidgets.EditBox, "Rounds never land closer than this (meters) to attacker AI", category: "DiD Mortar Accuracy")]
+	protected float m_fFriendlyFireRadius;
+
+	// How many times to re-roll a scattered impact point that lands too close to attacker AI
+	protected const int SCATTER_ATTEMPTS = 5;
+
 	// Runtime data
 	protected IEntity m_SpawnedMortar;
 	protected ref map<IEntity, ref MortarFireMissionData> m_mFireMissions = new map<IEntity, ref MortarFireMissionData>();
 	protected WorldTimestamp m_fLastTargetUpdate;
-	protected ref array<Shape> m_aDebugShapes = {};
-	
-	//calculate only once
-	protected ref array<float> m_aPolylinePoints2D = null;
+
+	// A mortar has been spawned this activation, and when the last one was lost
+	protected bool m_bMortarSpawned;
+	protected bool m_bMortarLost;
+	protected WorldTimestamp m_fMortarLostAt;
 	
 	//------------------------------------------------------------------------------------------------
 	override void Prepare(AFM_DiDZoneComponent owner)
@@ -50,10 +67,26 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		ChimeraWorld world = GetGame().GetWorld();
 		m_fLastTargetUpdate = world.GetServerTimestamp();
 		
-		PrintFormat("AFM_DiDMortarSpawnerComponent: Mortar spawner initialized with %1 MC samples, %2m radius", 
-			m_iMonteCarloSamples, m_fSampleRadius, LogLevel.DEBUG);
+		PrintFormat("AFM_DiDMortarSpawnerComponent: Mortar spawner initialized, target group radius %1m",
+			m_fTargetGroupRadius, level: LogLevel.DEBUG);
 	}
 	
+	//------------------------------------------------------------------------------------------------
+	override protected void ResolveFactionContent()
+	{
+		AFM_DiDSideConfig side = GetAttackerConfig();
+		if (!side)
+			return;
+
+		m_MortarPrefab = side.m_sMortarComposition;
+		m_crewConfig = side.m_MortarCrew;
+
+		// Not every side fields mortars, so this is worth saying without calling it an error
+		if (m_MortarPrefab.IsEmpty() || !m_crewConfig)
+			PrintFormat("AFM_DiDMortarSpawnerComponent: The attacking side (%1) has no mortar composition or no mortar crew, this spawner will do nothing",
+				side.GetLabel(), level: LogLevel.WARNING);
+	}
+
 	//------------------------------------------------------------------------------------------------
 	override void Process()
 	{
@@ -67,30 +100,106 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		
 		if (!m_SpawnedMortar)
 		{
-			SpawnSingleGroup();
+			if (m_bMortarSpawned)
+				HandleMortarLost();
+			else
+				SpawnSingleGroup();
+			
 			return;
 		}
 		
 		// Update fire missions periodically
 		WorldTimestamp now = GetCurrentTimestamp();
-		
-		if (now.DiffSeconds(m_fLastTargetUpdate) >= m_iFireMissionUpdateInterval)
-		{
-			m_fLastTargetUpdate = now;
-			UpdateAllFireMissions();
-		}
+		float secondsSinceUpdate = now.DiffSeconds(m_fLastTargetUpdate);
+		if (secondsSinceUpdate < m_iFireMissionUpdateInterval)
+			return;
+
+		// Let the current salvo finish first, unless it has been stuck for a whole extra interval
+		bool stuck = secondsSinceUpdate >= m_iFireMissionUpdateInterval * 2;
+		if (!stuck && AnyMissionHasPendingShots())
+			return;
+
+		m_fLastTargetUpdate = now;
+		UpdateAllFireMissions();
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	override void Cleanup()
 	{
 		super.Cleanup();
 		SCR_EntityHelper.DeleteEntityAndChildren(m_SpawnedMortar);
-		
+		m_SpawnedMortar = null;
+
+		foreach (IEntity mortar, MortarFireMissionData fireMission : m_mFireMissions)
+		{
+			if (fireMission)
+				ClearFireMissionWaypoints(fireMission);
+		}
 		m_mFireMissions.Clear();
 		
-		// Release debug shape references so they are garbage collected
-		m_aDebugShapes.Clear();
+		m_bMortarSpawned = false;
+		m_bMortarLost = false;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! A destroyed mortar team is replaced only after a delay. Killing one used to buy the players about
+	//! a second, which made going after them pointless.
+	protected void HandleMortarLost()
+	{
+		WorldTimestamp now = GetCurrentTimestamp();
+		
+		if (!m_bMortarLost)
+		{
+			m_bMortarLost = true;
+			m_fMortarLostAt = now;
+			
+			// The dead crew's salvo waypoints are nobody's now, and the map entry keyed on the destroyed
+			// mortar would keep them alive until the zone ends
+			DropLostFireMissions();
+			AwardMortarReward();
+			
+			PrintFormat("AFM_DiDMortarSpawnerComponent: Mortar lost, the next one arrives in %1 s", m_iRespawnDelaySeconds);
+			return;
+		}
+		
+		if (now.DiffSeconds(m_fMortarLostAt) < m_iRespawnDelaySeconds)
+			return;
+		
+		m_bMortarLost = false;
+		SpawnSingleGroup();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Killing the crew that has been shelling you is worth something. Paid once per mortar, when it is
+	//! first noticed to be gone, rather than every tick it stays gone.
+	protected void AwardMortarReward()
+	{
+		AFM_DiDSupplyConfig config = AFM_DiDSupplies.GetConfig();
+		if (!config)
+			return;
+
+		AFM_DiDSupplies.Award(config.m_iRewardPerMortarKill);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Forget the fire missions of mortars that no longer exist, deleting the salvo waypoints they left
+	protected void DropLostFireMissions()
+	{
+		ref map<IEntity, ref MortarFireMissionData> alive = new map<IEntity, ref MortarFireMissionData>();
+		
+		foreach (IEntity mortar, MortarFireMissionData fireMission : m_mFireMissions)
+		{
+			if (mortar)
+			{
+				alive.Set(mortar, fireMission);
+				continue;
+			}
+			
+			if (fireMission)
+				ClearFireMissionWaypoints(fireMission);
+		}
+		
+		m_mFireMissions = alive;
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -99,19 +208,25 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		// Mortars spawn individually
 		return 1;
 	}
+
+	//------------------------------------------------------------------------------------------------
+	override bool HasSpawnWaves()
+	{
+		return false;
+	}
 	
 	//------------------------------------------------------------------------------------------------
 	override protected void SpawnSingleGroup()
 	{
 		if (m_aSpawnPoints.Count() == 0 || m_MortarPrefab.IsEmpty())
 		{
-			PrintFormat("AFM_DiDMortarSpawnerComponent: No spawn points or mortar prefabs configured!", LogLevel.WARNING);
+			PrintFormat("AFM_DiDMortarSpawnerComponent: No spawn points or mortar prefabs configured!", level: LogLevel.WARNING);
 			return;
 		}
-		
+
 		if (!m_crewConfig)
 		{
-			PrintFormat("AFM_DiDMortarSpawnerComponent: No crew config defined!", LogLevel.ERROR);
+			PrintFormat("AFM_DiDMortarSpawnerComponent: No crew config defined!", level: LogLevel.ERROR);
 			return;
 		}
 		
@@ -126,18 +241,18 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		m_SpawnedMortar = GetGame().SpawnEntityPrefab(Resource.Load(m_MortarPrefab), GetGame().GetWorld(), spawnParams);
 		if (!m_SpawnedMortar)
 		{
-			PrintFormat("AFM_DiDMortarSpawnerComponent: Failed to spawn mortar!", LogLevel.ERROR);
+			PrintFormat("AFM_DiDMortarSpawnerComponent: Failed to spawn mortar!", level: LogLevel.ERROR);
 			return;
 		}
-		
+
 		// Get compartment manager and crew the mortar
 		SCR_BaseCompartmentManagerComponent cm = SCR_BaseCompartmentManagerComponent.Cast(
 			m_SpawnedMortar.FindComponent(SCR_BaseCompartmentManagerComponent)
 		);
-		
+
 		if (!cm)
 		{
-			PrintFormat("AFM_DiDMortarSpawnerComponent: Mortar has no compartment manager!", LogLevel.ERROR);
+			PrintFormat("AFM_DiDMortarSpawnerComponent: Mortar has no compartment manager!", level: LogLevel.ERROR);
 			return;
 		}
 		
@@ -150,19 +265,21 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		AIGroup crew = m_crewConfig.SpawnCrew(cm, null);
 		if (!crew)
 		{
-			PrintFormat("AFM_DiDMortarSpawnerComponent: Failed to spawn mortar crew!", LogLevel.ERROR);
+			PrintFormat("AFM_DiDMortarSpawnerComponent: Failed to spawn mortar crew!", level: LogLevel.ERROR);
 			return;
 		}
-		
+
 		fireMission.m_CrewGroup = crew;
 		m_mFireMissions.Set(m_SpawnedMortar, fireMission);
-		
-		// Create initial fire mission
+		m_bMortarSpawned = true;
+
+		// Create initial fire mission. Restart the update timer so it isn't immediately replaced on the next tick.
 		UpdateFireMission(fireMission);
-		
-		PrintFormat("AFM_DiDMortarSpawnerComponent: Spawned mortar at %1", m_SpawnedMortar.GetOrigin(), LogLevel.DEBUG);
+		m_fLastTargetUpdate = GetCurrentTimestamp();
+
+		PrintFormat("AFM_DiDMortarSpawnerComponent: Spawned mortar at %1", m_SpawnedMortar.GetOrigin(), level: LogLevel.DEBUG);
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
 	//! Update fire missions for all spawned mortars
 	//------------------------------------------------------------------------------------------------
@@ -174,186 +291,259 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 				UpdateFireMission(fireMission);
 		}
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
-	//! Update fire mission for a specific mortar using Monte Carlo target selection
+	//! True while any crew still has rounds of its current salvo to fire
+	protected bool AnyMissionHasPendingShots()
+	{
+		foreach (IEntity mortar, MortarFireMissionData fireMission : m_mFireMissions)
+		{
+			if (mortar && fireMission && fireMission.m_CrewGroup && HasPendingShots(fireMission))
+				return true;
+		}
+
+		return false;
+	}
+
 	//------------------------------------------------------------------------------------------------
-	protected void UpdateFireMission(MortarFireMissionData fireMission)
+	//! Plan a new salvo for a specific mortar, replacing any rounds
+	//! not fired yet. Each round gets its own single-shot waypoint scattered around the aim point.
+	//! Consecutive salvos on the same area walk in from m_fInitialDispersion towards m_fMinDispersion.
+	//! \return true if a new salvo was assigned
+	//------------------------------------------------------------------------------------------------
+	protected bool UpdateFireMission(MortarFireMissionData fireMission)
 	{
 		if (!fireMission || !fireMission.m_Mortar || !fireMission.m_CrewGroup)
-			return;
-		
-		// Find best target position using Monte Carlo sampling
-		vector targetPos = FindBestTargetPosition(fireMission.m_SpawnPosition);
-		
-		if (targetPos == vector.Zero)
+			return false;
+
+		array<vector> attackerPositions = {};
+		GetAttackerPositions(attackerPositions);
+
+		// Aim at the densest group of players
+		vector aimPoint = FindBestTargetPosition(fireMission.m_SpawnPosition, attackerPositions);
+
+		if (aimPoint == vector.Zero)
 		{
-			PrintFormat("AFM_DiDMortarSpawnerComponent: No valid target found for mortar", LogLevel.DEBUG);
-			return;
+			PrintFormat("AFM_DiDMortarSpawnerComponent: No valid target found for mortar", level: LogLevel.DEBUG);
+			return false;
 		}
-		
-		// Create or update fire position waypoint
-		SCR_AIWaypointArtillerySupport fireWaypoint = CreateFirePositionWaypoint(targetPos, fireMission);
-		
-		if (!fireWaypoint)
-		{
-			PrintFormat("AFM_DiDMortarSpawnerComponent: Failed to create fire waypoint!", LogLevel.ERROR);
-			return;
-		}
-		
+
+		// Walk fire in while the target stays in the same area, otherwise start bracketing again
+		float dispersion = m_fInitialDispersion;
+		if (fireMission.m_bHasAimPoint && vector.DistanceXZ(aimPoint, fireMission.m_TargetPosition) <= m_fSameTargetRadius)
+			dispersion = Math.Max(m_fMinDispersion, fireMission.m_fDispersion * m_fDispersionStep);
+
+		ClearFireMissionWaypoints(fireMission);
+
 		//TODO: Add different fire mission types and mortar count
-		fireWaypoint.SetTargetShotCount(s_AIRandomGenerator.RandInt(1,6));
-		
-		// Clear existing waypoints and assign new one
-		array<AIWaypoint> existingWaypoints = {};
-		fireMission.m_CrewGroup.GetWaypoints(existingWaypoints);
-		
-		foreach (AIWaypoint wp : existingWaypoints)
+		int shotCount = s_AIRandomGenerator.RandInt(1, 6);
+		for (int i = 0; i < shotCount; i++)
 		{
-			fireMission.m_CrewGroup.RemoveWaypoint(wp);
-			// Clean up old dynamic waypoint
-			if (fireMission.m_CurrentWaypoint == wp)
+			vector impactPoint;
+			if (!GetScatteredImpactPoint(aimPoint, dispersion, attackerPositions, impactPoint))
+				continue;
+
+			SCR_AIWaypointArtillerySupport fireWaypoint = CreateFirePositionWaypoint(impactPoint, fireMission);
+			if (!fireWaypoint)
+			{
+				PrintFormat("AFM_DiDMortarSpawnerComponent: Failed to create fire waypoint!", level: LogLevel.ERROR);
+				continue;
+			}
+
+			fireWaypoint.SetTargetShotCount(1);
+			fireMission.m_CrewGroup.AddWaypoint(fireWaypoint);
+			fireMission.m_aWaypoints.Insert(fireWaypoint);
+		}
+
+		if (fireMission.m_aWaypoints.IsEmpty())
+		{
+			PrintFormat("AFM_DiDMortarSpawnerComponent: No safe impact point around %1, holding fire", aimPoint, level: LogLevel.DEBUG);
+			return false;
+		}
+
+		fireMission.m_TargetPosition = aimPoint;
+		fireMission.m_bHasAimPoint = true;
+		fireMission.m_fDispersion = dispersion;
+		fireMission.m_LastUpdateTime = GetCurrentTimestamp();
+
+		PrintFormat("AFM_DiDMortarSpawnerComponent: New salvo of %1 rounds at %2 (%3 targets, %4m scatter)",
+			fireMission.m_aWaypoints.Count(), aimPoint, fireMission.m_LastTargetCount, dispersion, level: LogLevel.DEBUG);
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! True while the crew still has rounds of the current salvo to fire
+	protected bool HasPendingShots(notnull MortarFireMissionData fireMission)
+	{
+		array<AIWaypoint> waypoints = {};
+		fireMission.m_CrewGroup.GetWaypoints(waypoints);
+		return !waypoints.IsEmpty();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Remove all salvo waypoints from the crew and delete them, including ones already completed
+	protected void ClearFireMissionWaypoints(notnull MortarFireMissionData fireMission)
+	{
+		if (fireMission.m_CrewGroup)
+		{
+			array<AIWaypoint> existingWaypoints = {};
+			fireMission.m_CrewGroup.GetWaypoints(existingWaypoints);
+			foreach (AIWaypoint wp : existingWaypoints)
+			{
+				fireMission.m_CrewGroup.RemoveWaypoint(wp);
+			}
+		}
+
+		foreach (SCR_AIWaypointArtillerySupport wp : fireMission.m_aWaypoints)
+		{
+			if (wp)
 				SCR_EntityHelper.DeleteEntityAndChildren(wp);
 		}
-		
-		fireMission.m_CrewGroup.AddWaypoint(fireWaypoint);
-		fireMission.m_CurrentWaypoint = fireWaypoint;
-		fireMission.m_TargetPosition = targetPos;
-		fireMission.m_LastUpdateTime = GetCurrentTimestamp();
-		
-		PrintFormat("AFM_DiDMortarSpawnerComponent: Updated fire mission to %1 (%2 targets)", 
-			targetPos.ToString(), fireMission.m_LastTargetCount, LogLevel.DEBUG);
+		fireMission.m_aWaypoints.Clear();
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
-	//! Monte Carlo sampling to find best target position
-	//! Returns position with most defender units within sample radius
+	//! Pick where a single round lands. Above m_fMinDispersion rounds land in a ring between half and full
+	//! dispersion, so bracketing salvos are clear near misses; at m_fMinDispersion anywhere inside the circle.
+	//! \return false if every attempt landed too close to attacker AI
+	protected bool GetScatteredImpactPoint(vector aimPoint, float dispersion, notnull array<vector> attackerPositions, out vector impactPoint)
+	{
+		float minRadius = 0;
+		if (dispersion > m_fMinDispersion)
+			minRadius = dispersion * 0.5;
+
+		for (int i = 0; i < SCATTER_ATTEMPTS; i++)
+		{
+			vector candidate = s_AIRandomGenerator.GenerateRandomPointInRadius(minRadius, dispersion, aimPoint);
+			if (AFM_DiDTargetingHelper.IsNearAnyPosition(candidate, attackerPositions, m_fFriendlyFireRadius))
+				continue;
+
+			candidate[1] = GetGame().GetWorld().GetSurfaceY(candidate[0], candidate[2]);
+			impactPoint = candidate;
+			return true;
+		}
+
+		return false;
+	}
+
 	//------------------------------------------------------------------------------------------------
-	protected vector FindBestTargetPosition(vector mortarPos)
+	//! Positions of all living attacker characters, used to avoid shelling own troops
+	protected void GetAttackerPositions(notnull array<vector> outPositions)
+	{
+		outPositions.Clear();
+		if (!m_Zone)
+			return;
+
+		SCR_Faction attackerFaction = m_Zone.GetAttackerFaction();
+		if (!attackerFaction)
+			return;
+
+		// Helicopter crews overhead shouldn't block shelling the ground below them
+		AFM_DiDTargetingHelper.GetAIPositions(attackerFaction, outPositions, true);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Aim at the centre of the densest group of players, so consecutive salvos keep the same aim point
+	//! and the bracketing can walk in. Falls back to a random point in the zone when no players qualify.
+	//------------------------------------------------------------------------------------------------
+	protected vector FindBestTargetPosition(vector mortarPos, notnull array<vector> attackerPositions)
 	{
 		if (!m_Zone)
 			return vector.Zero;
-		
-		//TODO: Move below calculations to init (they need to happen only once)
-		// Get zone boundary for sampling
-		PolylineShapeEntity polyline = m_Zone.GetPolylineEntity();
-		if (!polyline)
-			return vector.Zero;
-		
+
+		// Players the mortar is allowed to fire at
+		array<vector> targets = {};
+		SCR_Faction defenderFaction = m_Zone.GetDefenderFaction();
+		if (defenderFaction)
+		{
+			array<vector> playerPositions = {};
+			AFM_DiDTargetingHelper.GetPlayerPositions(defenderFaction, playerPositions);
+
+			foreach (vector playerPos : playerPositions)
+			{
+				if (IsValidTargetPosition(playerPos, mortarPos, attackerPositions))
+					targets.Insert(playerPos);
+			}
+		}
+
+		int groupSize;
+		vector groupCenter = AFM_DiDTargetingHelper.FindDensestGroupCenter(targets, m_fTargetGroupRadius, groupSize);
+		SetLastTargetCount(mortarPos, groupSize);
+
+		if (groupSize > 0)
+		{
+			groupCenter[1] = GetGame().GetWorld().GetSurfaceY(groupCenter[0], groupCenter[2]);
+
+			// The centre of a spread out group can sit on top of own troops; then shell one of them directly
+			if (IsValidTargetPosition(groupCenter, mortarPos, attackerPositions))
+				return groupCenter;
+
+			return targets[0];
+		}
+
+		return FindRandomTargetPosition(mortarPos, attackerPositions);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Harassing fire when no player can be targeted
+	protected vector FindRandomTargetPosition(vector mortarPos, notnull array<vector> attackerPositions)
+	{
 		array<vector> polylinePoints = {};
-		polyline.GetPointsPositions(polylinePoints);
-		
-		if (polylinePoints.Count() < 3)
+		vector polylineOrigin;
+		if (!GetZonePolyline(polylinePoints, polylineOrigin))
 			return vector.Zero;
-		
-		// Calculate zone bounds
+
 		vector minBounds, maxBounds;
-		CalculateZoneBounds(polylinePoints, minBounds, maxBounds, polyline.GetOrigin());
-		
-		// Monte Carlo sampling
-		vector bestPosition = vector.Zero;
-		
-		//TODO: remove me - this is to make mortar fire at anything
-		int maxTargetCount = -1;
-		WorldTimestamp tStart = GetCurrentTimestamp();
+		CalculateZoneBounds(polylinePoints, minBounds, maxBounds, polylineOrigin);
+
 		for (int i = 0; i < m_iMonteCarloSamples; i++)
 		{
-			// Generate random point within zone bounds
 			vector samplePos = GenerateRandomPointInBounds(minBounds, maxBounds);
-			
-			// Debug visualization
-			if (m_bDebugVisualization)
-				DebugDrawSamplePoint(samplePos, 0, 0);
-			
-			// Check if point is actually inside the zone polygon
-			if (!IsPointInZone(samplePos, polylinePoints, polyline.GetOrigin()))
-				continue;
-			
-			// Check if within valid range from mortar
-			//float distToMortar = vector.Distance(mortarPos, samplePos);
-			float distToMortar = Math.Sqrt(Math.Pow(mortarPos[0] - samplePos[0],2) + Math.Pow(mortarPos[2] - samplePos[2], 2));
-			if (distToMortar < m_fMinTargetDistance || distToMortar > m_fMaxTargetDistance)
-				continue;
-			
-			// Count targets around this sample point
-			int targetCount = CountDefendersInRadius(samplePos, m_fSampleRadius);
-			
-			// Debug visualization
-			if (m_bDebugVisualization)
-				DebugDrawSamplePoint(samplePos, targetCount, maxTargetCount);
-			
-			// Update best position if this sample has more targets
-			if (targetCount > maxTargetCount)
-			{
-				maxTargetCount = targetCount;
-				bestPosition = samplePos;
-			}
+
+			if (IsValidTargetPosition(samplePos, mortarPos, attackerPositions))
+				return samplePos;
 		}
-		
-		// Store for reference
-		if (m_mFireMissions.Count() > 0)
-		{
-			// Find the fire mission we're updating (hacky, but works for now)
-			foreach (IEntity mortar, MortarFireMissionData fm : m_mFireMissions)
-			{
-				if (fm.m_SpawnPosition == mortarPos)
-				{
-					fm.m_LastTargetCount = maxTargetCount;
-					break;
-				}
-			}
-		}
-		WorldTimestamp end = GetCurrentTimestamp();
-		PrintFormat("AFM_DiDMortarSpawnerComponent: MC simulation took %1 ms", end.DiffMilliseconds(tStart));
-		return bestPosition;
+
+		return vector.Zero;
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
-	//! Count defender units within radius of position
-	//------------------------------------------------------------------------------------------------
-	protected int CountDefendersInRadius(vector centerPos, float radius)
+	//! Inside the zone, within the mortar's range and clear of own troops
+	protected bool IsValidTargetPosition(vector pos, vector mortarPos, notnull array<vector> attackerPositions)
 	{
-		if (!m_Zone)
-			return 0;
-		
-		SCR_Faction defenderFaction = m_Zone.GetDefenderFaction();
-		if (!defenderFaction)
-			return 0;
-		
-		array<int> playerIds = {};
-		defenderFaction.GetPlayersInFaction(playerIds);
-		
-		int count = 0;
-		float radiusSq = radius * radius;
-		
-		foreach (int playerId : playerIds)
+		if (!m_Zone.IsPointInsideZone(pos))
+			return false;
+
+		float distToMortar = vector.DistanceXZ(mortarPos, pos);
+		if (distToMortar < m_fMinTargetDistance || distToMortar > m_fMaxTargetDistance)
+			return false;
+
+		return !AFM_DiDTargetingHelper.IsNearAnyPosition(pos, attackerPositions, m_fFriendlyFireRadius);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected bool GetZonePolyline(notnull array<vector> outPoints, out vector outOrigin)
+	{
+		PolylineShapeEntity polyline = m_Zone.GetPolylineEntity();
+		if (!polyline)
+			return false;
+
+		polyline.GetPointsPositions(outPoints);
+		outOrigin = polyline.GetOrigin();
+		return outPoints.Count() >= 3;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void SetLastTargetCount(vector mortarPos, int targetCount)
+	{
+		foreach (IEntity mortar, MortarFireMissionData fireMission : m_mFireMissions)
 		{
-			PlayerController pc = GetGame().GetPlayerManager().GetPlayerController(playerId);
-			if (!pc)
-				continue;
-			
-			IEntity playerEntity = pc.GetControlledEntity();
-			if (!playerEntity)
-				continue;
-			
-			// Check if player is alive
-			SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(playerEntity);
-			if (!character)
-				continue;
-			
-			SCR_DamageManagerComponent damageManager = character.GetDamageManager();
-			if (!damageManager || damageManager.GetState() == EDamageState.DESTROYED)
-				continue;
-			
-			// Check distance (using squared distance for performance)
-			vector playerPos = playerEntity.GetOrigin();
-			float distSq = vector.DistanceSq(centerPos, playerPos);
-			
-			if (distSq <= radiusSq)
-				count++;
+			if (fireMission && fireMission.m_SpawnPosition == mortarPos)
+			{
+				fireMission.m_LastTargetCount = targetCount;
+				return;
+			}
 		}
-		
-		return count;
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -404,35 +594,6 @@ class AFM_DiDMortarSpawnerComponent: AFM_DiDSpawnerComponent
 		return point;
 	}
 	
-	protected bool IsPointInZone(vector point, array<vector> polylinePoints, vector polylineOrigin)
-	{
-		//init polyline point array once
-		if (!m_aPolylinePoints2D)
-		{
-			m_aPolylinePoints2D = new array<float>();
-			foreach (vector p : polylinePoints)
-			{
-				m_aPolylinePoints2D.Insert(polylineOrigin[0] + p[0]);
-				m_aPolylinePoints2D.Insert(polylineOrigin[2] + p[2]);
-			}
-		}
-		
-		return Math2D.IsPointInPolygon(m_aPolylinePoints2D, point[0], point[2]);
-	}
-	
-	protected void DebugDrawSamplePoint(vector pos, int targetCount, int maxCount)
-	{
-		Color color = Color.Yellow;
-		if (targetCount == maxCount && targetCount > 0)
-			color = Color.Red;
-		else if (targetCount > 0)
-			color = Color.Orange;
-		
-		// Draw sphere at sample point
-		Shape s = Shape.CreateSphere(color.PackToInt(), ShapeFlags.VISIBLE, pos, m_fSampleRadius);
-	
-		m_aDebugShapes.Insert(s);
-	}
 }
 
 //------------------------------------------------------------------------------------------------
@@ -442,9 +603,11 @@ class MortarFireMissionData
 {
 	IEntity m_Mortar;
 	AIGroup m_CrewGroup;
-	SCR_AIWaypoint m_CurrentWaypoint;
+	ref array<SCR_AIWaypointArtillerySupport> m_aWaypoints = {};	// One single-shot waypoint per round of the current salvo
 	vector m_SpawnPosition;
-	vector m_TargetPosition;
+	vector m_TargetPosition;		// Aim point of the current salvo, before scatter
+	bool m_bHasAimPoint;
+	float m_fDispersion;			// Scatter used for the current salvo
 	WorldTimestamp m_LastUpdateTime;
 	int m_LastTargetCount;
 }

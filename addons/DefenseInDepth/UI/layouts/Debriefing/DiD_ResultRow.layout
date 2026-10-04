@@ -1,0 +1,141 @@
+FrameWidgetClass {
+ Name "DiDResultRow"
+ Slot LayoutSlot "{5EBF1EC9E8008D16}" {
+ }
+ {
+  ImageWidgetClass "{63E1A7D40C82B95F}" {
+   Name "Background"
+   Slot FrameWidgetSlot "{5EB11767D337F688}" {
+    OffsetLeft 0
+    OffsetTop 0
+    SizeX 530
+    OffsetRight -530
+    SizeY 34
+    OffsetBottom -34
+   }
+   Color 1 1 1 0
+  }
+  ImageWidgetClass "{63E1A7D40C82B966}" {
+   Name "Rank"
+   Slot FrameWidgetSlot "{5EA8C93CB43A445D}" {
+    PositionX 6
+    OffsetLeft 6
+    PositionY 3
+    OffsetTop 3
+    SizeX 28
+    OffsetRight -34
+    SizeY 28
+    OffsetBottom -31
+   }
+   Texture "{70E828A2F6EBE7D0}UI/Textures/Nametags/nametagicons.imageset"
+   Size 28 28
+  }
+  TextWidgetClass "{63E1A7D40C82B960}" {
+   Name "Label"
+   Slot FrameWidgetSlot "{5D6D1B96C41F630E}" {
+    PositionX 40
+    OffsetLeft 40
+    PositionY 0
+    OffsetTop 0
+    SizeX 136
+    OffsetRight -176
+    SizeY 34
+    OffsetBottom -34
+   }
+   Text "Player"
+   "Font Size" 18
+   "Min Font Size" 18
+   "Vertical Alignment" Center
+  }
+  TextWidgetClass "{63E1A7D40C82B961}" {
+   Name "Col1"
+   Slot FrameWidgetSlot "{5D6D1B96C41F630E}" {
+    PositionX 180
+    OffsetLeft 180
+    PositionY 0
+    OffsetTop 0
+    SizeX 70
+    OffsetRight -250
+    SizeY 34
+    OffsetBottom -34
+   }
+   Text "Bots"
+   "Font Size" 18
+   "Min Font Size" 18
+   "Horizontal Alignment" Center
+   "Vertical Alignment" Center
+  }
+  TextWidgetClass "{63E1A7D40C82B962}" {
+   Name "Col2"
+   Slot FrameWidgetSlot "{5D6D1B96C41F630E}" {
+    PositionX 252
+    OffsetLeft 252
+    PositionY 0
+    OffsetTop 0
+    SizeX 70
+    OffsetRight -322
+    SizeY 34
+    OffsetBottom -34
+   }
+   Text "Deaths"
+   "Font Size" 18
+   "Min Font Size" 18
+   "Horizontal Alignment" Center
+   "Vertical Alignment" Center
+  }
+  TextWidgetClass "{63E1A7D40C82B963}" {
+   Name "Col3"
+   Slot FrameWidgetSlot "{5D6D1B96C41F630E}" {
+    PositionX 324
+    OffsetLeft 324
+    PositionY 0
+    OffsetTop 0
+    SizeX 70
+    OffsetRight -394
+    SizeY 34
+    OffsetBottom -34
+   }
+   Text "Built"
+   "Font Size" 18
+   "Min Font Size" 18
+   "Horizontal Alignment" Center
+   "Vertical Alignment" Center
+  }
+  TextWidgetClass "{63E1A7D40C82B964}" {
+   Name "Col4"
+   Slot FrameWidgetSlot "{5D6D1B96C41F630E}" {
+    PositionX 396
+    OffsetLeft 396
+    PositionY 0
+    OffsetTop 0
+    SizeX 66
+    OffsetRight -462
+    SizeY 34
+    OffsetBottom -34
+   }
+   Text "Build"
+   "Font Size" 18
+   "Min Font Size" 18
+   "Horizontal Alignment" Center
+   "Vertical Alignment" Center
+  }
+  TextWidgetClass "{63E1A7D40C82B965}" {
+   Name "Col5"
+   Slot FrameWidgetSlot "{5D6D1B96C41F630E}" {
+    PositionX 464
+    OffsetLeft 464
+    PositionY 0
+    OffsetTop 0
+    SizeX 66
+    OffsetRight -530
+    SizeY 34
+    OffsetBottom -34
+   }
+   Text "Arsenal"
+   "Font Size" 18
+   "Min Font Size" 18
+   "Horizontal Alignment" Center
+   "Vertical Alignment" Center
+  }
+ }
+}

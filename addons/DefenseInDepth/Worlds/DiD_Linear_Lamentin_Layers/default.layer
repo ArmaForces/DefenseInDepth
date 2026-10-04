@@ -1,4 +1,4 @@
-SCR_MapEntity MapEntity_Everon1 : "{E1B88C66BF6CA1F9}Prefabs/World/Game/MapEntity_Everon.et" {
+SCR_MapEntity MapEntity_Everon1 : "{E1B88C66BF6CA1F9}Prefabs/World/Game/Eden/MapEntity_Everon.et" {
  coords 1371.211 44.404 6063.403
 }
 SCR_AIWorld : "{70CCCF16487C927F}Prefabs/AI/SCR_AIWorld_Eden.et" {
@@ -27,5 +27,9 @@ PerceptionManager PerceptionManager1 : "{028DAEAD63E056BE}Prefabs/World/Game/Per
  coords 1399.349 44.358 5905.954
 }
 AFM_GameModeDiD AFM_GameMode_DiD1 : "{E508D7FF014D49F1}Prefabs/MP/Modes/AFM_GameMode_DiD.et" {
- coords 1390.949 46.043 6040.119
+ coords 1390.949 46.151 6040.119
+ m_aDisabledResourceTypes {
+ }
+ m_sDefenderConfigPath "{CB5CAE38E68AEBE5}Configs/Factions/DiD_Side_USSR.conf"
+ m_sAttackerConfigPath "{C233B7D23878B10F}Configs/Factions/DiD_Side_FIA.conf"
 }

@@ -1,0 +1,11 @@
+GenericEntity : "{0261DDFDDD21D614}Prefabs/Weapons/Magazines/Box_145x114_KPVT_50rnd_Base.et" {
+ ID "573227434F7A9B86"
+ components {
+  AICombatPropertiesComponent "{59CE86D96C332DDF}" {
+   Priority 1000
+   UsedAgainst 0x1f 0
+   IndirectlyUsedAgainst 0x3 0
+  }
+ }
+ coords 1200.656 27.786 5909.53
+}

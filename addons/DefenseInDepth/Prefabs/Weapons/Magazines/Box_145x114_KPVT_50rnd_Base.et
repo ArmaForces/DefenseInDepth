@@ -1,0 +1,11 @@
+GenericEntity : "{F9E1A46E3ABA116F}Prefabs/Weapons/Core/Magazine_Base.et" {
+ ID "573227434F7A9B86"
+ components {
+  AICombatPropertiesComponent "{59CE86D96C332DDF}" {
+   Priority 10000
+   UsedAgainst 0x8 0
+   IndirectlyUsedAgainst 0x7 0
+  }
+ }
+ coords 1200.656 27.786 5909.53
+}

@@ -5,7 +5,38 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
   }
   SCR_CommunicationSoundComponent "{66AAF4E352EDE112}" {
   }
+  DCO_GlobalAIComponent "{684A9572EB976348}" {
+   m_fSuppressionEffect 0.63
+   m_fTakeCoverChance 0.5
+   m_fPersonalityWeightStandard 50
+   m_fPersonalityWeightCautious 2
+   m_fPersonalityWeightAggressive 35
+   m_fPersonalityWeightReckless 13
+   m_fDodgeChance 0.3
+   m_fDodgeCooldown 15
+   m_iDodgeShotThreshold 3
+   m_fGrenadeUsage 1
+   m_fGLUsage 1
+   m_iBehaviorFlags 8388551
+   m_fTacticStallPct 25
+   m_fIdleEnterTime 120
+   m_fIdleOverrunDist 40
+   m_bIdleLeaveToInvestigate 1
+   m_fStragglerTime 10
+   m_fStragglerStuckTime 20
+   m_fSuperiorRatio 1
+   m_bLongRangeHold 0
+   m_fRifleEffectiveRange 150
+   m_fMGEffectiveRange 300
+   m_fOvermatchMaxDist 400
+   m_fCQBStackWait 5
+   m_iCQBAbortLosses 3
+   m_fCQBContactTimeout 90
+   m_fInvestigateMaxDist 800
+  }
   PS_CutsceneManager "{66AAF4E352EDE117}" {
+  }
+  PS_DummyRespawnSystemComponent "{6A63111CED9FB3E9}" {
   }
   PS_MissionDataManager "{66AAF4E352EDE116}" {
   }
@@ -91,13 +122,20 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
    m_fDuration 0
    m_bDisableControls 0
   }
+  SCR_ReconnectComponent "{5A02809D5E8ABE42}" {
+   Enabled 0
+  }
   SCR_RespawnSystemComponent "{56B2B4793051E7C9}" {
+   Enabled 0
    m_SpawnLogic SCR_SpawnLogic "{66AAF4E352EDE121}" {
    }
   }
   SCR_RestoreEditorModesComponent "{66AAF4E352EDE120}" {
   }
   SCR_TimeAndWeatherHandlerComponent "{66AAF4E352EDE128}" {
+   m_bRandomStartingWeather 1
+   m_bRandomWeatherChanges 1
+   m_bAllowHeaderSettings 1
    m_bFogOverride 1
    m_fFogAmount 0.266
    m_fFogHeightDensity 0.399
@@ -107,16 +145,12 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
   }
   SCR_XPHandlerComponent "{66D34C57D4D10ACA}" {
   }
-  SCR_ReconnectComponent "{5A02809D5E8ABE42}" {
-   Enabled 0
-  }
  }
- coords 1390.949 46.043 6040.119
+ coords 1390.949 46.151 6040.119
  PlayerControllerPrefab "{4E5DAC62A374950F}Prefabs/Characters/Core/DefaultPlayerControllerMP_Coop.et"
  m_bAutoPlayerRespawn 0
  m_bAllowFactionChange 0
  m_aDisabledResourceTypes {
-  SUPPLIES
  }
  m_bTeamSwitch 1
  m_bPublicCommandBriefing 1
@@ -125,11 +159,12 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
  m_bDisableGarbageSystem 0
  m_bDisableArmaVision 0
  m_bHolsterWeapon 0
- m_sDefenderFactionKey "US"
- m_sAttackerFactionKey "USSR"
+ m_sDefenderConfigPath "{2FF4CFE9D80F6F76}Configs/Factions/DiD_Side_US.conf"
+ m_sAttackerConfigPath "{CB5CAE38E68AEBE5}Configs/Factions/DiD_Side_USSR.conf"
  {
-  SCR_FactionManager "5EA8C932C68D400F" : "{4A188E44289B9A50}Prefabs/MP/Managers/Factions/FactionManager_Editor.et" {
-   ID "66AAF4E352ED3209"
+  SCR_FactionManager "6A793E4662A276EE" : "{4A188E44289B9A50}Prefabs/MP/Managers/Factions/FactionManager_Editor.et" {
+   ID "6A793E451E738E84"
+   coords 0 0 0
   }
   RadioManagerEntity : "{B8E09FAB91C4ECCD}Prefabs/Systems/Radio/RadioManager.et" {
    ID "66AAF4E352ED3207"
@@ -140,6 +175,10 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
   SCR_EditorSettingsEntity {
    ID "66AAF4E352EDE19A"
    m_bIsUnlimitedEditorLegal 1
+  }
+  SCR_LoadoutManager : "{58FBD035E53D95C1}Prefabs/MP/Campaign/CampaignLoadoutManager.et" {
+   ID "6A793E452E93D436"
+   coords 0 0 0
   }
   ItemPreviewManagerEntity "5E7AE0AB2109F297" : "{AB5D049A3AB43FC0}Prefabs/World/Game/ItemPreviewManager_PS.et" {
    ID "66AAF4E352EDE199"

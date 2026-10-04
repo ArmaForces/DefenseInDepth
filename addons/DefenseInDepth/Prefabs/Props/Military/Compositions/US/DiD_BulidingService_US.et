@@ -4,9 +4,47 @@ GenericEntity : "{7649AC4689618998}Prefabs/Props/Military/Compositions/US/Buildi
   SCR_CampaignBuildingProviderComponent "{5EBCED04D0321687}" {
    m_bAnyFactionCanUse 1
    m_iRank RENEGADE
-   m_aAvailableTraits {
-    TRAIT_FORTIFICATION THEME_MILITARY
+   m_aBudgetsToEvaluate {
+    SCR_CampaignBuildingMaxValueBudgetToEvaluateData "{5EFAB309E9D51D29}" {
+     m_eBudget VEHICLES
+    }
+    SCR_CampaignBuildingCampaignBudgetToEvaluateData "{7B4E29C05D13A86F}" {
+     m_eBudget CAMPAIGN
+     m_bShowBudgetInUI 1
+    }
    }
+   m_aAvailableTraits {
+    TRAIT_FORTIFICATION THEME_MILITARY GROUPTYPE_ESSENTIAL VEHICLE_CAR VEHICLE_APC VEHICLE_TURRET
+   }
+  }
+  SCR_CatalogEntitySpawnerComponent "{7B4E29C05D13A880}" {
+   m_fMaxSlotDistance 10
+   m_sDefaultWaypointPrefab "{0AB63F524C44E0D2}PrefabsEditable/Auto/AI/Waypoints/E_AIWaypoint_DefendSmall.et"
+   m_eType LIGHT_VEHICLE_DEPOT
+   m_eBuildingLabel SERVICE_VEHICLE_DEPOT_LIGHT
+   m_aCatalogTypes {
+    CHARACTER GROUP VEHICLE
+   }
+   m_aAllowedLabels {
+    VEHICLE_CAR VEHICLE_APC VEHICLE_TURRET
+   }
+   m_bNeedAllLabels 0
+   m_bSuppliesConsumptionEnabled 1
+   m_bEnableGracePeriod 1
+   m_fGracePeriodTime 60
+   m_fGracePeriodAreaRange 250
+   m_fPostGracePeriodRefundMultiplier 0.25
+  }
+  SCR_DefenderSpawnerComponent "{7B4E29C05D13A882}" {
+   m_fMaxSlotDistance 6
+   m_aAllowedLabels {
+    GROUPSIZE_SMALL GROUPSIZE_MEDIUM
+   }
+   m_aIgnoredLabels {
+    TRAIT_MEDICAL TRAIT_OPTICS
+   }
+   m_bSuppliesConsumptionEnabled 1
+   m_eMinimumRankForEnabling PRIVATE
   }
   ActionsManagerComponent "{5CB66A0F7D87DD32}" {
    additionalActions {
@@ -24,5 +62,9 @@ GenericEntity : "{7649AC4689618998}Prefabs/Props/Military/Compositions/US/Buildi
     }
    }
   }
+  Hierarchy "{6A793EE31F84203A}" {
+  }
  }
+ coords 94.727 5.47 53.229
+ angles 0 -106.458 0
 }

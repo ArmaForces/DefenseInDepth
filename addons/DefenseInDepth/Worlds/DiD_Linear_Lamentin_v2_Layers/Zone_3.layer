@@ -1,0 +1,804 @@
+AFM_DiDZoneEntity : "{54DE363F12E79F7A}Prefabs/MP/AFM_DiDExtractionZonePrefab.et" {
+ components {
+  AFM_DiDExtractionZoneComponent "{6A6A77D49F64D9E1}" {
+   m_sZoneName "Harbour"
+   m_iZoneIndex 3
+   m_iPrepareTimeSeconds 900
+   m_iFailureTimeSeconds -1
+  }
+ }
+ coords 1177.063 34.238 6241.513
+ {
+  PolylineShapeEntity {
+   components {
+    Hierarchy "{6A82C371DF0839C0}" {
+    }
+   }
+   coords 7.303 -1.251 -23.304
+   angles 1.788 -0.056 -1.791
+   Points {
+    ShapePoint "{6A82C3711DEA0A9D}" {
+     Position 0 0 0
+    }
+    ShapePoint "{6A82C3711DEA346F}" {
+     Position 5 1.651 0
+    }
+    ShapePoint "{6A82C37101BDAA92}" {
+     Position 64.522 8.061 -1.071
+    }
+    ShapePoint "{6A82C37100500C2F}" {
+     Position 108.792 18.236 54.624
+    }
+    ShapePoint "{6A82C371069875D9}" {
+     Position 85.099 17.292 105.018
+    }
+    ShapePoint "{6A82C37105967442}" {
+     Position -4.846 0.48 124.871
+    }
+    ShapePoint "{6A82C3710BFC2942}" {
+     Position -52.783 0.907 183.305
+    }
+    ShapePoint "{6A82C3710ADCB4A6}" {
+     Position -95.7 -7.008 189.295
+    }
+    ShapePoint "{6A82C3710E270C8A}" {
+     Position -95.297 -13.181 115.1
+    }
+    ShapePoint "{6A82C37132BD3EB9}" {
+     Position -84.56 -13.645 11.428
+    }
+    ShapePoint "{6A82C3713740C175}" {
+     Position -12.406 0.239 -8.501
+    }
+   }
+   IsClosed 1
+   {
+    PrefabGeneratorEntity {
+     Flags 0x100003 0
+     m_iSeed 12437
+     m_PrefabNames {
+      "{2455859F4F7C2E52}PrefabsEditable/Markers/ZoneBorderMarker_Red.et"
+     }
+     {
+      $grp PS_ManualMarker : "{2455859F4F7C2E52}PrefabsEditable/Markers/ZoneBorderMarker_Red.et" {
+       {
+        coords -0 -0.001 -0
+        angles 16.532 90.063 0
+       }
+       {
+        coords 4.795 1.464 -0.004
+        angles 16.532 90.063 0
+       }
+       {
+        coords 9.775 2.013 -0.091
+        angles 4.362 91.088 0
+       }
+       {
+        coords 14.76 2.396 -0.186
+        angles 4.362 91.088 0
+       }
+       {
+        coords 19.728 2.253 -0.296
+        angles 4.362 91.088 0
+       }
+       {
+        coords 24.699 2.205 -0.405
+        angles 4.362 91.088 0
+       }
+       {
+        coords 29.679 2.438 -0.504
+        angles 4.362 91.088 0
+       }
+       {
+        coords 34.67 3.021 -0.592
+        angles 4.362 91.088 0
+       }
+       {
+        coords 39.679 4.176 -0.662
+        angles 4.362 91.088 0
+       }
+       {
+        coords 44.664 4.576 -0.756
+        angles 4.362 91.088 0
+       }
+       {
+        coords 49.667 5.544 -0.833
+        angles 4.362 91.088 0
+       }
+       {
+        coords 54.664 6.312 -0.915
+        angles 4.362 91.088 0
+       }
+       {
+        coords 59.637 6.328 -1.021
+        angles 4.362 91.088 0
+       }
+       {
+        coords 64.547 6.041 -1.023
+        angles 6.06 38.469 0
+       }
+       {
+        coords 67.628 6.191 2.858
+        angles 6.06 38.469 0
+       }
+       {
+        coords 70.72 6.67 6.75
+        angles 6.06 38.469 0
+       }
+       {
+        coords 73.812 7.163 10.641
+        angles 6.06 38.469 0
+       }
+       {
+        coords 76.882 6.962 14.511
+        angles 6.06 38.469 0
+       }
+       {
+        coords 80.018 8.85 18.446
+        angles 6.06 38.469 0
+       }
+       {
+        coords 83.173 11.385 22.402
+        angles 6.06 38.469 0
+       }
+       {
+        coords 86.325 13.787 26.353
+        angles 6.06 38.469 0
+       }
+       {
+        coords 89.461 15.674 30.289
+        angles 6.06 38.469 0
+       }
+       {
+        coords 92.575 16.881 34.203
+        angles 6.06 38.469 0
+       }
+       {
+        coords 95.65 16.818 38.077
+        angles 6.06 38.469 0
+       }
+       {
+        coords 98.71 16.281 41.936
+        angles 6.06 38.469 0
+       }
+       {
+        coords 101.779 16.042 45.805
+        angles 6.06 38.469 0
+       }
+       {
+        coords 104.846 15.762 49.673
+        angles 6.06 38.469 0
+       }
+       {
+        coords 107.872 14.144 53.499
+        angles 6.06 38.469 0
+       }
+       {
+        coords 107.061 13.339 57.833
+        angles -2.007 -25.223 0
+       }
+       {
+        coords 104.922 12.866 62.344
+        angles -2.007 -25.223 0
+       }
+       {
+        coords 102.788 12.542 66.86
+        angles -2.007 -25.223 0
+       }
+       {
+        coords 100.682 13.115 71.404
+        angles -2.007 -25.223 0
+       }
+       {
+        coords 98.571 13.523 75.942
+        angles -2.007 -25.223 0
+       }
+       {
+        coords 96.452 13.665 80.473
+        angles -2.007 -25.223 0
+       }
+       {
+        coords 94.329 13.7 85
+        angles -2.007 -25.223 0
+       }
+       {
+        coords 92.202 13.625 89.523
+        angles -2.007 -25.223 0
+       }
+       {
+        coords 90.071 13.383 94.042
+        angles -2.007 -25.223 0
+       }
+       {
+        coords 87.936 13.033 98.557
+        angles -2.007 -25.223 0
+       }
+       {
+        coords 85.785 12.163 103.055
+        angles -2.007 -25.223 0
+       }
+       {
+        coords 82.025 11.232 105.486
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 77.217 10.786 106.564
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 72.42 10.72 107.655
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 67.633 10.929 108.754
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 62.854 11.426 109.862
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 58.065 11.585 110.96
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 53.267 11.467 112.049
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 48.455 10.911 113.124
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 43.634 10.026 114.189
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 38.804 8.904 115.246
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 33.969 7.593 116.298
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 29.126 6.035 117.342
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 24.281 4.409 118.384
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 19.437 2.821 119.427
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 14.59 1.107 120.466
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 9.753 -0.249 121.516
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 4.929 -1.192 122.579
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords 0.098 -2.376 123.635
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords -4.723 -3.233 124.7
+        angles -9.179 -77.508 -0
+       }
+       {
+        coords -8.007 -4.23 128.395
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -11.21 -5.209 132.23
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -14.416 -6.287 136.061
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -17.601 -6.711 139.912
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -20.786 -7.12 143.765
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -23.947 -6.766 147.641
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -27.094 -5.966 151.53
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -30.238 -5.064 155.424
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -33.392 -4.454 159.307
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -36.544 -3.834 163.191
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -39.699 -3.269 167.074
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -42.862 -2.974 170.948
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -46.032 -2.899 174.815
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -49.206 -2.963 178.678
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -52.383 -3.128 182.538
+        angles 0.078 -39.375 0
+       }
+       {
+        coords -56.974 -3.257 183.768
+        angles -8.883 -82.001 0
+       }
+       {
+        coords -61.856 -3.709 184.466
+        angles -8.883 -82.001 0
+       }
+       {
+        coords -66.746 -4.413 185.155
+        angles -8.883 -82.001 0
+       }
+       {
+        coords -71.643 -5.369 185.837
+        angles -8.883 -82.001 0
+       }
+       {
+        coords -76.544 -6.415 186.516
+        angles -8.883 -82.001 0
+       }
+       {
+        coords -81.445 -7.488 187.194
+        angles -8.883 -82.001 0
+       }
+       {
+        coords -86.343 -8.432 187.876
+        angles -8.883 -82.001 0
+       }
+       {
+        coords -91.237 -9.279 188.561
+        angles -8.883 -82.001 0
+       }
+       {
+        coords -95.787 -9.88 188.863
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.726 -9.206 183.898
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.67 -8.695 178.928
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.618 -8.323 173.954
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.568 -8.007 168.977
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.53 -8.101 163.988
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.504 -8.548 158.988
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.481 -9.106 153.985
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.462 -9.763 148.978
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.438 -10.286 143.976
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.41 -10.668 138.978
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.38 -10.998 133.981
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.363 -11.733 128.972
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.344 -12.422 123.965
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.324 -13.062 118.958
+        angles -2.827 179.627 -0
+       }
+       {
+        coords -95.196 -13.702 113.955
+        angles 1.313 174.034 0
+       }
+       {
+        coords -94.69 -14.026 108.969
+        angles 1.313 174.034 0
+       }
+       {
+        coords -94.166 -13.782 104.002
+        angles 1.313 174.034 0
+       }
+       {
+        coords -93.626 -13.017 99.051
+        angles 1.313 174.034 0
+       }
+       {
+        coords -93.085 -12.212 94.101
+        angles 1.313 174.034 0
+       }
+       {
+        coords -92.552 -11.658 89.143
+        angles 1.313 174.034 0
+       }
+       {
+        coords -92.022 -11.212 84.181
+        angles 1.313 174.034 0
+       }
+       {
+        coords -91.491 -10.725 79.221
+        angles 1.313 174.034 0
+       }
+       {
+        coords -90.957 -10.159 74.264
+        angles 1.313 174.034 0
+       }
+       {
+        coords -90.424 -9.61 69.306
+        angles 1.313 174.034 0
+       }
+       {
+        coords -89.893 -9.127 64.346
+        angles 1.313 174.034 0
+       }
+       {
+        coords -89.368 -8.836 59.38
+        angles 1.313 174.034 0
+       }
+       {
+        coords -88.849 -8.752 54.407
+        angles 1.313 174.034 0
+       }
+       {
+        coords -88.335 -8.815 49.43
+        angles 1.313 174.034 0
+       }
+       {
+        coords -87.824 -8.984 44.45
+        angles 1.313 174.034 0
+       }
+       {
+        coords -87.315 -9.191 39.468
+        angles 1.313 174.034 0
+       }
+       {
+        coords -86.807 -9.452 34.484
+        angles 1.313 174.034 0
+       }
+       {
+        coords -86.299 -9.733 29.501
+        angles 1.313 174.034 0
+       }
+       {
+        coords -85.794 -10.075 24.515
+        angles 1.313 174.034 0
+       }
+       {
+        coords -85.29 -10.45 19.528
+        angles 1.313 174.034 0
+       }
+       {
+        coords -84.788 -10.9 14.538
+        angles 1.313 174.034 0
+       }
+       {
+        coords -82.618 -10.852 10.989
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -77.858 -9.938 9.674
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -73.099 -9.088 8.357
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -68.344 -8.332 7.037
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -63.596 -7.799 5.71
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -58.848 -7.288 4.383
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -54.1 -6.752 3.056
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -49.352 -6.215 1.73
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -44.584 -5.048 0.423
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -39.807 -3.617 -0.876
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -35.037 -2.387 -2.181
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -30.257 -0.84 -3.476
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -25.483 0.519 -4.777
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -20.727 1.313 -6.096
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -15.999 1.182 -7.443
+        angles 9.184 105.493 -0
+       }
+       {
+        coords -11.423 0.754 -7.822
+        angles -3.397 55.601 0
+       }
+       {
+        coords -7.308 0.356 -5.005
+        angles -3.397 55.601 0
+       }
+       {
+        coords -3.186 0.163 -2.182
+        angles -3.397 55.601 0
+       }
+      }
+     }
+    }
+   }
+  }
+  GenericEntity : "{45C675ED3CFBBEC5}Prefabs/Props/Military/Compositions/US/ArsenalBox_US.et" {
+   coords -5.299 0.012 12.138
+   angles 0 111.43 0
+  }
+  GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
+   components {
+    ActionsManagerComponent "{5CB66A0F7D87DD32}" {
+     additionalActions {
+      AFM_CallExtractionAction "{6A6A77D2CC9EECA9}" {
+       ParentContextList {
+        "OpenFreeformBuilding"
+       }
+       UIInfo UIInfo "{6A6A77D2CC9EECF1}" {
+        Name "Call for extraction"
+       }
+       ActionTitle "Call for extraction"
+       VisibilityRange 10
+       Duration 1.5
+       "Sort Priority" 2
+      }
+     }
+    }
+   }
+   coords -2.21 0.02 13.604
+   angles 0 177.013 0
+  }
+  AFM_DiDMechanizedSpawnerComponent : "{8E7842A8534F4260}Prefabs/Spawners/AFM_MechanizedSpawner.et" {
+   coords 42.414 0.094 31.443
+   m_iMaxActiveVehicles 6
+   {
+    $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     zone_1_sp_23 {
+      coords 180.733 13.157 -258.577
+      angles 0 -52.834 0
+     }
+     zone_1_sp_25 {
+      coords 46.709 2.62 -313.683
+      angles 0 -52.834 0
+     }
+    }
+    $grp SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
+     zone1_aiwp_1_def14 {
+      coords -60.08 -0.69 46.537
+      CompletionRadius 10
+     }
+     zone1_aiwp_1_def15 {
+      coords 45.754 17.386 22.918
+      CompletionRadius 10
+     }
+     zone1_aiwp_1_def12 {
+      coords -53.5 -0.571 -28.248
+      CompletionRadius 10
+     }
+    }
+   }
+  }
+  AFM_DiDInfantrySpawnerComponent : "{A93E8199BD60FD8A}Prefabs/Spawners/AFM_DidInfantrySpawner.et" {
+   coords 31.509 0.135 16.285
+   m_iWaveIntervalSeconds 60
+   m_iSpawnCountPerWave 2
+   m_iMaxAICount 240
+   m_fZoneLevelMultiplier 2
+   m_bUseTickets 1
+   m_iMaxTickets 340
+   m_fDefenderShare 0.1
+   {
+    $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     {
+      coords 183.647 12.344 -234.275
+     }
+     {
+      coords 8.088 1.023 -265.167
+     }
+     {
+      coords 87.915 3.477 -225.874
+     }
+     {
+      coords 111.646 5.307 -213.664
+     }
+     {
+      coords 62.845 2.827 -242.394
+     }
+     {
+      coords 238.091 -18.578 23.075
+     }
+     {
+      coords 284.949 22.138 -210.707
+     }
+    }
+    $grp SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
+     {
+      coords 39.111 14.717 28.917
+     }
+     {
+      coords -52.129 -0.685 61.753
+     }
+     {
+      coords -45.226 -0.473 -6.187
+     }
+    }
+    $grp SCR_SearchAndDestroyWaypoint : "{D45195533ADF06E8}Prefabs/AI/Waypoints/DiD_AIWaypoint_SearchAndDestroy.et" {
+     {
+      coords 33.032 8.096 -4.229
+     }
+     {
+      coords -50.106 -0.556 51.767
+     }
+     {
+      coords -28.841 0.111 -6.266
+     }
+    }
+   }
+  }
+  AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
+   coords -10.502 -0.45 4.945
+  }
+  AFM_SupplyCacheEntity : "{C15324DF2F7957B1}Prefabs/Props/Military/SupplyBox/SupplyStack/SupplyStack_Large_01/AFM_SupplyCache_Large.et" {
+   coords -5.009 0.024 15.265
+   angles 0 -30.731 0
+  }
+  AFM_DiDExtractionComponent : "{D531CA060629DC24}Prefabs/Spawners/AFM_ExtractionSpawner.et" {
+   coords 1.438 0 2.44
+   m_fTouchdownHeight 2
+   m_iLandingZoneCount 1
+   {
+    $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     {
+      coords -63.916 5.738 5344.301
+     }
+     {
+      coords 1783.402 -16.613 -4398.662
+     }
+    }
+    $grp AFM_DiDLandingZoneEntity : "{91DA6102CCD47FA8}Prefabs/MP/AFM_DiDLandingZonePrefab.et" {
+     {
+      coords -63.295 -7.971 53.614
+     }
+     {
+      coords -58.606 0.049 258.083
+     }
+     {
+      coords 83.566 16.979 42.093
+     }
+     {
+      coords -204.39 -31.526 42.72
+     }
+     {
+      coords -61.549 -3.083 122.551
+     }
+    }
+   }
+  }
+  AFM_DiDHeliSpawnerComponent : "{DFD7DF164B791F0F}Prefabs/Spawners/AFM_HeliSpawner.et" {
+   coords 885.73 97.854 -349.374
+   m_iFirstSortieDelay 5
+   m_iSortieCooldown 120
+   m_iMaxSorties 10
+   m_fAttackRadius 100
+   m_bRocketsAllowed 1
+   {
+    $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     {
+      coords 1897.344 -102.571 2056.515
+     }
+     {
+      coords 681.522 -123.711 -1974.838
+     }
+    }
+   }
+  }
+  AFM_DiDMortarSpawnerComponent : "{F040102F1843F7C1}Prefabs/Spawners/AFM_MortarSpawner.et" {
+   coords 227.615 30.791 32.859
+   m_iFireMissionUpdateInterval 30
+   {
+    $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     zone_1_sp_19 {
+      coords -40.049 -21.306 -397.085
+      angles 0 -76.831 0
+     }
+     zone_1_sp_20 {
+      coords 290.046 14.834 -471.508
+      angles 0 -76.831 0
+     }
+     zone_1_sp_18 {
+      coords 107.761 -1.843 -501.962
+      angles 0 -76.831 0
+     }
+    }
+   }
+  }
+ }
+}
+PS_ManualMarker : "{5CDEA09445852F9D}PrefabsEditable/Markers/SupportStationMarker.et" {
+ coords 1173.853 34.25 6254.373
+ angles 0 0 0
+}

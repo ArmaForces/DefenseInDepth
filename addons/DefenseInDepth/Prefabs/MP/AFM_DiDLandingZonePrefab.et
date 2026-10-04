@@ -1,0 +1,8 @@
+AFM_DiDLandingZoneEntity {
+ ID "6A6A77D41C42038E"
+ components {
+  Hierarchy "{6A6A77D46B206639}" {
+  }
+ }
+ coords 4769.015 27.844 11257.129
+}

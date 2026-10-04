@@ -1,0 +1,11 @@
+AFM_DiDExtractionComponent {
+ ID "6A6A77D300E58913"
+ components {
+  Hierarchy "{6A6A77D40EC342A5}" {
+  }
+ }
+ coords 4770.478 27.843 11255.777
+ m_bUseTickets 1
+ m_fCruiseSpeed 150
+ m_fApproachSpeed 100
+}

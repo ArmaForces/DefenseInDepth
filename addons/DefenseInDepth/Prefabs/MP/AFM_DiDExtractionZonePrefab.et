@@ -1,0 +1,10 @@
+AFM_DiDZoneEntity {
+ ID "6A6A77D3172B817E"
+ components {
+  AFM_DiDExtractionZoneComponent "{6A6A77D49F64D9E1}" {
+  }
+  Hierarchy "{6A6A77D49D9EF4C5}" {
+  }
+ }
+ coords 4757.063 27.844 11253.968
+}

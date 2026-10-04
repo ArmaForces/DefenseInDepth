@@ -5,9 +5,14 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 	protected static const int DISPLAY_VICTORY_TIMER_BEFORE_S = 10 * 60; //ten minutes
 	protected static const int SIZE_NORMAL = 20;
 	protected static const int SIZE_WINNER = 24;
+	protected static const int STATUS_FONT_SIZE = 16;
 	
 	protected bool m_bInitDone;
 	protected bool m_bPeriodicRefresh;
+
+	// Flags already drawn, so the textures are only loaded when the sides actually change
+	protected FactionKey m_sShownBluforKey;
+	protected FactionKey m_sShownRedforKey;
 	
 	protected AFM_GameModeDiD m_Campaign;
 	
@@ -54,11 +59,7 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 		m_wWinScoreSideLeft = ImageWidget.Cast(m_wRoot.FindAnyWidget("ObjectiveLeft"));
 		m_wWinScoreSideRight = ImageWidget.Cast(m_wRoot.FindAnyWidget("ObjectiveRight"));
 		
-		SCR_Faction factionBLUFOR = m_Campaign.GetBluforFaction();
-		SCR_Faction factionOPFOR = m_Campaign.GetRedforFaction();
-		
-		m_wLeftFlag.LoadImageTexture(0, factionBLUFOR.GetFactionFlag());
-		m_wRightFlag.LoadImageTexture(0, factionOPFOR.GetFactionFlag());
+		RefreshFlags();
 		
 		UpdateHUD();
 	}
@@ -81,13 +82,42 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 	//------------------------------------------------------------------------------------------------
 	protected void HideHUD()
 	{
-		Show(false, UIConstants.FADE_RATE_SLOW)
+		Show(false, UIConstants.FADE_RATE_SLOW);
 	}
 	
 	//------------------------------------------------------------------------------------------------
+	//! Draw each side's flag, once per side. Called on every update rather than only at init: which
+	//! faction each side is comes from the game mode over the wire, so on a client it can arrive after
+	//! this display has already started drawing.
+	protected void RefreshFlags()
+	{
+		if (!m_Campaign)
+			return;
+
+		SCR_Faction blufor = m_Campaign.GetBluforFaction();
+		if (blufor && blufor.GetFactionKey() != m_sShownBluforKey)
+		{
+			m_sShownBluforKey = blufor.GetFactionKey();
+			if (m_wLeftFlag)
+				m_wLeftFlag.LoadImageTexture(0, blufor.GetFactionFlag());
+		}
+
+		SCR_Faction redfor = m_Campaign.GetRedforFaction();
+		if (redfor && redfor.GetFactionKey() != m_sShownRedforKey)
+		{
+			m_sShownRedforKey = redfor.GetFactionKey();
+			if (m_wRightFlag)
+				m_wRightFlag.LoadImageTexture(0, redfor.GetFactionFlag());
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
 	protected void UpdateHUDValues()
 	{
-		int redforScore = m_Campaign.GetAttackersRemaining();
+		RefreshFlags();
+		
+		// The AI count inside the zone is already in the status line, so the flag shows what is left to come
+		int redforScore = m_Campaign.GetTicketsRemaining();
 		int bluforScore = m_Campaign.GetDefendersRemaining();
 		int gameOverScore = m_Campaign.GetCurrentZone();
 		
@@ -121,9 +151,10 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 			else
 				m_wCountdown.SetColor(Color.FromInt(Color.RED));
 			m_bPeriodicRefresh = true;
-			
-			
-			m_wFlavour.SetVisible(false);
+
+			m_wFlavour.SetText(BuildStatusText(serverTimestamp, isWarmup));
+			m_wFlavour.SetDesiredFontSize(STATUS_FONT_SIZE);
+			m_wFlavour.SetVisible(true);
 			m_wLeftScore.SetDesiredFontSize(SIZE_NORMAL);
 			m_wRightScore.SetDesiredFontSize(SIZE_NORMAL);
 			m_wWinScoreSideRight.SetColor(Color.FromInt(Color.WHITE));
@@ -151,6 +182,72 @@ class AFM_ScoreInfoDisplay : SCR_InfoDisplayExtended
 		}
 	}
 	
+	//------------------------------------------------------------------------------------------------
+	//! e.g. "Zone 2/3 | Wave 3/5 | Enemies left: 24 | Next enemy wave: 0:45"
+	protected string BuildStatusText(WorldTimestamp serverTimestamp, bool isWarmup)
+	{
+		array<string> parts = {};
+
+		int zoneCount = m_Campaign.GetZoneCount();
+		if (zoneCount > 0)
+			parts.Insert(string.Format("Zone %1/%2", m_Campaign.GetZoneNumber(), zoneCount));
+
+		int waveCount = m_Campaign.GetWaveCount();
+		if (waveCount > 0)
+			parts.Insert(string.Format("Wave %1/%2", m_Campaign.GetWave(), waveCount));
+
+		// From the game mode rather than from the pool: a client never subscribes to the stage's container, so
+		// reading it locally shows whatever it held when the match started
+		if (AFM_DiDSupplies.IsEnabled())
+			parts.Insert(string.Format("Supplies: %1", m_Campaign.GetSupplies()));
+
+		if (isWarmup)
+		{
+			parts.Insert("Prepare your defenses");
+		}
+		else
+		{
+			int enemiesRemaining = m_Campaign.GetEnemiesRemaining();
+			if (enemiesRemaining >= 0)
+				parts.Insert(string.Format("Enemies left: %1", enemiesRemaining));
+			else
+				parts.Insert(string.Format("Enemies in zone: %1", m_Campaign.GetAttackersRemaining()));
+
+			// The contested countdown only exists while attackers hold the zone; it is hidden otherwise
+			if (m_Campaign.IsContested())
+			{
+				int contestedLeft = m_Campaign.GetContestedSecondsLeft();
+				if (contestedLeft < 0)
+				{
+					parts.Insert("<color rgba='255,64,64,255'>CONTESTED</color>");
+				}
+				else
+				{
+					string lostIn = SCR_FormatHelper.GetTimeFormatting(contestedLeft, ETimeFormatParam.DAYS | ETimeFormatParam.HOURS, ETimeFormatParam.DAYS | ETimeFormatParam.HOURS | ETimeFormatParam.MINUTES);
+					parts.Insert(string.Format("<color rgba='255,64,64,255'>CONTESTED - zone lost in %1</color>", lostIn));
+				}
+			}
+
+			WorldTimestamp nextWave;
+			if (m_Campaign.GetNextSpawnWaveTime(nextWave))
+			{
+				float seconds = Math.Max(0, Math.Ceil(nextWave.DiffMilliseconds(serverTimestamp) / 1000));
+				string shownTime = SCR_FormatHelper.GetTimeFormatting(seconds, ETimeFormatParam.DAYS | ETimeFormatParam.HOURS, ETimeFormatParam.DAYS | ETimeFormatParam.HOURS | ETimeFormatParam.MINUTES);
+				parts.Insert("Next enemy wave: " + shownTime);
+			}
+		}
+
+		string text;
+		foreach (int i, string part : parts)
+		{
+			if (i > 0)
+				text += "   |   ";
+			text += part;
+		}
+
+		return text;
+	}
+
 	//------------------------------------------------------------------------------------------------
 	protected void UpdateHUD()
 	{

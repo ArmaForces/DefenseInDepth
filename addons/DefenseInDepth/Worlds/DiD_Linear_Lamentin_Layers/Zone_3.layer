@@ -1,33 +1,20 @@
-GenericEntity : "{45C675ED3CFBBEC5}Prefabs/Props/Military/Compositions/US/ArsenalBox_US.et" {
- coords 1068.557 2.722 6016.626
- angles 0 -96.592 0
-}
-PS_ManualMarker : "{5CDEA09445852F9D}PrefabsEditable/Markers/SupportStationMarker.et" {
- coords 1069.093 2.719 6019.984
- angles 0 0 0
-}
-GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
- coords 1071.764 2.719 6018.605
- angles 0 -3.365 0
-}
-AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
+AFM_DiDZoneEntity : "{54DE363F12E79F7A}Prefabs/MP/AFM_DiDExtractionZonePrefab.et" {
  components {
-  AFM_DiDZoneComponent "{66B900F8E01E1100}" {
+  AFM_DiDExtractionZoneComponent "{6A6A77D49F64D9E1}" {
    m_sZoneName "Harbour"
-   m_bStopTimerOnRedforSuperiority 0
    m_iZoneIndex 3
    m_iPrepareTimeSeconds 900
-   m_iDefenseTimeSeconds 300
+   m_iFailureTimeSeconds -1
   }
  }
- coords 1022.905 2.684 6026.365
+ coords 1023.064 2.687 6026.319
  {
   PolylineShapeEntity {
    components {
     Hierarchy "{66C928313DD257C3}" {
     }
    }
-   coords 63.495 0.164 -24.427
+   coords 63.336 0.161 -24.38
    Points {
     ShapePoint "{66C928317E62584F}" {
      Position 54.052 3.217 84.312
@@ -801,12 +788,71 @@ AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
     }
    }
   }
+  GenericEntity : "{45C675ED3CFBBEC5}Prefabs/Props/Military/Compositions/US/ArsenalBox_US.et" {
+   coords 45.493 0.035 -9.693
+   angles 0 -96.592 0
+  }
+  GenericEntity : "{7AF53A74656A2D66}Prefabs/Props/Military/Compositions/US/DiD_BulidingService_US.et" {
+   components {
+    ActionsManagerComponent "{5CB66A0F7D87DD32}" {
+     additionalActions {
+      AFM_CallExtractionAction "{6A6A77D2CC9EECA9}" {
+       ParentContextList {
+        "OpenFreeformBuilding"
+       }
+       UIInfo UIInfo "{6A6A77D2CC9EECF1}" {
+        Name "Call for extraction"
+       }
+       ActionTitle "Call for extraction"
+       VisibilityRange 10
+       Duration 1.5
+       "Sort Priority" 2
+      }
+     }
+    }
+   }
+   coords 48.7 0.032 -7.714
+   angles 0 -3.365 0
+  }
+  AFM_DiDMechanizedSpawnerComponent : "{8E7842A8534F4260}Prefabs/Spawners/AFM_MechanizedSpawner.et" {
+   coords 42.414 0.094 31.443
+   m_iMaxActiveVehicles 6
+   {
+    $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     zone_1_sp_23 {
+      coords 164.633 26.947 53.455
+      angles 0 -52.834 0
+     }
+     zone_1_sp_25 {
+      coords 205.627 34.528 -123.107
+      angles 0 -52.834 0
+     }
+    }
+    $grp SCR_DefendWaypoint : "{0EBC4E7C452C16ED}Prefabs/AI/Waypoints/DiD_AIWaypoint_Defend.et" {
+     zone1_aiwp_1_def12 {
+      coords -105.905 4.312 -45.894
+      CompletionRadius 10
+     }
+     zone1_aiwp_1_def14 {
+      coords 71.465 14.064 -95.96
+      CompletionRadius 10
+     }
+     zone1_aiwp_1_def15 {
+      coords 52.824 24.333 237.62
+      CompletionRadius 10
+     }
+    }
+   }
+  }
   AFM_DiDInfantrySpawnerComponent : "{A93E8199BD60FD8A}Prefabs/Spawners/AFM_DidInfantrySpawner.et" {
-   coords 31.668 0.138 16.239
-   m_iWaveIntervalSeconds 100
-   m_iSpawnCountPerWave 8
-   m_iMaxAICount 120
+   coords 31.509 0.135 16.285
+   m_iWaveIntervalSeconds 60
+   m_iSpawnCountPerWave 2
+   m_iMaxAICount 240
    m_fZoneLevelMultiplier 2
+   m_bUseTickets 1
+   m_iMaxTickets 340
+   m_fDefenderShare 0.1
    {
     $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
      {
@@ -857,27 +903,85 @@ AFM_DiDZoneEntity zone3 : "{CA08D7D0BA0D24CF}Prefabs/MP/AFM_DiDZonePrefab.et" {
    }
   }
   AFM_PlayerSpawnPointEntity : "{B6B6E54C76E4D206}Prefabs/MP/AFM_DiDPlayerSpawnPointPrefab.et" {
-   coords 43.555 0.259 -4.312
+   coords 43.396 0.256 -4.266
+  }
+  AFM_SupplyCacheEntity : "{C15324DF2F7957B1}Prefabs/Props/Military/SupplyBox/SupplyStack/SupplyStack_Large_01/AFM_SupplyCache_Large.et" {
+   coords 45.674 0.032 -8.553
+  }
+  AFM_DiDExtractionComponent : "{D531CA060629DC24}Prefabs/Spawners/AFM_ExtractionSpawner.et" {
+   coords 1.438 0 2.44
+   {
+    $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     {
+      coords 90.756 38.67 5508.661
+     }
+     {
+      coords 6168.411 143.055 -3887.128
+     }
+    }
+    $grp AFM_DiDLandingZoneEntity : "{91DA6102CCD47FA8}Prefabs/MP/AFM_DiDLandingZonePrefab.et" {
+     {
+      coords -123.443 0.031 118.106
+     }
+     {
+      coords 53.016 0.094 14.327
+     }
+     {
+      coords -58.606 0.049 258.083
+     }
+     {
+      coords -109.716 -1.493 -39.554
+     }
+     {
+      coords 224.506 47.756 289.574
+     }
+     {
+      coords -25.609 -1.681 339.168
+     }
+    }
+   }
+  }
+  AFM_DiDHeliSpawnerComponent : "{DFD7DF164B791F0F}Prefabs/Spawners/AFM_HeliSpawner.et" {
+   coords 885.73 97.854 -349.374
+   m_iFirstSortieDelay 5
+   m_iSortieCooldown 120
+   m_iMaxSorties 10
+   m_fAttackRadius 100
+   m_bRocketsAllowed 1
+   {
+    $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
+     {
+      coords 4377.546 -4.947 -829.16
+     }
+     {
+      coords 3214.284 61.913 1588.307
+     }
+    }
+   }
   }
   AFM_DiDMortarSpawnerComponent : "{F040102F1843F7C1}Prefabs/Spawners/AFM_MortarSpawner.et" {
-   coords 227.774 30.794 32.813
+   coords 227.615 30.791 32.859
    m_iFireMissionUpdateInterval 30
    {
     $grp AFM_SpawnPointEntity : "{0601F60522802997}Prefabs/MP/AFM_DiDSpawnPointAI.et" {
      zone_1_sp_18 {
-      coords 3.791 0.801 -2.298
+      coords 338.095 29.013 -240.143
       angles 0 -76.831 0
      }
      zone_1_sp_19 {
-      coords 0.213 2.772 -70.186
+      coords 437.057 26.785 -118.953
       angles 0 -76.831 0
      }
      zone_1_sp_20 {
-      coords -24.508 -3.894 78.018
+      coords 290.046 14.834 -471.508
       angles 0 -76.831 0
      }
     }
    }
   }
  }
+}
+PS_ManualMarker : "{5CDEA09445852F9D}PrefabsEditable/Markers/SupportStationMarker.et" {
+ coords 1069.093 2.719 6019.984
+ angles 0 0 0
 }

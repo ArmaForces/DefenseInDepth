@@ -23,10 +23,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 	[Attribute("DidZone", UIWidgets.Auto, desc: "Zone name", category: "DiD")]
 	protected string m_sZoneName;
 	
-	[Attribute("1", UIWidgets.Auto, desc: "Stop the timer when redfor presence is higher than blufor?", category: "DiD")]
+	[Attribute("1", UIWidgets.Auto, desc: "Stop the timer while attackers outnumber defenders inside the zone?", category: "DiD")]
 	protected bool m_bStopTimerOnRedforSuperiority;
 	
-	[Attribute("1", UIWidgets.Auto, desc: "Stop the AI spawners when redfor presence is higher than blufor?", category: "DiD")]
+	[Attribute("1", UIWidgets.Auto, desc: "Pause infantry and mechanized spawners while the zone is contested (timer frozen)? Mortars and helicopters keep operating", category: "DiD")]
 	protected bool m_bStopSpawnersOnRedforSuperiority;
 	
 	[Attribute("1", UIWidgets.EditBox, "Zone index (1 to N), 1 is played first, N is the last zone", category: "DiD")]
@@ -38,13 +38,56 @@ class AFM_DiDZoneComponent: ScriptComponent
 	[Attribute("600", UIWidgets.EditBox, "Time in seconds to defend zone", category: "DiD")]
 	protected int m_iDefenseTimeSeconds;
 	
-	[Attribute("50", UIWidgets.EditBox, "Max number of AI groups", category: "DiD")]
+	[Attribute("0", UIWidgets.EditBox, "Max AI soldiers across all spawners of this zone (0 = no zone-wide limit, only each spawner's own limit applies)", category: "DiD")]
 	protected int m_iMaxAICount;
+
+	[Attribute("300", UIWidgets.EditBox, "Total seconds the zone may be contested before it is lost. Counts down only while attackers hold the majority and never resets, so repeated pushes add up. 0 = the zone cannot be lost this way", category: "DiD")]
+	protected int m_iFailureTimeSeconds;
+	
+	[Attribute("1", UIWidgets.CheckBox, "Remove the compositions players built in this zone when it ends. Leaving them up blocks vehicle pathing in the stages that follow", category: "DiD")]
+	protected bool m_bRemovePlayerStructuresOnEnd;
+	
+	[Attribute("1", UIWidgets.CheckBox, "Limit the attackers this zone can send with a ticket pool sized to the number of players", category: "DiD Tickets")]
+	protected bool m_bUseTicketPool;
+	
+	[Attribute("15", UIWidgets.EditBox, "Attacker tickets per connected player. One ticket is one soldier", category: "DiD Tickets")]
+	protected int m_iTicketsPerPlayer;
+	
+	[Attribute("1.0", UIWidgets.EditBox, "Scales the pool for difficulty. The mission header will override this once it exists; 0 or less means use the default", category: "DiD Tickets")]
+	protected float m_fTicketMultiplier;
+	
+	[Attribute("60", UIWidgets.EditBox, "Smallest pool, however few players there are", category: "DiD Tickets")]
+	protected int m_iMinTickets;
+	
+	[Attribute("240", UIWidgets.EditBox, "Largest pool, however many players there are", category: "DiD Tickets")]
+	protected int m_iMaxTickets;
+	
+	[Attribute("0.5", UIWidgets.EditBox, "Share of this zone's unspent tickets handed to the next zone when this one is lost. Attackers who were never sent keep coming", category: "DiD Tickets")]
+	protected float m_fFailureCarryOver;
 	
 	protected PolylineShapeEntity m_PolylineEntity;
 	protected AFM_PlayerSpawnPointEntity m_PlayerSpawnPoint;
 	protected ref array<AFM_DiDSpawnerComponent> m_aSpawners = {};
 	protected SCR_ResourceComponent m_SupplyCache;
+	
+	// Compositions players built while this zone was active, removed with the zone
+	protected ref array<IEntity> m_aPlayerStructures = {};
+
+	// Soldiers and groups the players bought this stage
+	protected ref array<IEntity> m_aBoughtUnits = {};
+
+	// Props under this zone that carry a faction - the arsenal crate, the support station - handed to
+	// whichever side is defending when the zone starts
+	protected ref array<IEntity> m_aFactionProps = {};
+	
+	// Attackers this zone may still send. Sized when the attack starts, then never resized.
+	protected int m_iTicketPool;
+	protected int m_iTicketsRemaining;
+	protected int m_iInheritedTickets;	// Handed over by a zone that was lost, added once the pool is sized
+	protected bool m_bTicketPoolSized;
+	
+	// Resolved scenario header settings, or null when the mission has no DiD header
+	protected ref AFM_DiDPhaseSettings m_PhaseSettings;
 	
 	// Cached 2D polyline points for zone boundary checks (world-space X/Z pairs)
 	protected ref array<float> m_aZonePolylinePoints2D = null;
@@ -54,10 +97,32 @@ class AFM_DiDZoneComponent: ScriptComponent
 	protected WorldTimestamp m_fZoneStartTime;
 	protected WorldTimestamp m_fZoneEndTime;
 	protected int m_iRemainingTimeSeconds;
+
+	// Contested time left before the zone is lost. Drains while contested, holds its value otherwise.
+	protected int m_iRemainingFailureSeconds;
+	protected WorldTimestamp m_fContestedSince;
+
+	// Attackers hold the majority inside the zone. Tracked separately from FROZEN, which is only about
+	// the defence clock and can be switched off per zone.
+	protected bool m_bContested;
+
+	// Counts taken once per tick and read by everything else, including the HUD getters
+	protected int m_iDefenderCount = -1;
+	protected int m_iAttackerCountInZone = -1;
+	protected int m_iDefenderCountInsideZone;
 	
 	// Faction configuration
+	protected AFM_GameModeDiD m_GameMode;
 	protected SCR_Faction m_RedforFaction;
 	protected SCR_Faction m_BluforFaction;
+
+	// What each side brings, from the game mode's per-side config files
+	protected AFM_DiDSideConfig m_AttackerConfig;
+	protected AFM_DiDSideConfig m_DefenderConfig;
+	
+	// Child entities are not all present at OnPostInit, so resolving them is delayed
+	protected static const int LATE_INIT_DELAY_MS = 5000;
+	protected bool m_bInitialized;
 	
 	
 	override void OnPostInit(IEntity owner)
@@ -68,8 +133,25 @@ class AFM_DiDZoneComponent: ScriptComponent
 			return;
 		
 		//Only initialize when zone system is available (on authority)
-		if (AFM_DiDZoneSystem.GetInstance())
-			GetGame().GetCallqueue().CallLater(LateInit, 5000);
+		AFM_DiDZoneSystem zoneSystem = AFM_DiDZoneSystem.GetInstance();
+		if (!zoneSystem)
+			return;
+
+		// Register now, not in LateInit: the game can reach its GAME state and start the zone system
+		// before the delay below elapses, and the system would then find no zones at all.
+		if (!zoneSystem.RegisterZone(this))
+			PrintFormat("AFM_DiDZoneComponent %1: Failed to register zone!", m_sZoneName, level: LogLevel.ERROR);
+		else
+			PrintFormat("AFM_DiDZoneComponent %1: Zone registered", m_sZoneName);
+
+		GetGame().GetCallqueue().CallLater(LateInit, LATE_INIT_DELAY_MS);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Children and spawners resolved? The zone system skips processing until they are.
+	bool IsInitialized()
+	{
+		return m_bInitialized;
 	}
 	
 	protected void LateInit()
@@ -78,29 +160,26 @@ class AFM_DiDZoneComponent: ScriptComponent
 		if (!e)
 			PrintFormat("AFM_DiDZoneComponent %1: No children found!", m_sZoneName, level: LogLevel.ERROR);
 		
+		// Matched by cast, not by exact type: a new spawner deriving from any of these is picked up
+		// without having to be named here
 		while (e)
 		{
-			switch (e.Type())
-			{
-				case PolylineShapeEntity:
-					m_PolylineEntity = PolylineShapeEntity.Cast(e);
-					break;
-				case AFM_PlayerSpawnPointEntity:
-					m_PlayerSpawnPoint = AFM_PlayerSpawnPointEntity.Cast(e);
-					break;
-				case AFM_DiDMechanizedSpawnerComponent:
-				case AFM_DiDInfantrySpawnerComponent:
-				case AFM_DiDMortarSpawnerComponent:
-				case AFM_DiDWaveSpawnerComponent:
-					AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(e);
-					m_aSpawners.Insert(spawner);
-					break;
-				case AFM_SupplyCacheEntity:
-					m_SupplyCache = SCR_ResourceComponent.Cast(e.FindComponent(SCR_ResourceComponent));
-					break;
-				default:
-					PrintFormat("AFM_DiDZoneComponent %1: Unknown type %2", m_sZoneName, e.Type().ToString());
-			}
+			AFM_DiDSpawnerComponent spawner = AFM_DiDSpawnerComponent.Cast(e);
+			PolylineShapeEntity polyline = PolylineShapeEntity.Cast(e);
+			AFM_PlayerSpawnPointEntity playerSpawnPoint = AFM_PlayerSpawnPointEntity.Cast(e);
+			AFM_SupplyCacheEntity supplyCache = AFM_SupplyCacheEntity.Cast(e);
+
+			if (spawner)
+				m_aSpawners.Insert(spawner);
+			else if (polyline)
+				m_PolylineEntity = polyline;
+			else if (playerSpawnPoint)
+				m_PlayerSpawnPoint = playerSpawnPoint;
+			else if (supplyCache)
+				m_SupplyCache = SCR_ResourceComponent.Cast(e.FindComponent(SCR_ResourceComponent));
+			else if (!CollectFactionProps(e))
+				PrintFormat("AFM_DiDZoneComponent %1: Unknown type %2", m_sZoneName, e.Type().ToString());
+
 			e = e.GetSibling();
 		}
 		
@@ -111,26 +190,33 @@ class AFM_DiDZoneComponent: ScriptComponent
 		if (m_aSpawners.Count() == 0)
 			PrintFormat("AFM_DiDZoneComponent %1: No spawner components found, AI will not spawn!", m_sZoneName, level:LogLevel.WARNING);
 		
-		// Initialize spawners
-		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
-		{
-			spawner.Prepare(this);
-		}
-		
-		if (!AFM_DiDZoneSystem.GetInstance().RegisterZone(this))
-			PrintFormat("AFM_DiDZoneComponent %1: Failed to register zone!", m_sZoneName, LogLevel.ERROR);
-		else
-			PrintFormat("AFM_DiDZoneComponent %1: Zone registered", m_sZoneName);
-		
-		
+		// Resolved before the spawners are prepared: that is where they read their faction content from
 		AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
 		if (!gamemode)
 		{
 			PrintFormat("AFM_DiDZoneComponent %1: Invalid gamemode!", m_sZoneName, level: LogLevel.ERROR);
 			return;
 		}
+		m_GameMode = gamemode;
 		m_RedforFaction = gamemode.GetRedforFaction();
 		m_BluforFaction = gamemode.GetBluforFaction();
+		m_AttackerConfig = gamemode.GetAttackerConfig();
+		m_DefenderConfig = gamemode.GetDefenderConfig();
+
+		// Initialize spawners
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			spawner.Prepare(this);
+		}
+
+		ApplyPhaseSettings();
+		
+		// Also done here, not only in ActivateZone: the zone system can start the first zone before its
+		// children have been resolved, and by then there was nothing to hand over
+		ApplyDefenderFactionToProps();
+		
+		m_bInitialized = true;
+		PrintFormat("AFM_DiDZoneComponent %1: Initialized with %2 spawners", m_sZoneName, m_aSpawners.Count());
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -160,32 +246,69 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return remainingPlayers;
 	}
 	
+	//------------------------------------------------------------------------------------------------
+	//! Living defender players standing inside the zone polygon
+	int GetDefenderCountInsideZone()
+	{
+		if (!m_BluforFaction || !EnsureZonePolygon())
+			return 0;
+
+		array<vector> playerPositions = {};
+		AFM_DiDTargetingHelper.GetPlayerPositions(m_BluforFaction, playerPositions);
+
+		int count = 0;
+		foreach (vector pos : playerPositions)
+		{
+			if (Math2D.IsPointInPolygon(m_aZonePolylinePoints2D, pos[0], pos[2]))
+				count++;
+		}
+
+		return count;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Is this world position inside the zone polygon?
+	bool IsPointInsideZone(vector pos)
+	{
+		if (!EnsureZonePolygon())
+			return false;
+
+		return Math2D.IsPointInPolygon(m_aZonePolylinePoints2D, pos[0], pos[2]);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Build the 2D polygon cache once - polyline shape does not move at runtime
+	protected bool EnsureZonePolygon()
+	{
+		if (!m_PolylineEntity)
+			return false;
+
+		if (m_aZonePolylinePoints2D)
+			return true;
+
+		m_aZonePolylinePoints2D = new array<float>();
+		vector zonePos = m_PolylineEntity.GetOrigin();
+		array<vector> points3d = {};
+		m_PolylineEntity.GetPointsPositions(points3d);
+		foreach (vector p : points3d)
+		{
+			m_aZonePolylinePoints2D.Insert(p[0] + zonePos[0]);
+			m_aZonePolylinePoints2D.Insert(p[2] + zonePos[2]);
+		}
+
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
 	int GetAICountInsideZone()
 	{
-		WorldTimestamp timeStart = GetCurrentTimestamp();
-	
-		if (!m_PolylineEntity)
+		if (!EnsureZonePolygon())
 			return -1;
-		
-		// Build 2D polygon cache once - polyline shape does not move at runtime
-		if (!m_aZonePolylinePoints2D)
-		{
-			m_aZonePolylinePoints2D = new array<float>();
-			vector zonePos = m_PolylineEntity.GetOrigin();
-			array<vector> points3d = {};
-			m_PolylineEntity.GetPointsPositions(points3d);
-			foreach (vector p : points3d)
-			{
-				m_aZonePolylinePoints2D.Insert(p[0] + zonePos[0]);
-				m_aZonePolylinePoints2D.Insert(p[2] + zonePos[2]);
-			}
-		}
-		
+
 		array<AIAgent> agents = {};
 		GetGame().GetAIWorld().GetAIAgents(agents);
 		
 		int count = 0;
-		int totalAgentCount = 0;
 		
 		foreach(AIAgent agent: agents)
 		{
@@ -199,15 +322,16 @@ class AFM_DiDZoneComponent: ScriptComponent
 			SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(agentEntity);
 			if (!character || character.GetFactionKey() != m_RedforFaction.GetFactionKey())
 				continue;
-			
+
+			// Helicopter crews flying over the zone don't hold it
+			if (AFM_DiDTargetingHelper.IsInHelicopter(character))
+				continue;
+
 			vector pos = character.GetOrigin();
 			if (Math2D.IsPointInPolygon(m_aZonePolylinePoints2D, pos[0], pos[2]))
 				count++;
-			totalAgentCount++;
 		}
 		
-		WorldTimestamp end = GetCurrentTimestamp();
-		PrintFormat("AFM_DiDZoneComponent %1: Found %2/%3 AIs inside zone. Took %4ms", m_sZoneName, count, totalAgentCount, end.DiffMilliseconds(timeStart).ToString(), level: LogLevel.DEBUG);
 		return count;
 	}
 	
@@ -221,6 +345,199 @@ class AFM_DiDZoneComponent: ScriptComponent
 			if (spawner)
 				spawner.Cleanup();
 		}
+		
+		RemovePlayerStructures();
+		RemoveBoughtUnits();
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Remember anything under this zone that carries a faction, so the zone can hand it to the side that
+	//! is defending. Searches the whole subtree because a crate is a composition and only its root tends
+	//! to carry the affiliation.
+	//! Returns true when the entity, or something under it, carries one
+	protected bool CollectFactionProps(IEntity entity)
+	{
+		if (!entity)
+			return false;
+		
+		bool found = false;
+		
+		SCR_FactionAffiliationComponent affiliation = SCR_FactionAffiliationComponent.Cast(entity.FindComponent(SCR_FactionAffiliationComponent));
+		if (affiliation)
+		{
+			m_aFactionProps.Insert(entity);
+			found = true;
+		}
+		
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			if (CollectFactionProps(child))
+				found = true;
+			
+			child = child.GetSibling();
+		}
+		
+		return found;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Point the zone's props at the defending side. Changing the affiliation is all it takes: the arsenal
+	//! reads its live faction and restocks itself through RefreshArsenal, and the construction manager
+	//! offers that side's compositions.
+	//!
+	//! Sent through the game mode rather than set here, because faction affiliation does not replicate and
+	//! the build action is shown or hidden by each client from its own copy. Every prop is re-sent every
+	//! time; the receiving side ignores one that has not changed hands, which keeps builders from being
+	//! thrown out of build mode by a no-op.
+	void ApplyDefenderFactionToProps()
+	{
+		if (!m_GameMode || !m_BluforFaction || m_aFactionProps.IsEmpty())
+			return;
+		
+		FactionKey key = m_BluforFaction.GetFactionKey();
+		if (key.IsEmpty())
+			return;
+		
+		int sent = 0;
+		foreach (IEntity prop : m_aFactionProps)
+		{
+			if (!prop)
+				continue;
+			
+			RplComponent rplComponent = RplComponent.Cast(prop.FindComponent(RplComponent));
+			if (!rplComponent)
+			{
+				PrintFormat("AFM_DiDZoneComponent %1: Prop %2 is not replicated, only this machine will see it change hands",
+					m_sZoneName, prop.GetPrefabData().GetPrefabName(), level: LogLevel.WARNING);
+				
+				SCR_FactionAffiliationComponent affiliation = SCR_FactionAffiliationComponent.Cast(prop.FindComponent(SCR_FactionAffiliationComponent));
+				if (affiliation && affiliation.GetAffiliatedFactionKey() != key)
+					affiliation.SetAffiliatedFactionByKey(key);
+				
+				continue;
+			}
+			
+			m_GameMode.SetPropFaction(Replication.FindItemId(rplComponent), key);
+			sent++;
+		}
+		
+		PrintFormat("AFM_DiDZoneComponent %1: %2 of %3 props handed to %4",
+			m_sZoneName, sent, m_aFactionProps.Count(), key);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Called by the modded building composition component when a player finishes building something
+	//! while this zone is the active one
+	void RegisterPlayerStructure(IEntity structure)
+	{
+		if (!structure || m_aPlayerStructures.Contains(structure))
+			return;
+		
+		m_aPlayerStructures.Insert(structure);
+		PrintFormat("AFM_DiDZoneComponent %1: Tracking player structure %2 (%3 total)",
+			m_sZoneName, structure.GetOrigin(), m_aPlayerStructures.Count(), level: LogLevel.DEBUG);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Tear down what the players built here. Left standing, these block vehicle pathing for the rest
+	//! of the match - a wall across a road is enough to keep every vehicle out of the next stage.
+	protected void RemovePlayerStructures()
+	{
+		if (!m_bRemovePlayerStructuresOnEnd)
+		{
+			m_aPlayerStructures.Clear();
+			return;
+		}
+		
+		int removed = 0;
+		foreach (IEntity structure : m_aPlayerStructures)
+		{
+			if (!structure)
+				continue;
+			
+			SCR_EntityHelper.DeleteEntityAndChildren(structure);
+			removed++;
+		}
+		
+		if (removed > 0)
+			PrintFormat("AFM_DiDZoneComponent %1: Removed %2 player structures", m_sZoneName, removed);
+		
+		m_aPlayerStructures.Clear();
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! A soldier or group the players bought from the build menu this stage.
+	//!
+	//! Tracked separately from structures because it always goes at the end of a stage: a group left behind
+	//! walks into the next fight with no orders, and unlike a wall nobody chose to leave it there.
+	//------------------------------------------------------------------------------------------------
+	void RegisterBoughtUnit(IEntity unit)
+	{
+		if (!unit || m_aBoughtUnits.Contains(unit))
+			return;
+
+		m_aBoughtUnits.Insert(unit);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	protected void RemoveBoughtUnits()
+	{
+		int removed = 0;
+		foreach (IEntity unit : m_aBoughtUnits)
+		{
+			if (unit)
+				removed += RemoveBoughtUnit(unit);
+		}
+
+		if (removed > 0)
+			PrintFormat("AFM_DiDZoneComponent %1: Removed %2 bought units", m_sZoneName, removed);
+
+		m_aBoughtUnits.Clear();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns how many bodies were removed.
+	//!
+	//! A group's members are not its children in the scene, so deleting the group entity leaves the
+	//! soldiers standing where they were - which is why the zone's own spawners delete agents one at a
+	//! time, and why this does the same.
+	//------------------------------------------------------------------------------------------------
+	protected int RemoveBoughtUnit(notnull IEntity unit)
+	{
+		SCR_AIGroup group = SCR_AIGroup.Cast(unit);
+		if (!group)
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(unit);
+			return 1;
+		}
+
+		int removed = 0;
+		array<AIAgent> agents = {};
+		group.GetAgents(agents);
+
+		foreach (AIAgent agent : agents)
+		{
+			if (!agent)
+				continue;
+
+			IEntity member = agent.GetControlledEntity();
+			if (!member)
+				continue;
+
+			SCR_EntityHelper.DeleteEntityAndChildren(member);
+			removed++;
+		}
+
+		SCR_EntityHelper.DeleteEntityAndChildren(group);
+		return removed;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! How many compositions players have built in this zone
+	int GetPlayerStructureCount()
+	{
+		return m_aPlayerStructures.Count();
 	}
 	
 	protected void FinishZoneHeld()
@@ -242,25 +559,300 @@ class AFM_DiDZoneComponent: ScriptComponent
 		
 		m_iRemainingTimeSeconds = m_fZoneEndTime.DiffSeconds(GetCurrentTimestamp());
 		m_eZoneState = EAFMZoneState.FROZEN;
-		
-		PrintFormat("AFM_DiDZoneComponent %1: Zone FROZEN with %2 seconds remaining",
-		 m_sZoneName, m_iRemainingTimeSeconds);
+
+		PrintFormat("AFM_DiDZoneComponent %1: Zone FROZEN with %2 seconds remaining, %3 s of contested time left",
+		 m_sZoneName, m_iRemainingTimeSeconds, m_iRemainingFailureSeconds);
 	}
-	
+
 	protected void UnfreezeZone()
 	{
 		if (m_eZoneState != EAFMZoneState.FROZEN)
 			return;
-		
+
 		m_fZoneEndTime = GetCurrentTimestamp().PlusSeconds(m_iRemainingTimeSeconds);
 		m_eZoneState = EAFMZoneState.ACTIVE;
+
+		PrintFormat("AFM_DiDZoneComponent %1: Zone UNFROZEN, resuming with %2 seconds, %3 s of contested time left",
+		 m_sZoneName, m_iRemainingTimeSeconds, m_iRemainingFailureSeconds);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Deduct the time spent contested since the zone froze, and restart counting from now
+	protected void ConsumeFailureTime()
+	{
+		if (!IsFailureTimerEnabled())
+			return;
+
+		WorldTimestamp now = GetCurrentTimestamp();
+		int spent = now.DiffSeconds(m_fContestedSince);
+		if (spent > 0)
+			m_iRemainingFailureSeconds = Math.Max(0, m_iRemainingFailureSeconds - spent);
+
+		m_fContestedSince = now;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	// Scenario header settings
+	//------------------------------------------------------------------------------------------------
+	
+	//! Take whatever the scenario overrides for this zone. Called at the end of LateInit, so it lands
+	//! before the zone is ever processed but after its spawners are known.
+	protected void ApplyPhaseSettings()
+	{
+		if (!AFM_DiDScenarioSettings.HasSettings())
+		{
+			PrintFormat("AFM_DiDZoneComponent %1: No scenario settings captured, keeping the values authored in the world",
+				m_sZoneName);
+			return;
+		}
 		
-		PrintFormat("AFM_DiDZoneComponent %1: Zone UNFROZEN, resuming with %2 seconds",
-		 m_sZoneName, m_iRemainingTimeSeconds);
+		m_PhaseSettings = AFM_DiDScenarioSettings.ResolveForZone(m_iZoneIndex);
+		if (!m_PhaseSettings)
+			return;
+		
+		PrintFormat("AFM_DiDZoneComponent %1: Scenario '%2' resolved prepare %3",
+			m_sZoneName, AFM_DiDScenarioSettings.GetScenarioName(), m_PhaseSettings.m_iPrepareTimeSeconds);
+		
+		if (m_PhaseSettings.m_iPrepareTimeSeconds >= 0)
+			m_iPrepareTimeSeconds = m_PhaseSettings.m_iPrepareTimeSeconds;
+		
+		if (m_PhaseSettings.m_iDefenseTimeSeconds >= 0)
+			m_iDefenseTimeSeconds = m_PhaseSettings.m_iDefenseTimeSeconds;
+		
+		if (m_PhaseSettings.m_iFailureTimeSeconds >= 0)
+			m_iFailureTimeSeconds = m_PhaseSettings.m_iFailureTimeSeconds;
+		
+		if (m_PhaseSettings.m_iTicketsPerPlayer >= 0)
+			m_iTicketsPerPlayer = m_PhaseSettings.m_iTicketsPerPlayer;
+		
+		if (m_PhaseSettings.m_fTicketMultiplier > 0)
+			m_fTicketMultiplier = m_PhaseSettings.m_fTicketMultiplier;
+		
+		if (m_PhaseSettings.m_iMinTickets >= 0)
+			m_iMinTickets = m_PhaseSettings.m_iMinTickets;
+		
+		if (m_PhaseSettings.m_iMaxTickets >= 0)
+			m_iMaxTickets = m_PhaseSettings.m_iMaxTickets;
+		
+		if (m_PhaseSettings.m_iMaxAICount >= 0)
+			m_iMaxAICount = m_PhaseSettings.m_iMaxAICount;
+		
+		ApplyInfantryHunting();
+		
+		PrintFormat("AFM_DiDZoneComponent %1: Scenario settings applied - prepare %2 s, defend %3 s, contested %4 s, %5 tickets per player",
+			m_sZoneName, m_iPrepareTimeSeconds, m_iDefenseTimeSeconds, m_iFailureTimeSeconds, m_iTicketsPerPlayer);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Hunting lives on each infantry spawner rather than on the zone
+	protected void ApplyInfantryHunting()
+	{
+		if (m_PhaseSettings.m_eInfantryHunting == AFM_EToggle.DEFAULT)
+			return;
+		
+		bool hunt = m_PhaseSettings.m_eInfantryHunting == AFM_EToggle.ON;
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			AFM_DiDInfantrySpawnerComponent infantry = AFM_DiDInfantrySpawnerComponent.Cast(spawner);
+			if (infantry)
+				infantry.SetHuntPlayers(hunt);
+		}
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Does the scenario allow this spawner to run? Only ever disables spawners the world already has;
+	//! the header cannot add any.
+	bool IsSpawnerEnabled(notnull AFM_DiDSpawnerComponent spawner)
+	{
+		if (!m_PhaseSettings)
+			return true;
+		
+		if (AFM_DiDHeliSpawnerComponent.Cast(spawner))
+			return AFM_DiDPhaseSettings.IsEnabled(m_PhaseSettings.m_eHelicopters);
+		
+		if (AFM_DiDMechanizedSpawnerComponent.Cast(spawner))
+			return AFM_DiDPhaseSettings.IsEnabled(m_PhaseSettings.m_eMechanized);
+		
+		if (AFM_DiDMortarSpawnerComponent.Cast(spawner))
+			return AFM_DiDPhaseSettings.IsEnabled(m_PhaseSettings.m_eMortars);
+		
+		if (AFM_DiDCowabungaComponent.Cast(spawner))
+			return AFM_DiDPhaseSettings.IsEnabled(m_PhaseSettings.m_eCowabunga);
+		
+		return true;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	// Ticket pool
+	//------------------------------------------------------------------------------------------------
+	
+	//! Attackers are budgeted per player, so a zone holds its shape whether four or fourteen are playing.
+	//! Sized once at activation: a pool that shrank as players died would make a zone easier exactly when
+	//! the team is losing, and the number on the HUD would move on its own.
+	protected void SizeTicketPool()
+	{
+		if (!IsTicketPoolEnabled())
+		{
+			m_iTicketPool = 0;
+			m_iTicketsRemaining = 0;
+			return;
+		}
+		
+		float multiplier = m_fTicketMultiplier;
+		if (multiplier <= 0)
+			multiplier = 1.0;
+		
+		int players = GetConnectedDefenderCount();
+		int pool = Math.Round(m_iTicketsPerPlayer * players * multiplier);
+		
+		// Guardrails, applied after the multiplier so no setting can produce an unplayable zone
+		pool = Math.ClampInt(pool, m_iMinTickets, m_iMaxTickets);
+		
+		// Added after the clamp so tickets inherited from a lost zone are not discarded by it
+		pool = pool + m_iInheritedTickets;
+		
+		m_iTicketPool = pool;
+		m_iTicketsRemaining = pool;
+		m_bTicketPoolSized = true;
+		
+		PrintFormat("AFM_DiDZoneComponent %1: Ticket pool %2 for %3 players (%4 per player, multiplier %5, clamped to %6-%7, plus %8 inherited)",
+			m_sZoneName, pool, players, m_iTicketsPerPlayer, multiplier, m_iMinTickets, m_iMaxTickets, m_iInheritedTickets);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Wave zones budget their own tickets per wave, so the zone-wide pool stays out of their way
+	bool IsTicketPoolEnabled()
+	{
+		return m_bUseTicketPool;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Everyone on the defending side who is connected, alive or waiting to respawn. Deliberately not
+	//! GetDefenderCount(), which counts living bodies only.
+	int GetConnectedDefenderCount()
+	{
+		if (!m_BluforFaction)
+			return 0;
+		
+		array<int> playerIds = {};
+		m_BluforFaction.GetPlayersInFaction(playerIds);
+		return playerIds.Count();
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! The attack is spent: the budget is empty and everything it paid for is dead. Players win outright,
+	//! without waiting out the defence timer.
+	//!
+	//! Only counts AI the pool paid for. Mortar crews sit outside the pool and are limited by their own
+	//! logic, so counting them would leave the zone unwinnable while a single mortar team survives.
+	protected bool IsAttackDefeated()
+	{
+		if (!IsTicketPoolEnabled() || !m_bTicketPoolSized || HasTicketsRemaining())
+			return false;
+		
+		return GetTicketPoolAICount() == 0;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Attackers alive from the spawners the ticket pool pays for
+	int GetTicketPoolAICount()
+	{
+		int total = 0;
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			if (spawner && spawner.CountsTowardsTicketPool())
+				total += spawner.GetActiveAICount();
+		}
+		
+		return total;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Are there attackers left to send? Always true when the pool is disabled.
+	bool HasTicketsRemaining()
+	{
+		if (!IsTicketPoolEnabled() || !m_bTicketPoolSized)
+			return true;
+		
+		return m_iTicketsRemaining > 0;
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Attackers this zone never got to send, handed on when it is lost. Losing a zone means the enemy
+	//! still has momentum, so part of the unspent budget follows the players to the next stage.
+	//! \return 0 unless this zone actually failed
+	int GetCarryOverTickets()
+	{
+		if (!IsTicketPoolEnabled() || m_eZoneState != EAFMZoneState.FINISHED_FAILED)
+			return 0;
+		
+		if (m_fFailureCarryOver <= 0)
+			return 0;
+		
+		return Math.Round(m_iTicketsRemaining * m_fFailureCarryOver);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Tickets handed over by a zone that was lost. They arrive during the prepare phase, before this
+	//! zone's pool has been sized, so they are banked and folded in by SizeTicketPool.
+	void AddTickets(int count)
+	{
+		if (!IsTicketPoolEnabled() || count <= 0)
+			return;
+		
+		if (!m_bTicketPoolSized)
+		{
+			m_iInheritedTickets = m_iInheritedTickets + count;
+			PrintFormat("AFM_DiDZoneComponent %1: %2 tickets inherited from the lost zone, held until the attack starts",
+				m_sZoneName, count);
+			return;
+		}
+		
+		m_iTicketPool = m_iTicketPool + count;
+		m_iTicketsRemaining = m_iTicketsRemaining + count;
+		PrintFormat("AFM_DiDZoneComponent %1: %2 tickets added, pool now %3", m_sZoneName, count, m_iTicketPool);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Charged when a group spawns, for the size it will reach once its members are in
+	void ConsumeTicketPool(int count)
+	{
+		if (!IsTicketPoolEnabled() || count <= 0)
+			return;
+		
+		m_iTicketsRemaining = Math.Max(0, m_iTicketsRemaining - count);
+		PrintFormat("AFM_DiDZoneComponent %1: %2 tickets spent, %3 of %4 left",
+			m_sZoneName, count, m_iTicketsRemaining, m_iTicketPool, level: LogLevel.DEBUG);
+	}
+	
+	//------------------------------------------------------------------------------------------------
+	//! Can this zone be lost by being held? Disabled per zone with 0, e.g. for the last stage
+	bool IsFailureTimerEnabled()
+	{
+		return m_iFailureTimeSeconds > 0;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Contested seconds left before the zone falls, or -1 when the zone cannot be lost this way
+	int GetRemainingFailureSeconds()
+	{
+		if (!IsFailureTimerEnabled())
+			return -1;
+
+		return m_iRemainingFailureSeconds;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Total contested time this zone allows, 0 when it cannot be lost this way
+	int GetFailureTimeSeconds()
+	{
+		return m_iFailureTimeSeconds;
 	}
 
 	protected EAFMZoneState HandlePrepareLogic()
 	{
+		RefreshCounts();
+		
 		// Check if preparation time is over
 		if (GetCurrentTimestamp().GreaterEqual(m_fZoneEndTime))
 		{
@@ -269,6 +861,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 			WorldTimestamp now = GetCurrentTimestamp();
 			m_fZoneStartTime = now;
 			m_fZoneEndTime = now.PlusSeconds(m_iDefenseTimeSeconds);
+			
+			// Everyone who is going to fight this stage has joined by now
+			SizeTicketPool();
+			
 			PrintFormat("AFM_DiDZoneComponent %1: PREPARE -> ACTIVE", m_sZoneName);	
 		}
 		
@@ -277,10 +873,9 @@ class AFM_DiDZoneComponent: ScriptComponent
 	
 	protected EAFMZoneState HandleActiveZoneLogic()
 	{
-		int defenderCount = GetDefenderCount();
-		int attackerCount = GetAICountInsideZone();
+		RefreshCounts();
 		
-		if (defenderCount == 0)
+		if (m_iDefenderCount == 0)
 		{
 			FinishZoneFailed();
 			return m_eZoneState;
@@ -292,27 +887,108 @@ class AFM_DiDZoneComponent: ScriptComponent
 			return m_eZoneState;
 		}
 		
-		//freeze/unfreeze zone
-		if (m_bStopTimerOnRedforSuperiority)
+		if (IsAttackDefeated())
 		{
-			if (attackerCount > defenderCount && m_eZoneState == EAFMZoneState.ACTIVE)
+			PrintFormat("AFM_DiDZoneComponent %1: Attack defeated - no tickets left and no attackers alive",
+				m_sZoneName);
+			FinishZoneHeld();
+			return m_eZoneState;
+		}
+		
+		UpdateContestedState();
+
+		// Held long enough and the zone falls. Checked after the contested state so the first tick counts.
+		if (m_bContested && IsFailureTimerEnabled())
+		{
+			ConsumeFailureTime();
+			if (m_iRemainingFailureSeconds <= 0)
 			{
-				FreezeZone();
-			}
-			else if (attackerCount <= defenderCount && m_eZoneState == EAFMZoneState.FROZEN)
-			{
-				UnfreezeZone();
+				PrintFormat("AFM_DiDZoneComponent %1: Contested for the full %2 s, zone lost",
+					m_sZoneName, m_iFailureTimeSeconds);
+				FinishZoneFailed();
+				return m_eZoneState;
 			}
 		}
 		
-		// Delegate spawning to spawner components
+		// Delegate spawning to spawner components. While contested, reinforcements pause but fire support continues.
+		bool spawnersPaused = AreSpawnersPaused();
 		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
 		{
-			if (spawner)
-				spawner.Process();
+			if (!spawner)
+				continue;
+
+			if (!IsSpawnerEnabled(spawner))
+				continue;
+
+			// Re-tasking the attackers already in the field is not spawning, so it runs even when this zone
+			// will not pay for anyone new. Otherwise the last of them stand still exactly when the players
+			// have to beat them to win the zone.
+			spawner.UpdateTactics();
+
+			if (spawnersPaused && spawner.HasSpawnWaves())
+				continue;
+			
+			// The attacker budget is spent. Enforced here because spawners override Process() and the
+			// infantry one does not chain to the base, so a check inside it would be skipped.
+			if (!HasTicketsRemaining() && spawner.CountsTowardsTicketPool())
+				continue;
+
+			spawner.Process();
 		}
-		
+
 		return m_eZoneState;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! One pass over the world per tick, shared by the zone logic and by the getters the HUD reads, so
+	//! the AI world is not walked twice a second.
+	protected void RefreshCounts()
+	{
+		m_iDefenderCount = GetDefenderCount();
+		m_iAttackerCountInZone = GetAICountInsideZone();
+		m_iDefenderCountInsideZone = GetDefenderCountInsideZone();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Whether the attackers hold the zone is tracked on its own, separately from whether the defence
+	//! clock stops for it. With the two tied together, turning m_bStopTimerOnRedforSuperiority off also
+	//! stopped the failure timer from ever draining, which quietly made the zone impossible to lose.
+	protected void UpdateContestedState()
+	{
+		bool contested = m_iAttackerCountInZone > m_iDefenderCountInsideZone;
+		if (contested == m_bContested)
+			return;
+
+		m_bContested = contested;
+
+		if (contested)
+		{
+			m_fContestedSince = GetCurrentTimestamp();
+			if (m_bStopTimerOnRedforSuperiority)
+				FreezeZone();
+
+			PrintFormat("AFM_DiDZoneComponent %1: Contested - %2 attackers against %3 defenders inside, %4 s of contested time left",
+				m_sZoneName, m_iAttackerCountInZone, m_iDefenderCountInsideZone, m_iRemainingFailureSeconds);
+			return;
+		}
+
+		// Bank whatever contested time was spent; it is never given back
+		ConsumeFailureTime();
+		UnfreezeZone();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Attackers hold the majority inside the zone
+	bool IsContested()
+	{
+		return m_bContested;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Infantry and mechanized spawners are paused while attackers hold the zone
+	bool AreSpawnersPaused()
+	{
+		return m_bStopSpawnersOnRedforSuperiority && m_bContested;
 	}
 	
 	//------------------------------------------------------------------------------------------------
@@ -369,8 +1045,26 @@ class AFM_DiDZoneComponent: ScriptComponent
 		m_eZoneState = EAFMZoneState.PREPARE;
 		m_fZoneStartTime = now;
 		m_fZoneEndTime = now.PlusSeconds(m_iPrepareTimeSeconds);
-		PrintFormat("AFM_DiDZoneComponent %1: Entering PREPARE state for %2 seconds",
-		 m_sZoneName, m_iPrepareTimeSeconds);
+
+		// Contested time is per zone and starts full every stage
+		m_iRemainingFailureSeconds = m_iFailureTimeSeconds;
+		m_fContestedSince = now;
+		m_bContested = false;
+		m_iDefenderCount = -1;
+		m_iAttackerCountInZone = -1;
+		m_iDefenderCountInsideZone = 0;
+		
+		// The pool is sized when the attack starts, not here. Players join during the prepare phase, so
+		// counting them at activation would size the zone for whoever happened to be on the server then.
+		m_iTicketPool = 0;
+		m_iTicketsRemaining = 0;
+		m_iInheritedTickets = 0;
+		m_bTicketPoolSized = false;
+
+		ApplyDefenderFactionToProps();
+
+		PrintFormat("AFM_DiDZoneComponent %1: Entering PREPARE state for %2 seconds, %3 s of contested time allowed",
+		 m_sZoneName, m_iPrepareTimeSeconds, m_iFailureTimeSeconds);
 	}
 	
 	void DeactivateZone()
@@ -384,8 +1078,17 @@ class AFM_DiDZoneComponent: ScriptComponent
 	{
 		if (m_eZoneState != EAFMZoneState.PREPARE)
 			return;
-		
+
 		m_fZoneEndTime = GetCurrentTimestamp();
+	}
+
+	//! Push the end of the prepare phase back, for time the players spend unable to prepare
+	void ExtendPrepareStage(int seconds)
+	{
+		if (m_eZoneState != EAFMZoneState.PREPARE || seconds <= 0)
+			return;
+
+		m_fZoneEndTime = m_fZoneEndTime.PlusSeconds(seconds);
 	}
 	
 	WorldTimestamp GetZoneEndTime()
@@ -408,6 +1111,23 @@ class AFM_DiDZoneComponent: ScriptComponent
 	{
 		return m_PolylineEntity;
 	}
+
+	SCR_ResourceComponent GetSupplyCache()
+	{
+		return m_SupplyCache;
+	}
+	
+	//! What the attacking side brings. Spawners read their prefabs from here.
+	AFM_DiDSideConfig GetAttackerConfig()
+	{
+		return m_AttackerConfig;
+	}
+	
+	//! What the defending side brings, e.g. the extraction helicopter
+	AFM_DiDSideConfig GetDefenderConfig()
+	{
+		return m_DefenderConfig;
+	}
 	
 	SCR_Faction GetDefenderFaction()
 	{
@@ -419,14 +1139,15 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return m_RedforFaction;
 	}
 	
+	//! Both read the counts taken by the last tick rather than scanning the world again
 	int GetBluforScore()
 	{
-		return GetDefenderCount();
+		return m_iDefenderCount;
 	}
 	
 	int GetRedforScore()
 	{
-		return GetAICountInsideZone();
+		return m_iAttackerCountInZone;
 	}
 	
 	int GetZoneDisplayNumber()
@@ -434,6 +1155,76 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return GetZoneIndex();
 	}
 		
+	//------------------------------------------------------------------------------------------------
+	//! Earliest upcoming spawn of an active wave spawner (clamped to now when overdue)
+	//! \return false when no spawner sends timed waves
+	bool GetNextSpawnWaveTime(out WorldTimestamp nextTime)
+	{
+		if (AreSpawnersPaused())
+			return false;
+
+		WorldTimestamp now = GetCurrentTimestamp();
+		bool found = false;
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			if (!spawner || !spawner.IsActive() || !spawner.HasSpawnWaves())
+				continue;
+
+			WorldTimestamp spawnTime = spawner.GetNextSpawnTime();
+			if (spawnTime.Less(now))
+				spawnTime = now;
+
+			if (!found || spawnTime.Less(nextTime))
+			{
+				nextTime = spawnTime;
+				found = true;
+			}
+		}
+
+		return found;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Enemies left to fight in this zone, or -1 when spawns are unlimited
+	int GetEnemiesRemaining()
+	{
+		// Before the attack starts there is nothing meaningful to show
+		if (!IsTicketPoolEnabled() || !m_bTicketPoolSized)
+			return -1;
+		
+		return m_iTicketsRemaining + GetActiveAICount();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Attackers this zone may still send, or -1 when it is not limited that way.
+	//! Named apart from the wave zone's own GetRemainingTickets, which counts active spawners only
+	//! and drives wave progression.
+	int GetRemainingSpawnTickets()
+	{
+		if (IsTicketPoolEnabled())
+		{
+			if (!m_bTicketPoolSized)
+				return -1;
+			
+			return m_iTicketsRemaining;
+		}
+		
+		int total = -1;
+
+		foreach (AFM_DiDSpawnerComponent spawner : m_aSpawners)
+		{
+			if (!spawner || !spawner.UsesTickets())
+				continue;
+
+			if (total < 0)
+				total = 0;
+
+			total += spawner.GetRemainingTickets();
+		}
+
+		return total;
+	}
+
 	//------------------------------------------------------------------------------------------------
 	//! Get total active AI count across all spawners
 	//------------------------------------------------------------------------------------------------
@@ -462,7 +1253,8 @@ class AFM_DiDZoneComponent: ScriptComponent
 		return world.GetServerTimestamp();
 	}
 	
-	protected int GetZoneAILimit()
+	//! Zone-wide AI limit, 0 when only each spawner's own limit applies
+	int GetMaxAICount()
 	{
 		return m_iMaxAICount;
 	}

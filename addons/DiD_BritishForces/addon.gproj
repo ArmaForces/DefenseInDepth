@@ -3,6 +3,20 @@ GameProject {
  GUID "66D71DDE6A599273"
  TITLE "DiD_BritishForces"
  Dependencies {
-  "66AAF4C2037310FC" "5AE50EC5B8D6F4AE" "58D0FB3206B6F859"
+  "66AAF4C2037310FC" "5AE50EC5B8D6F4AE" "58D0FB3206B6F859" "614B62005CBB8057"
+ }
+ Configurations {
+  GameProjectConfig PC {
+  }
+  GameProjectConfig XBOX_ONE {
+  }
+  GameProjectConfig XBOX_SERIES {
+  }
+  GameProjectConfig PS4 {
+  }
+  GameProjectConfig PS5 {
+  }
+  GameProjectConfig HEADLESS {
+  }
  }
 }
