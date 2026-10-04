@@ -1,0 +1,8 @@
+GameProject {
+ ID "DiDBelleauWood"
+ GUID "6A83056217909B3A"
+ TITLE "DiD_BelleauWood"
+ Dependencies {
+  "66AAF4C2037310FC" "629EDC37CDE3AD35" "58D0FB3206B6F859"
+ }
+}

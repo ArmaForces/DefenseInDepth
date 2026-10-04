@@ -482,6 +482,14 @@ class AFM_DiDZoneSystem: GameSystem
 		
 		m_ActiveZone.ForceEndPrepareStage();
 	}
+
+	void ExtendPrepareStage(int seconds)
+	{
+		if (!m_ActiveZone || m_ActiveZone.GetZoneState() != EAFMZoneState.PREPARE)
+			return;
+
+		m_ActiveZone.ExtendPrepareStage(seconds);
+	}
 	
 	WorldTimestamp GetCurrentTimestamp()
 	{

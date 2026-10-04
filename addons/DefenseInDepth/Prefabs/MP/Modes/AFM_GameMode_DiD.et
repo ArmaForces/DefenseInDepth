@@ -5,6 +5,35 @@ AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
   }
   SCR_CommunicationSoundComponent "{66AAF4E352EDE112}" {
   }
+  DCO_GlobalAIComponent "{684A9572EB976348}" {
+   m_fSuppressionEffect 0.63
+   m_fTakeCoverChance 0.5
+   m_fPersonalityWeightStandard 50
+   m_fPersonalityWeightCautious 2
+   m_fPersonalityWeightAggressive 35
+   m_fPersonalityWeightReckless 13
+   m_fDodgeChance 0.3
+   m_fDodgeCooldown 15
+   m_iDodgeShotThreshold 3
+   m_fGrenadeUsage 1
+   m_fGLUsage 1
+   m_iBehaviorFlags 8388551
+   m_fTacticStallPct 25
+   m_fIdleEnterTime 120
+   m_fIdleOverrunDist 40
+   m_bIdleLeaveToInvestigate 1
+   m_fStragglerTime 10
+   m_fStragglerStuckTime 20
+   m_fSuperiorRatio 1
+   m_bLongRangeHold 0
+   m_fRifleEffectiveRange 150
+   m_fMGEffectiveRange 300
+   m_fOvermatchMaxDist 400
+   m_fCQBStackWait 5
+   m_iCQBAbortLosses 3
+   m_fCQBContactTimeout 90
+   m_fInvestigateMaxDist 800
+  }
   PS_CutsceneManager "{66AAF4E352EDE117}" {
   }
   PS_DummyRespawnSystemComponent "{6A63111CED9FB3E9}" {

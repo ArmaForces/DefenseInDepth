@@ -1078,8 +1078,17 @@ class AFM_DiDZoneComponent: ScriptComponent
 	{
 		if (m_eZoneState != EAFMZoneState.PREPARE)
 			return;
-		
+
 		m_fZoneEndTime = GetCurrentTimestamp();
+	}
+
+	//! Push the end of the prepare phase back, for time the players spend unable to prepare
+	void ExtendPrepareStage(int seconds)
+	{
+		if (m_eZoneState != EAFMZoneState.PREPARE || seconds <= 0)
+			return;
+
+		m_fZoneEndTime = m_fZoneEndTime.PlusSeconds(seconds);
 	}
 	
 	WorldTimestamp GetZoneEndTime()

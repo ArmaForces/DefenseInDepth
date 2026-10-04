@@ -1,6 +1,8 @@
 .vscode/*
 Thumbs.db
-CHANGELOG.md
 
 # Enfusion files
 *.rdb
+
+
+*/logs/*

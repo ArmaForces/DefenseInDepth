@@ -35,12 +35,16 @@ modded class PS_SpectatorMenu
 		if (!controlled)
 			return;
 
-		PS_PlayableControllerComponent playableController = PS_PlayableControllerComponent.Cast(playerController.FindComponent(PS_PlayableControllerComponent));
-		if (!playableController)
+		PS_PlayableControllerComponent controllerComponent = PS_PlayableControllerComponent.Cast(playerController.FindComponent(PS_PlayableControllerComponent));
+		if (!controllerComponent)
+			return;
+
+		// The menu can outlive the camera for a frame; only act while there is something to leave
+		if (!controllerComponent.IsSpectating())
 			return;
 
 		// The observer is a character too, so the body is told apart by being a different one
-		if (controlled == playableController.GetInitialEntity())
+		if (controlled == controllerComponent.GetInitialEntity())
 			return;
 
 		// A corpse is still controlled for a moment after dying, while PS is on its way to moving the player
@@ -48,7 +52,8 @@ modded class PS_SpectatorMenu
 		if (!AFM_IsAliveCharacter(controlled))
 			return;
 
-		playableController.SwitchFromObserver();
+		Print("AFM_SpectatorMenu: Left spectator from the menu - the controller-side fix did not catch this one");
+		controllerComponent.SwitchFromObserver();
 	}
 
 	//------------------------------------------------------------------------------------------------

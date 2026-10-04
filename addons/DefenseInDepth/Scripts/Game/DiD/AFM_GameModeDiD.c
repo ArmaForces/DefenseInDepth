@@ -39,7 +39,19 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	
 	[Attribute("1", UIWidgets.CheckBox, "Re-equip the loadout a player saved at an arsenal when they respawn", category: "DiD")]
 	protected bool m_bApplySavedLoadouts;
-	
+
+	[Attribute("30", UIWidgets.EditBox, "Seconds players spend as spectators over the first stage before they get their bodies, so the area - arsenals, building menus, radios - has replicated by the time they take control. The first stage's prepare phase is extended by the same amount. 0 = bodies straight away", category: "DiD")]
+	protected int m_iSpawnWarmupSeconds;
+
+	// The spawn warm-up at match start. Not m_bIsWarmup, which is the prepare phase.
+	protected bool m_bSpawnWarmupActive;
+
+	// Spectator cameras are put this far above the first stage's spawn point during the warm-up
+	protected static const float SPAWN_WARMUP_CAMERA_HEIGHT_M = 10.0;
+
+	// A player joining during the warm-up is moved once their camera has had time to appear
+	protected static const int SPAWN_WARMUP_JOIN_MOVE_DELAY_MS = 2000;
+
 	// PS switches the player into the new body four frames after the respawn request
 	protected static const int RANK_RESTORE_FIRST_DELAY_MS = 300;
 	protected static const int RESPAWN_FINALIZE_DELAY_MS = 2000;
@@ -73,6 +85,10 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	// A freshly spawned playable needs a moment to register before a player can be put in it
 	protected static const int ASSIGN_DELAY_MS = 500;
 	protected static const int ASSIGN_MAX_ATTEMPTS = 10;
+
+	// A body's faction affiliation lands a moment after the switch, and the saved loadout cannot be read before it
+	protected static const int LOADOUT_RETRY_MS = 300;
+	protected static const int LOADOUT_MAX_ATTEMPTS = 10;
 
 	protected SCR_FactionManager m_FactionManager;
 	protected AFM_DiDZoneSystem m_ZoneSystem;
@@ -156,7 +172,11 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	void ForceEndPrepareStage()
 	{
 		if (m_ZoneSystem)
+		{
+			// Skipping the prepare phase skips the wait for bodies with it
+			EndSpawnWarmup("the prepare phase was skipped");
 			m_ZoneSystem.ForceEndPrepareStage();
+		}
 		else //no zone system - assume we are a proxy
 			Rpc(RPC_DoForceEndPrepareStage);
 	}
@@ -169,6 +189,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	{
 		if (!m_ZoneSystem)
 			return;
+		EndSpawnWarmup("the prepare phase was skipped");
 		m_ZoneSystem.ForceEndPrepareStage();
 	}
 
@@ -587,6 +608,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		// has actually progressed to a different zone - otherwise everyone is teleported to the spawn
 		// point moments after the first zone starts.
 		bool zoneProgressed = m_iLastTransferZoneIndex >= 0 && m_iZoneNumber != m_iLastTransferZoneIndex;
+		bool isFirstStageStart = m_iLastTransferZoneIndex < 0;
 		m_iLastTransferZoneIndex = m_iZoneNumber;
 
 		// Each stage earns on its own account
@@ -600,7 +622,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			m_Stats.Dump(string.Format("end of stage %1", m_iZoneNumber - 1));
 		}
 
-		GetGame().GetCallqueue().CallLater(PopulateZone, ZONE_TRANSFER_DELAY_MS, false, zoneProgressed);
+		// The very first bodies wait for the warm-up, which hands them out itself when it ends. Anything else
+		// that changes the zone meanwhile leaves that to it, or the same spectators would get two bodies.
+		if (isFirstStageStart && m_iSpawnWarmupSeconds > 0 && IsMaster())
+			StartSpawnWarmup();
+		else if (!m_bSpawnWarmupActive)
+			GetGame().GetCallqueue().CallLater(PopulateZone, ZONE_TRANSFER_DELAY_MS, false, zoneProgressed);
 
 		// Wave clears have their own hint (OnWaveCompleted)
 		if (m_bIsWarmup)
@@ -804,6 +831,82 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		AFM_DiDZoneComponent zone = m_ZoneSystem.GetActiveZone();
 		if (zone)
 			zone.ApplyDefenderFactionToProps();
+
+		// Joining during the warm-up: load the first stage like everyone else, and the warm-up's end hands
+		// this player a body along with the rest
+		if (m_bSpawnWarmupActive)
+			GetGame().GetCallqueue().CallLater(MoveSpectatorToFirstStage, SPAWN_WARMUP_JOIN_MOVE_DELAY_MS, false, playerId);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Spawn warm-up: at match start, everyone waits as a spectator over the first stage before getting a body.
+	//!
+	//! Taking a body is when a client has the most to replicate at once - the stage area, its arsenals and
+	//! building menus, the character's equipment and radios - and the client crash on the first spawn
+	//! (docs/known-bugs.md, bug 1) has only ever come then, never on a later respawn. Putting the spectator
+	//! cameras over the stage first gets the area streamed in while the player is only watching, so taking
+	//! the body has far less arriving at the same time.
+	//!
+	//! Only the first stage start. The first stage's prepare phase is extended by the same time, so the
+	//! wait does not cost preparation.
+	protected void StartSpawnWarmup()
+	{
+		m_bSpawnWarmupActive = true;
+
+		if (m_ZoneSystem)
+			m_ZoneSystem.ExtendPrepareStage(m_iSpawnWarmupSeconds);
+
+		array<int> playerIds = {};
+		GetGame().GetPlayerManager().GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			MoveSpectatorToFirstStage(playerId);
+		}
+
+		ShowHint(string.Format("Loading the first stage. You get your body in %1 seconds.", m_iSpawnWarmupSeconds), 10);
+		PrintFormat("AFM_GameModeDiD: Spawn warm-up - %1 players wait %2 s over the first stage before getting bodies",
+			playerIds.Count(), m_iSpawnWarmupSeconds);
+
+		GetGame().GetCallqueue().CallLater(EndSpawnWarmup, m_iSpawnWarmupSeconds * 1000, false, "time is up");
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Hand out the first stage's bodies. Does nothing unless the warm-up is running.
+	protected void EndSpawnWarmup(string reason)
+	{
+		if (!m_bSpawnWarmupActive)
+			return;
+
+		m_bSpawnWarmupActive = false;
+		GetGame().GetCallqueue().Remove(EndSpawnWarmup);
+
+		PrintFormat("AFM_GameModeDiD: Spawn warm-up over (%1), handing out bodies", reason);
+		PopulateZone(false);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Put a spectator's camera over the first stage's spawn point, which is what has the area streamed to them
+	protected void MoveSpectatorToFirstStage(int playerId)
+	{
+		if (!m_ZoneSystem)
+			return;
+
+		AFM_PlayerSpawnPointEntity spawnPoint = m_ZoneSystem.GetCurrentZonePlayerSpawnPoint();
+		if (!spawnPoint)
+		{
+			PrintFormat("AFM_GameModeDiD: The first stage has no player spawn point, spectators stay where they are", level: LogLevel.WARNING);
+			return;
+		}
+
+		PlayerController playerController = GetGame().GetPlayerManager().GetPlayerController(playerId);
+		if (!playerController)
+			return;
+
+		PS_PlayableControllerComponent controllerComponent = PS_PlayableControllerComponent.Cast(playerController.FindComponent(PS_PlayableControllerComponent));
+		if (!controllerComponent)
+			return;
+
+		controllerComponent.AFM_MoveSpectatorTo(spawnPoint.GetOrigin() + Vector(0, SPAWN_WARMUP_CAMERA_HEIGHT_M, 0));
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -1012,7 +1115,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		SwitchPlayerToPlayable(playerId, playableId);
 
 		GetGame().GetCallqueue().CallLater(RestorePlayerRank, RANK_RESTORE_FIRST_DELAY_MS, false, playerId, previousRank);
-		GetGame().GetCallqueue().CallLater(ApplySavedLoadout, RANK_RESTORE_FIRST_DELAY_MS, false, playerId);
+		GetGame().GetCallqueue().CallLater(ApplySavedLoadout, RANK_RESTORE_FIRST_DELAY_MS, false, playerId, 0);
 		GetGame().GetCallqueue().CallLater(ClearOldBody, RESPAWN_FINALIZE_DELAY_MS, false, playerId, oldBody, previousRank);
 		GetGame().GetCallqueue().CallLater(EnsurePlayerFaction, RESPAWN_FINALIZE_DELAY_MS, false, playerId);
 	}
@@ -1123,38 +1226,63 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	//! chosen SCR_BasePlayerLoadout. The PS framework spawns a prefab directly and never goes near that
 	//! pipeline, so nothing applies the save. Calling the arsenal loadout's own applier is enough: it
 	//! reads the stored string from SCR_ArsenalManagerComponent itself.
-	protected void ApplySavedLoadout(int playerId)
+	//!
+	//! The applier compares the save's faction with the body's FactionAffiliationComponent and throws if
+	//! that component has no faction yet, before a single item is applied. A body that has just been
+	//! switched to can still be without one, so this waits for it the way AssignPlayerBody waits for the
+	//! playable id.
+	protected void ApplySavedLoadout(int playerId, int attempt)
 	{
 		if (!m_bApplySavedLoadouts)
 			return;
-		
+
 		SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(GetGame().GetPlayerManager().GetPlayerControlledEntity(playerId));
-		if (!character)
+
+		Faction faction;
+		if (character)
 		{
-			PrintFormat("AFM_GameModeDiD: No body for player %1, saved loadout not applied", playerId, level: LogLevel.WARNING);
+			FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(character.FindComponent(FactionAffiliationComponent));
+			if (factionComponent)
+				faction = factionComponent.GetAffiliatedFaction();
+		}
+
+		if (!faction)
+		{
+			if (attempt < LOADOUT_MAX_ATTEMPTS)
+			{
+				GetGame().GetCallqueue().CallLater(ApplySavedLoadout, LOADOUT_RETRY_MS, false, playerId, attempt + 1);
+				return;
+			}
+
+			if (!character)
+				PrintFormat("AFM_GameModeDiD: No body for player %1, saved loadout not applied", playerId, level: LogLevel.WARNING);
+			else
+				PrintFormat("AFM_GameModeDiD: Body of player %1 never got a faction, saved loadout not applied", playerId, level: LogLevel.WARNING);
+
 			return;
 		}
-		
+
 		// COWABUNGA puts players on the attacking side. OnLoadoutSpawned erases a saved loadout whose
 		// faction does not match the body, so it must never run for an attacker.
-		if (character.GetFactionKey() != GetDefenderFactionKey())
+		if (faction.GetFactionKey() != GetDefenderFactionKey())
 			return;
-		
+
 		SCR_ArsenalManagerComponent arsenalManager;
 		if (!SCR_ArsenalManagerComponent.GetArsenalManager(arsenalManager))
 			return;
-		
+
 		SCR_ArsenalPlayerLoadout saved;
 		if (!arsenalManager.GetPlayerArsenalLoadout(SCR_PlayerIdentityUtils.GetPlayerIdentityId(playerId), saved))
 			return;
-		
+
 		if (!saved || saved.loadout.IsEmpty())
 			return;
-		
+
+		// Logged before the call: the applier reports nothing back, so this cannot claim it worked
+		PrintFormat("AFM_GameModeDiD: Restoring saved arsenal loadout for player %1 (body ready after %2 retries)", playerId, attempt);
+
 		SCR_PlayerArsenalLoadout loadout = new SCR_PlayerArsenalLoadout();
 		loadout.OnLoadoutSpawned(character, playerId);
-		
-		PrintFormat("AFM_GameModeDiD: Applied saved arsenal loadout to player %1", playerId);
 	}
 
 	//------------------------------------------------------------------------------------------------
