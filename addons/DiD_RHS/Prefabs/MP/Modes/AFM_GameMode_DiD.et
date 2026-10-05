@@ -1,0 +1,10 @@
+AFM_GameModeDiD : "{0F307326459A1395}Prefabs/MP/Modes/GameMode_Base.et" {
+ ID "56B2B479C6B96951"
+ components {
+  AFM_DiDSetupComponent "{0678578AE4888150}" {
+   m_aSideCatalog + {
+    "{6152635517205774}Configs/Factions/DiD_Side_RF_RHS.conf" "{EFDF6366B76AFDE6}Configs/Factions/DiD_Side_US_RHS.conf" "{3374ADC7F97C2CDD}Configs/Factions/DiD_Side_ION_RHS.conf"
+   }
+  }
+ }
+}
