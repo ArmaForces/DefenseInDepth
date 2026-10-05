@@ -3,7 +3,8 @@
 //! attacker squad and hunt their former team.
 //!
 //! Place it as a child of a zone, with AFM_SpawnPointEntity children as squad spawn points.
-//! One playable attacker is spawned per waiting player, and each of them is moved into it.
+//! One attacker is spawned per waiting player and handed over to them through the vanilla respawn
+//! system, which also moves the player to the attacking faction for as long as they hold that body.
 //------------------------------------------------------------------------------------------------
 class AFM_DiDCowabungaComponentClass: AFM_DiDSpawnerComponentClass
 {
@@ -35,8 +36,8 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 	[Attribute("COWABUNGA! The fallen have joined the attack!", UIWidgets.EditBox, "Announcement when the squad is sent in", category: "DiD Cowabunga")]
 	protected string m_sAnnouncement;
 
+	// A freshly spawned attacker needs a moment to get the replication id it is handed over by
 	protected static const int ASSIGN_DELAY_MS = 500;
-	protected static const int ASSIGN_MAX_ATTEMPTS = 10;
 	protected static const float SQUAD_SPAWN_SPACING = 3;
 
 	protected AFM_GameModeDiD m_GameMode;
@@ -157,9 +158,9 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 	//! One attacker per waiting player, spawned in a line at a spawn point
 	protected void StartCowabunga()
 	{
-		array<int> spectators = {};
-		m_GameMode.GetSpectatorPlayerIds(spectators);
-		if (spectators.IsEmpty())
+		array<int> waitingPlayers = {};
+		m_GameMode.GetBodilessPlayerIds(waitingPlayers);
+		if (waitingPlayers.IsEmpty())
 			return;
 
 		if (m_aSpawnPoints.IsEmpty())
@@ -169,7 +170,7 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 			return;
 		}
 
-		int squadSize = spectators.Count();
+		int squadSize = waitingPlayers.Count();
 		if (m_iMaxSquadSize > 0 && squadSize > m_iMaxSquadSize)
 			squadSize = m_iMaxSquadSize;
 
@@ -192,7 +193,7 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 				continue;
 
 			m_aSquadCharacters.Insert(character);
-			m_aSquadPlayers.Insert(spectators[i]);
+			m_aSquadPlayers.Insert(waitingPlayers[i]);
 		}
 
 		if (m_aSquadCharacters.IsEmpty())
@@ -207,8 +208,7 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 		m_iActivations++;
 		m_ActivatedAt = GetCurrentTimestamp();
 
-		// Playables register themselves a moment after spawning
-		GetGame().GetCallqueue().CallLater(AssignPlayersToSquad, ASSIGN_DELAY_MS, false, 0);
+		GetGame().GetCallqueue().CallLater(AssignPlayersToSquad, ASSIGN_DELAY_MS, false);
 
 		PrintFormat("AFM_DiDCowabungaComponent: %1 attackers spawned at %2", m_aSquadCharacters.Count(), spawnPoint.GetOrigin(), level: LogLevel.DEBUG);
 	}
@@ -251,43 +251,31 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Move each waiting player into the attacker spawned for them
-	protected void AssignPlayersToSquad(int attempt)
+	//! Hand each waiting player the attacker spawned for them.
+	//!
+	//! The attackers already stand in the world, in their own group, so they are taken over rather than
+	//! spawned again: SCR_PossessSpawnData is vanilla's way of giving a player a character that exists.
+	//! The game mode puts the player on the attacking faction as part of the same request.
+	protected void AssignPlayersToSquad()
 	{
 		if (!m_bActive)
 			return;
 
+		FactionKey attackerFactionKey = m_GameMode.GetAttackerFactionKey();
 		int assigned = 0;
-		bool waitingForPlayables = false;
 
 		foreach (int i, IEntity character : m_aSquadCharacters)
 		{
 			if (!character || i >= m_aSquadPlayers.Count())
 				continue;
 
-			PS_PlayableComponent playable = PS_PlayableComponent.Cast(character.FindComponent(PS_PlayableComponent));
-			if (!playable)
-			{
-				PrintFormat("AFM_DiDCowabungaComponent: Squad member %1 is not playable, check the prefab", character, level: LogLevel.WARNING);
-				continue;
-			}
+			// A hand-over carries no position of its own, so the preload vanilla runs before one would load
+			// the area around the world's origin and hold the body back for it
+			SCR_PossessSpawnData spawnData = SCR_PossessSpawnData.FromEntity(character);
+			spawnData.SetSkipPreload(true);
 
-			RplId playableId = playable.GetRplId();
-			if (!playableId.IsValid())
-			{
-				waitingForPlayables = true;
-				continue;
-			}
-
-			playable.SetPlayable(true);
-			m_GameMode.SwitchPlayerToPlayable(m_aSquadPlayers[i], playableId);
-			assigned++;
-		}
-
-		if (waitingForPlayables && attempt < ASSIGN_MAX_ATTEMPTS)
-		{
-			GetGame().GetCallqueue().CallLater(AssignPlayersToSquad, ASSIGN_DELAY_MS, false, attempt + 1);
-			return;
+			if (m_GameMode.RequestPlayerBody(m_aSquadPlayers[i], spawnData, attackerFactionKey))
+				assigned++;
 		}
 
 		if (assigned == 0)
@@ -343,8 +331,8 @@ class AFM_DiDCowabungaComponent: AFM_DiDSpawnerComponent
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Remove the squad. Deleting a playable drops its player back to spectator, and the next zone
-	//! respawns them into their original slot.
+	//! Remove the squad. Deleting a body leaves its player without one, still on the attacking faction,
+	//! and the next hand-out gives them a defender's body and puts them back on the defending side.
 	protected void EndCowabunga(string reason)
 	{
 		if (!m_bActive)

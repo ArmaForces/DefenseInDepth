@@ -7,11 +7,19 @@ class AFM_VoteSkipWarmupAction: SCR_ScriptedUserAction
 
 		int userId = SCR_PlayerController.GetLocalPlayerId();
 		
-		return SCR_Global.IsAdmin(userId);
+		return AFM_DiDSetupComponent.IsSetupAdmin(userId);
 	}
 	
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
 	{
+		// CanBeShownScript only hides the action on the client; the authority decides who may use it
+		if (!Replication.IsServer())
+			return;
+
+		int userId = GetGame().GetPlayerManager().GetPlayerIdFromControlledEntity(pUserEntity);
+		if (!AFM_DiDSetupComponent.IsSetupAdmin(userId))
+			return;
+
 		AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
 		if (!gamemode)
 			return;

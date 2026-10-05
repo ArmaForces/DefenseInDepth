@@ -1,5 +1,5 @@
 MetaFileClass {
- Name "{2455859F4F7C2E52}PrefabsEditable/Markers/ZoneBorderMarker_Red.et"
+ Name "{496FBC94D0849040}Prefabs/Editor/Camera/AFM_SpectatorCamera.et"
  Configurations {
   EntityTemplateResourceClass PC {
   }

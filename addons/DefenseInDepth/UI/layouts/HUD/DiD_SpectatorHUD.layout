@@ -1,0 +1,62 @@
+FrameWidgetClass "{0632566A6BB06251}" {
+ Name "SpectatorHUD"
+ Slot FrameWidgetSlot "{FAA6FCFEEAAFEE34}" {
+  Anchor 0.5 1 0.5 1
+  PositionX -400
+  OffsetLeft -400
+  PositionY -160
+  OffsetTop -160
+  SizeX 800
+  OffsetRight -400
+  SizeY 80
+  OffsetBottom 80
+ }
+ {
+  TextWidgetClass "{98EA4CA249C14079}" {
+   Name "Target"
+   Slot FrameWidgetSlot "{561F10830DDC5812}" {
+    PositionX 0
+    OffsetLeft 0
+    PositionY 0
+    OffsetTop 0
+    SizeX 800
+    OffsetRight -800
+    SizeY 40
+    OffsetBottom -40
+   }
+   Text "Free camera"
+   "Font Size" 28
+   "Min Font Size" 28
+   "Horizontal Alignment" Center
+   "Vertical Alignment" Center
+   FontProperties FontProperties "{BC4D639D66E09D04}" {
+    Font "{EABA4FE9D014CCEF}UI/Fonts/RobotoCondensed/RobotoCondensed_Bold.fnt"
+    ShadowSize 5
+    ShadowOffset 4 4
+   }
+  }
+  TextWidgetClass "{7288BF566BF62952}" {
+   Name "Hints"
+   Slot FrameWidgetSlot "{7BD2F44BD1A8728A}" {
+    PositionX 0
+    OffsetLeft 0
+    PositionY 44
+    OffsetTop 44
+    SizeX 800
+    OffsetRight -800
+    SizeY 30
+    OffsetBottom -74
+   }
+   Text "[R] next player    [E] previous player    [F] free camera"
+   "Font Size" 18
+   "Min Font Size" 18
+   "Horizontal Alignment" Center
+   "Vertical Alignment" Center
+   FontProperties FontProperties "{1230E868F443F33C}" {
+    Font "{EABA4FE9D014CCEF}UI/Fonts/RobotoCondensed/RobotoCondensed_Bold.fnt"
+    ShadowSize 5
+    ShadowOffset 4 4
+   }
+  }
+ }
+}

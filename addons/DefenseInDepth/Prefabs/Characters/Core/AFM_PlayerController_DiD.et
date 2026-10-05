@@ -3,6 +3,15 @@ SCR_PlayerController : "{225E51284CC95CFA}Prefabs/Characters/Core/DefaultPlayerC
  components {
   AFM_DiDArsenalTimerComponent "{6A7C1E5504B3A821}" {
   }
+  AFM_DiDSetupPlayerComponent "{F02BE803CB196176}" {
+  }
+  AFM_DiDSpectatorComponent "{F546D1A2A0F87786}" {
+  }
+  AFM_DiDVoNComponent "{90A4463D93124886}" {
+   Filename "{577B8AFD9E7D17C5}Sounds/VON/AFM_DiDVoice_Flat.acp"
+  }
+  AFM_DiDVoiceComponent "{ED9A27D393E9FD5C}" {
+  }
   SCR_HUDManagerComponent "{2FDC275D9EBCDB8B}" {
    InfoDisplays {
     AFM_ScoreInfoDisplay "{66B0FE74C122F849}" {

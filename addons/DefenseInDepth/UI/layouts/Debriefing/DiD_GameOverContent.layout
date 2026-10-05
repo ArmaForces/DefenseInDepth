@@ -1,0 +1,75 @@
+SizeLayoutWidgetClass {
+ Name "DiDGameOverContent"
+ Slot OverlayWidgetSlot "{538BDFDFF21E62BC}" {
+  HorizontalAlign 1
+  VerticalAlign 1
+ }
+ components {
+  AFM_DiDGameOverContentUIComponent "{D9D059B29967B096}" {
+  }
+ }
+ AllowWidthOverride 1
+ WidthOverride 700
+ {
+  VerticalLayoutWidgetClass "{3B38EDC01A2E0517}" {
+   Name "Layout"
+   Slot AlignableSlot "{B16D1CD421D19044}" {
+    HorizontalAlign 3
+    VerticalAlign 1
+   }
+   {
+    TextWidgetClass "{1C1820DBE139CD32}" : "{9D643D214767D616}UI/layouts/WidgetLibrary/TextWidgets/Text_Heading2.layout" {
+     Name "GameOver_State"
+     Slot LayoutSlot "{5AC1F56BF822E427}" {
+      HorizontalAlign 3
+     }
+     Color 0.761 0.386 0.08 1
+     Text "Match over"
+     "Font Size" 52
+     "Min Font Size" 52
+     "Horizontal Alignment" Center
+    }
+    TextWidgetClass "{17514B9041D7FFFE}" : "{3132F64DB8B4CB44}UI/layouts/WidgetLibrary/TextWidgets/Text_Body.layout" {
+     Name "GameOver_Condition"
+     Slot LayoutSlot "{E17974D8F81BEC37}" {
+      HorizontalAlign 3
+      Padding 0 4 0 16
+     }
+     Text ""
+     "Font Size" 24
+     "Min Font Size" 24
+     "Horizontal Alignment" Center
+    }
+    TextWidgetClass "{C063AEA874589A94}" : "{3132F64DB8B4CB44}UI/layouts/WidgetLibrary/TextWidgets/Text_Body.layout" {
+     Name "NoReport"
+     Slot LayoutSlot "{33DD8D518B43F04B}" {
+      HorizontalAlign 3
+      Padding 0 16 0 0
+     }
+     "Is Visible" 0
+     Text "No match report. It is sent once, to the players connected when the match ends."
+     "Horizontal Alignment" Center
+    }
+    SizeLayoutWidgetClass "{9D9B9124BC3027AB}" {
+     Name "ResultsHolder"
+     Slot LayoutSlot "{8D9A07E9C6E4E19A}" {
+      HorizontalAlign 1
+     }
+     AllowWidthOverride 1
+     WidthOverride 560
+     AllowHeightOverride 1
+     HeightOverride 710
+     {
+      FrameWidgetClass "{2499B3DE626AAF66}" : "{5C2A9E17B4D3068F}UI/layouts/Debriefing/DiD_ResultsFrame.layout" {
+       Name "DiDResultsFrame"
+       Slot AlignableSlot "{C2B23CF3ADAFA3A5}" {
+        HorizontalAlign 3
+        VerticalAlign 3
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

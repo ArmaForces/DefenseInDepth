@@ -1,8 +1,8 @@
-class AFM_GameModeDiDClass: PS_GameModeCoopClass
+class AFM_GameModeDiDClass: SCR_BaseGameModeClass
 {
 }
 
-class AFM_GameModeDiD: PS_GameModeCoop
+class AFM_GameModeDiD: SCR_BaseGameMode
 {
 	[Attribute("{2FF4CFE9D80F6F76}Configs/Factions/DiD_Side_US.conf", UIWidgets.ResourceNamePicker, "The side the players defend as: its faction, its extraction helicopter and that helicopter's crew", params: "conf class=AFM_DiDSideConfig", category: "DiD")]
 	protected ResourceName m_sDefenderConfigPath;
@@ -40,20 +40,18 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	[Attribute("1", UIWidgets.CheckBox, "Re-equip the loadout a player saved at an arsenal when they respawn", category: "DiD")]
 	protected bool m_bApplySavedLoadouts;
 
-	[Attribute("30", UIWidgets.EditBox, "Seconds players spend as spectators over the first stage before they get their bodies, so the area - arsenals, building menus, radios - has replicated by the time they take control. The first stage's prepare phase is extended by the same amount. 0 = bodies straight away", category: "DiD")]
+	[Attribute("30", UIWidgets.EditBox, "Seconds players wait without a body at the start of the first stage before they get one, so the first bodies are not handed out in the same moment the match and its first zone start. The first stage's prepare phase is extended by the same amount. 0 = bodies straight away", category: "DiD")]
 	protected int m_iSpawnWarmupSeconds;
+
+	[Attribute("0", UIWidgets.CheckBox, "Start the match by itself as soon as the first player has joined, with the sides and timings of the scenario. Left unticked, everyone waits on the setup screen until an admin presses Start. A scenario can also turn it on in its mission header, which is how a server nobody attends is run", category: "DiD")]
+	protected bool m_bAutoStart;
 
 	// The spawn warm-up at match start. Not m_bIsWarmup, which is the prepare phase.
 	protected bool m_bSpawnWarmupActive;
 
-	// Spectator cameras are put this far above the first stage's spawn point during the warm-up
-	protected static const float SPAWN_WARMUP_CAMERA_HEIGHT_M = 10.0;
-
-	// A player joining during the warm-up is moved once their camera has had time to appear
-	protected static const int SPAWN_WARMUP_JOIN_MOVE_DELAY_MS = 2000;
-
-	// PS switches the player into the new body four frames after the respawn request
-	protected static const int RANK_RESTORE_FIRST_DELAY_MS = 300;
+	// The corpse a player leaves behind is removed this long after they took the new body. Deleting the
+	// entity a client controlled a moment ago, in the same frame it is handed another one, is what
+	// docs/known-bugs.md (bug 1) points at for the client crash, so the two are kept apart on purpose.
 	protected static const int RESPAWN_FINALIZE_DELAY_MS = 2000;
 
 	// Players arriving in a new zone are placed on rings around its spawn point
@@ -63,8 +61,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	// Let the new zone settle before moving anyone into it
 	protected static const int ZONE_TRANSFER_DELAY_MS = 5000;
 
-	// Where everyone talks once the match is over. PS's own room for players without a group.
-	protected static const string DEBRIEF_VOICE_ROOM = "#PS-VoNRoom_Global";
+	// Launch parameter that starts the match by itself, written -afmDidAutoStart on the command line
+	protected static const string AUTO_START_CLI_PARAM = "afmDidAutoStart";
 
 	// Zone the last transfer was made for, so survivors are only moved when the stage actually changes
 	protected int m_iLastTransferZoneIndex = -1;
@@ -76,15 +74,13 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	protected ref AFM_DiDMatchResults m_MatchResults;
 	protected ref ScriptInvokerVoid m_OnMatchResults;
 
-	// The one group every player belongs to, made with the first body of the match
-	protected SCR_AIGroup m_PlayerGroup;
+	// Players whose body has been asked for from the respawn system and has not arrived yet, each with
+	// the body they held when it was asked for. Being in here is what stops a second request for the same
+	// player while the first is still in flight. Authority only.
+	protected ref map<int, IEntity> m_mBodyRequests = new map<int, IEntity>();
 
 	// How many bodies have been handed out, which is also the next index into the side config's list
 	protected int m_iBodiesHandedOut;
-
-	// A freshly spawned playable needs a moment to register before a player can be put in it
-	protected static const int ASSIGN_DELAY_MS = 500;
-	protected static const int ASSIGN_MAX_ATTEMPTS = 10;
 
 	// A body's faction affiliation lands a moment after the switch, and the saved loadout cannot be read before it
 	protected static const int LOADOUT_RETRY_MS = 300;
@@ -154,6 +150,23 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	[RplProp(onRplName: "OnMatchSituationChanged")]
 	protected WorldTimestamp m_NextSpawnWaveTimestamp;
 
+	// Where a player without a body starts watching from when they have no corpse to rise from: above the
+	// current stage's player spawn point. Replicated, because the zones exist on the authority alone.
+	// Zero until the first stage starts.
+	[RplProp(onRplName: "OnMatchSituationChanged")]
+	protected vector m_vSpectatorAnchor;
+
+	protected static const float SPECTATOR_ANCHOR_HEIGHT_M = 10;
+
+	// A player whose body was deleted is given a place in the world to be streamed around this long after,
+	// once the deletion has gone through and vanilla has taken away the observer that followed the body
+	protected static const int SPECTATOR_OBSERVER_DELAY_MS = 1000;
+
+	// Players are taken out of their bodies this long after the match has ended. By then the stage has
+	// been cleaned up - which removes an extraction helicopter together with whoever sits in it - and the
+	// game-over screen is up on every machine, so nobody watches their own body go.
+	protected static const int DEBRIEF_BODY_REMOVAL_DELAY_MS = 3000;
+
 	//------------------------------------------------------------------------------------------------
 	ScriptInvoker GetOnMatchSituationChanged()
 	{
@@ -181,9 +194,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			Rpc(RPC_DoForceEndPrepareStage);
 	}
 	
-	//! The admin check behind this lives in AFM_VoteSkipWarmupAction.CanBeShownScript, which only hides
-	//! the action locally - a client can still send this RPC and cut the prepare phase short. Left as it
-	//! is on purpose: the worst case is a stage starting early on a server whose players we know.
+	//! Who may skip is decided in AFM_VoteSkipWarmupAction.PerformAction on the authority. A client cannot
+	//! reach this RPC anyway: it does not own the game mode, and only an owner can call a server RPC.
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	void RPC_DoForceEndPrepareStage()
 	{
@@ -238,6 +250,11 @@ class AFM_GameModeDiD: PS_GameModeCoop
 
 		if (m_SupplyIncome)
 			m_SupplyIncome.OnControllableDestroyed(instigatorContextData);
+
+		// A player who died watches the rest of the stage
+		int victimId = instigatorContextData.GetVictimPlayerID();
+		if (victimId > 0)
+			OnPlayerLostBody(victimId);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -248,15 +265,12 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		if (!m_Stats)
 			return;
 
-		array<int> spectators = {};
-		GetSpectatorPlayerIds(spectators);
-
 		array<int> playerIds = {};
 		GetGame().GetPlayerManager().GetPlayers(playerIds);
 
 		foreach (int playerId : playerIds)
 		{
-			if (!spectators.Contains(playerId))
+			if (HasLivingBody(playerId))
 				m_Stats.OnZoneSurvived(playerId);
 		}
 	}
@@ -287,6 +301,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			m_Stats = new AFM_DiDStatsTracker();
 			LoadAwardConfig();
 			StartSupplyEconomy();
+
+			// Whatever an admin chose on the setup screen of the match before is not this match's
+			AFM_DiDScenarioSettings.ClearMatchTimings();
 		}
 
 		m_FactionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
@@ -313,125 +330,118 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	}
 	
 	
-	override void OnGameStateChanged()
+	//------------------------------------------------------------------------------------------------
+	//! Runs on every machine. The match itself is the vanilla GAME state: PREGAME is the wait before it
+	//! and POSTGAME is everything after GameEnd.
+	override protected void OnGameStateChanged()
 	{
 		super.OnGameStateChanged();
 
-		SCR_EGameModeState state = GetState();
-
-		if (state == SCR_EGameModeState.DEBRIEFING)
-		{
-			// Order matters: the room move retunes the radio on a player's observer entity, so everyone has to
-			// be on one first
-			MoveEveryoneToSpectator();
-			GatherEveryoneInOneVoiceRoom();
-		}
-
-		if (state != SCR_EGameModeState.GAME)
+		if (GetState() != SCR_EGameModeState.GAME)
 			return;
 
-		ChimeraWorld world = GetGame().GetWorld();
 		m_bIsGameRunning = true;
 		m_bShowUI = true;
-		
+
 		if (m_ZoneSystem)
 			m_ZoneSystem.StartZoneSystem();
-		
+
 		OnMatchSituationChanged();
 		Replication.BumpMe();
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Takes everyone out of their body for the debrief.
+	//! Server only. Takes the match out of the pre-game and into the first stage.
 	//!
-	//! Players who were still alive when the match ended keep talking through their character's radio, while
-	//! everyone already in spectator is on the lobby VoN - two separate conversations, which is no way to hold
-	//! a debrief. Moving the survivors to their observer puts the whole lobby in one place, and PS opens the
-	//! debriefing screen for them in the same breath.
-	//!
-	//! The match report is built and sent before this runs, so nothing of it depends on who still had a body.
-	//------------------------------------------------------------------------------------------------
-	protected void MoveEveryoneToSpectator()
+	//! The pre-game has no time limit of its own (SCR_PreGameGameModeStateComponent with a duration of 0),
+	//! so nothing starts the match unless this is called. Calling it again, or after the match is over,
+	//! does nothing.
+	void StartMatch()
 	{
-		if (!Replication.IsServer())
+		if (!IsMaster())
 			return;
 
-		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
-		if (!playableManager)
+		if (GetState() != SCR_EGameModeState.PREGAME)
 			return;
+
+		PrintFormat("AFM_GameModeDiD: Match started with %1 players connected", GetGame().GetPlayerManager().GetPlayerCount());
+		StartGameMode();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns true when the match starts by itself with the first player instead of waiting on the setup
+	//! screen: the game mode says so, the scenario does in its mission header, or the server was launched
+	//! with -afmDidAutoStart. The launch parameter is for a server started on a bare world (-server), which
+	//! has no mission header to say it in.
+	bool IsAutoStart()
+	{
+		return m_bAutoStart || AFM_DiDScenarioSettings.IsAutoStart() || System.IsCLIParam(AUTO_START_CLI_PARAM);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Server only, and only while the match waits in the pre-game. Takes over what the admin chose on the
+	//! setup screen, right before StartMatch.
+	//!
+	//! Nothing has read the sides for good at this point: the zones and their spawners hold that back until
+	//! the match starts (AFM_DiDZoneComponent.PrepareForMatch), so swapping the two configs here is all it
+	//! takes. The players are the exception. They were put on the defending side as they joined, and
+	//! whoever is on the side that was the default is moved to the one that was picked.
+	void ApplySetup(ResourceName defenderConfigPath, ResourceName attackerConfigPath, int spawnWarmupSeconds)
+	{
+		if (!IsMaster())
+			return;
+
+		if (GetState() != SCR_EGameModeState.PREGAME)
+			return;
+
+		m_iSpawnWarmupSeconds = Math.Max(0, spawnWarmupSeconds);
+
+		SetSideConfigs(defenderConfigPath, attackerConfigPath);
 
 		array<int> playerIds = {};
 		GetGame().GetPlayerManager().GetPlayers(playerIds);
 
 		foreach (int playerId : playerIds)
 		{
-			// Anyone already watching is left alone rather than handed a second observer
-			if (playableManager.GetPlayableByPlayer(playerId) == RplId.Invalid())
+			// Not through the audit yet: OnPlayerAudited puts them on the defending side when they are
+			if (!SCR_FactionManager.SGetPlayerFaction(playerId))
 				continue;
 
-			SwitchToInitialEntity(playerId);
+			SetPlayerFaction(playerId, GetDefenderFactionKey());
 		}
+
+		OnMatchSituationChanged();
+		Replication.BumpMe();
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Puts everyone in one voice room for the debrief.
-	//!
-	//! PS keeps players in per-group rooms through a match, which is right while it is being played and
-	//! wrong once it is over - a debrief where each squad can only hear itself is not a debrief. This is
-	//! the same room PS puts unassigned players in, so nobody ends up somewhere the rooms manager does not
-	//! know about.
-	//!
-	//! Being in the room is only half of it: the debriefing screen also needs a transmit key, which the
-	//! modded PS_DebriefingMenu adds.
-	//------------------------------------------------------------------------------------------------
-	protected void GatherEveryoneInOneVoiceRoom()
+	//! The side config the players defend as unless an admin picks another: the scenario's when its
+	//! header names one, otherwise the game mode's own. Good from the moment the entity exists.
+	ResourceName GetDefaultDefenderConfigPath()
 	{
-		if (!Replication.IsServer())
-			return;
+		ResourceName scenarioPath = AFM_DiDScenarioSettings.GetDefenderConfig();
+		if (!scenarioPath.IsEmpty())
+			return scenarioPath;
 
-		PS_VoNRoomsManager rooms = PS_VoNRoomsManager.GetInstance();
-		if (!rooms)
-			return;
-
-		PlayerManager playerManager = GetGame().GetPlayerManager();
-		array<int> playerIds = {};
-		playerManager.GetPlayers(playerIds);
-
-		foreach (int playerId : playerIds)
-		{
-			PlayerController controller = playerManager.GetPlayerController(playerId);
-			if (!controller)
-				continue;
-
-			PS_PlayableControllerComponent playableController = PS_PlayableControllerComponent.Cast(controller.FindComponent(PS_PlayableControllerComponent));
-			if (!playableController)
-				continue;
-
-			// MoveToRoom retunes this transceiver without checking it, and a player with no radio on their
-			// lobby entity has none to retune
-			if (!playableController.GetTransceiver(EChannelType.PRIMARY))
-				continue;
-
-			rooms.MoveToRoom(playerId, string.Empty, DEBRIEF_VOICE_ROOM);
-		}
+		return m_sDefenderConfigPath;
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! PS hooks this to the editor closing and then reads the local player controller without checking
-	//! it, which throws on every machine that has none - a dedicated server, and any machine where the
-	//! editor is torn down at match end after the controller has gone. Nothing below it applies there
-	//! either: it exists to take the local player out of observer mode.
-	//------------------------------------------------------------------------------------------------
-	override void EditorClosed()
+	//! The side config that attacks unless an admin picks another, resolved like the defending one
+	ResourceName GetDefaultAttackerConfigPath()
 	{
-		PlayerController playerController = GetGame().GetPlayerController();
-		if (!playerController)
-			return;
+		ResourceName scenarioPath = AFM_DiDScenarioSettings.GetAttackerConfig();
+		if (!scenarioPath.IsEmpty())
+			return scenarioPath;
 
-		if (!playerController.FindComponent(PS_PlayableControllerComponent))
-			return;
+		return m_sAttackerConfigPath;
+	}
 
-		super.EditorClosed();
+	//------------------------------------------------------------------------------------------------
+	//! Seconds players wait without a body at the start of the first stage, 0 for none
+	int GetSpawnWarmupSeconds()
+	{
+		return m_iSpawnWarmupSeconds;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -516,18 +526,23 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	protected void LoadSideConfigs()
 	{
 		// A scenario may name the two sides itself, which is how one game mode prefab serves every pairing
-		ResourceName defenderPath = AFM_DiDScenarioSettings.GetDefenderConfig();
-		if (defenderPath.IsEmpty())
-			defenderPath = m_sDefenderConfigPath;
-		else
+		ResourceName defenderPath = GetDefaultDefenderConfigPath();
+		if (defenderPath != m_sDefenderConfigPath)
 			PrintFormat("AFM_GameModeDiD: Defending side comes from the scenario: %1", defenderPath);
 
-		ResourceName attackerPath = AFM_DiDScenarioSettings.GetAttackerConfig();
-		if (attackerPath.IsEmpty())
-			attackerPath = m_sAttackerConfigPath;
-		else
+		ResourceName attackerPath = GetDefaultAttackerConfigPath();
+		if (attackerPath != m_sAttackerConfigPath)
 			PrintFormat("AFM_GameModeDiD: Attacking side comes from the scenario: %1", attackerPath);
 
+		SetSideConfigs(defenderPath, attackerPath);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Load the two side configs and, on the authority, state their faction keys for everyone. Runs when
+	//! the game mode initialises, and once more on the authority when an admin has picked other sides on
+	//! the setup screen.
+	protected void SetSideConfigs(ResourceName defenderPath, ResourceName attackerPath)
+	{
 		m_DefenderConfig = SCR_ConfigHelperT<AFM_DiDSideConfig>.GetConfigObject(defenderPath);
 		m_AttackerConfig = SCR_ConfigHelperT<AFM_DiDSideConfig>.GetConfigObject(attackerPath);
 
@@ -602,6 +617,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	protected void OnZoneChanged()
 	{
 		UpdateLocalGameState();
+		UpdateSpectatorAnchor();
 
 		// OnZoneChanged also fires when the same zone goes from prepare to active and when a wave is
 		// cleared. Dead players are respawned every time, but survivors are only moved when the match
@@ -623,7 +639,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		}
 
 		// The very first bodies wait for the warm-up, which hands them out itself when it ends. Anything else
-		// that changes the zone meanwhile leaves that to it, or the same spectators would get two bodies.
+		// that changes the zone meanwhile leaves that to it.
 		if (isFirstStageStart && m_iSpawnWarmupSeconds > 0 && IsMaster())
 			StartSpawnWarmup();
 		else if (!m_bSpawnWarmupActive)
@@ -731,20 +747,144 @@ class AFM_GameModeDiD: PS_GameModeCoop
 
 	
 	//------------------------------------------------------------------------------------------------
-	//! Players without a living body: dead, or holding no playable at all.
+	//! Connected players without a living body: dead, or controlling nothing at all, which is what every
+	//! player is until the first stage hands out bodies.
 	//!
-	//! A player with no playable at all counts here too, which is what every player is at the start of a
-	//! match now that the world holds no player prefabs.
-	//!
-	//! Corpses are cleared in ClearOldBody once their owner holds a new body. They no longer have to
-	//! survive until then - this list follows player ids, not playables - but the garbage collector stays
-	//! off for the game mode, because a body collected from under a player mid-stage is worse.
-	void GetSpectatorPlayerIds(notnull array<int> outPlayerIds)
+	//! A dead player keeps controlling their corpse until they are given a new body, so the corpse is
+	//! what tells them apart. It is cleared in ClearOldBody once its owner holds the new body.
+	void GetBodilessPlayerIds(notnull array<int> outPlayerIds)
 	{
 		outPlayerIds.Clear();
 
-		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
-		if (!playableManager)
+		array<int> playerIds = {};
+		GetGame().GetPlayerManager().GetPlayers(playerIds);
+
+		foreach (int playerId : playerIds)
+		{
+			if (!HasLivingBody(playerId))
+				outPlayerIds.Insert(playerId);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns true when the player controls a character that is alive
+	bool HasLivingBody(int playerId)
+	{
+		return GetLivingBody(playerId) != null;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns the living character the player controls, or null when they are dead or hold nothing.
+	//! On a client also null for a player whose body does not exist on that machine.
+	SCR_ChimeraCharacter GetLivingBody(int playerId)
+	{
+		SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(GetGame().GetPlayerManager().GetPlayerControlledEntity(playerId));
+		if (!character)
+			return null;
+
+		SCR_DamageManagerComponent damageManager = character.GetDamageManager();
+		if (!damageManager || damageManager.IsDestroyed())
+			return null;
+
+		return character;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	// Spectators
+	//
+	// A player without a living body watches through a camera of their own (AFM_DiDSpectatorComponent).
+	// That is all on their machine; what follows is what the authority does for it. A machine is only sent
+	// what is near the places replication knows its player to be, so there are two things to see to: the
+	// players worth following have to exist on the spectator's machine wherever they are, and a spectator
+	// who controls nothing has to be given a place at all.
+	//------------------------------------------------------------------------------------------------
+
+	//------------------------------------------------------------------------------------------------
+	//! Where a new spectator camera starts when its player has no corpse to rise from. Zero until the
+	//! first stage has started.
+	vector GetSpectatorAnchor()
+	{
+		return m_vSpectatorAnchor;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Server only. Put the anchor above the active stage's player spawn point, and move everyone who
+	//! controls nothing there with it.
+	protected void UpdateSpectatorAnchor()
+	{
+		if (!m_ZoneSystem)
+			return;
+
+		AFM_DiDZoneComponent zone = m_ZoneSystem.GetActiveZone();
+		if (!zone)
+			return;
+
+		// A stage without a spawn point is still watched, from above the zone itself
+		vector anchor = zone.GetOwner().GetOrigin();
+		AFM_PlayerSpawnPointEntity spawnPoint = zone.GetPlayerSpawnPoint();
+		if (spawnPoint)
+			anchor = spawnPoint.GetOrigin();
+
+		anchor[1] = anchor[1] + SPECTATOR_ANCHOR_HEIGHT_M;
+
+		// The same stage again: its attack started, or a wave was cleared
+		if (anchor == m_vSpectatorAnchor)
+			return;
+
+		m_vSpectatorAnchor = anchor;
+		Replication.BumpMe();
+
+		array<int> playerIds = {};
+		GetGame().GetPlayerManager().GetPlayers(playerIds);
+
+		foreach (int playerId : playerIds)
+		{
+			PlaceSpectatorObserver(playerId);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Server only. The player has no living body from now on: they died, the body was deleted under
+	//! them, or they have joined and wait for their first.
+	protected void OnPlayerLostBody(int playerId)
+	{
+		StreamLivingBodiesTo(playerId, true);
+
+		// Not now: a body being deleted is still there, and vanilla has yet to remove its observer
+		GetGame().GetCallqueue().CallLater(PlaceSpectatorObserver, SPECTATOR_OBSERVER_DELAY_MS, false, playerId);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Server only. The player holds a living body again, which the remaining spectators can follow.
+	protected void OnPlayerGotBody(int playerId, IEntity body)
+	{
+		// A Game Master with the editor open is sent everything by vanilla, which takes it all back by
+		// itself when the editor closes. Taking the players back here would leave holes in what they see.
+		SCR_EditorManagerEntity editorManager;
+		SCR_EditorManagerCore editorCore = SCR_EditorManagerCore.Cast(SCR_EditorManagerCore.GetInstance(SCR_EditorManagerCore));
+		if (editorCore)
+			editorManager = editorCore.GetEditorManager(playerId);
+
+		if (!editorManager || !editorManager.IsOpened())
+			StreamLivingBodiesTo(playerId, false);
+
+		array<int> bodiless = {};
+		GetBodilessPlayerIds(bodiless);
+
+		foreach (int spectatorId : bodiless)
+		{
+			if (spectatorId != playerId)
+				SetBodyStreamedTo(body, GetStreamingIdentity(spectatorId), true);
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Server only. Keep the living body of every other player on one player's machine however far away
+	//! it is, or go back to sending it by distance.
+	protected void StreamLivingBodiesTo(int spectatorId, bool keepStreamed)
+	{
+		RplIdentity identity = GetStreamingIdentity(spectatorId);
+		if (!identity.IsValid())
 			return;
 
 		array<int> playerIds = {};
@@ -752,29 +892,86 @@ class AFM_GameModeDiD: PS_GameModeCoop
 
 		foreach (int playerId : playerIds)
 		{
-			RplId playableId = playableManager.GetPlayableByPlayer(playerId);
-			if (playableId == RplId.Invalid())
-			{
-				outPlayerIds.Insert(playerId);
-				continue;
-			}
-
-			PS_PlayableContainer container = playableManager.GetPlayableById(playableId);
-			if (!container || container.GetDamageState() == EDamageState.DESTROYED)
-				outPlayerIds.Insert(playerId);
+			if (playerId != spectatorId)
+				SetBodyStreamedTo(GetLivingBody(playerId), identity, keepStreamed);
 		}
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Put a player into a playable, used for respawns and for the attacker squad
-	void SwitchPlayerToPlayable(int playerId, RplId playableId)
+	//! Server only. What vanilla's editor does for a Game Master (SCR_DynamicSimulationEditorComponent):
+	//! the body is taken out of the rules that stream it in and out for that one connection, so it is
+	//! always there. The engine's argument is "streaming enabled", hence the inversion. It only has an
+	//! effect on a server with network dynamic simulation on, which is the default.
+	//!
+	//! A body sitting in a vehicle is replicated as part of the vehicle and goes where the vehicle goes.
+	protected void SetBodyStreamedTo(IEntity body, RplIdentity identity, bool keepStreamed)
 	{
-		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
-		if (!playableManager)
+		if (!body || !identity.IsValid())
 			return;
 
-		playableManager.SetPlayerPlayable(playerId, playableId);
-		playableManager.ForceSwitch(playerId);
+		RplComponent rplComponent = RplComponent.Cast(body.FindComponent(RplComponent));
+		if (rplComponent)
+			rplComponent.EnableStreamingConNode(identity, !keepStreamed);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Returns the connection a player's streaming is set for, or an invalid one when there is nothing to
+	//! set: the player is gone, or is the host of a listen server and has the whole world already.
+	protected RplIdentity GetStreamingIdentity(int playerId)
+	{
+		PlayerController playerController = GetGame().GetPlayerManager().GetPlayerController(playerId);
+		if (!playerController)
+			return RplIdentity.Invalid();
+
+		RplIdentity identity = playerController.GetRplIdentity();
+		if (identity == RplIdentity.Local())
+			return RplIdentity.Invalid();
+
+		return identity;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Server only. Give a player who controls nothing a place in the world: the spectator anchor.
+	//!
+	//! Vanilla keeps one observer per player and has it follow the controlled body
+	//! (SCR_SpawnRequestComponent.UpdateObserverMP_S), so a player who died is still sent what goes on
+	//! around the corpse. A player who never had a body has no observer, and one whose body was deleted
+	//! loses theirs: their camera would look at a stage without attackers or vehicles in it. A fixed
+	//! observer is what vanilla itself uses to preload a spawn position for a player who is not there yet.
+	//!
+	//! Nothing has to take it away again. It is the same observer vanilla moves onto the next body the
+	//! player is given, and removes when they leave.
+	protected void PlaceSpectatorObserver(int playerId)
+	{
+		if (m_vSpectatorAnchor == vector.Zero)
+			return;
+
+		PlayerController playerController = GetGame().GetPlayerManager().GetPlayerController(playerId);
+		if (!playerController || playerController.GetControlledEntity())
+			return;
+
+		RplIdentity identity = GetStreamingIdentity(playerId);
+		if (!identity.IsValid())
+			return;
+
+		ChimeraWorld world = ChimeraWorld.CastFrom(GetGame().GetWorld());
+		if (!world)
+			return;
+
+		ObserversSystem observersSystem = ObserversSystem.Cast(world.FindSystem(ObserversSystem));
+		if (observersSystem)
+			observersSystem.InsertObserverMP(identity, m_vSpectatorAnchor[0], m_vSpectatorAnchor[2], null);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Vanilla calls this just before a body somebody controls is deleted, whoever deletes it: the end of
+	//! a COWABUNGA squad, a Game Master, the garbage collection of a corpse
+	override protected void OnPlayerDeleted(int playerId, IEntity player)
+	{
+		super.OnPlayerDeleted(playerId, player);
+
+		if (IsMaster())
+			OnPlayerLostBody(playerId);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -831,24 +1028,75 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		AFM_DiDZoneComponent zone = m_ZoneSystem.GetActiveZone();
 		if (zone)
 			zone.ApplyDefenderFactionToProps();
-
-		// Joining during the warm-up: load the first stage like everyone else, and the warm-up's end hands
-		// this player a body along with the rest
-		if (m_bSpawnWarmupActive)
-			GetGame().GetCallqueue().CallLater(MoveSpectatorToFirstStage, SPAWN_WARMUP_JOIN_MOVE_DELAY_MS, false, playerId);
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Spawn warm-up: at match start, everyone waits as a spectator over the first stage before getting a body.
+	//! Server only, called by AFM_DiDSpawnLogic once a joining player has passed the audit.
+	//!
+	//! Nobody is given a body here: those come with the stages, and a player who joins in the middle of
+	//! one waits for the next hand-out like everyone who died in it. The player is put on the defending
+	//! side straight away though, because the zones count their players by faction - someone who has
+	//! joined and is waiting for a body is a defender the ticket pool should be sized for.
+	void OnPlayerAudited(int playerId)
+	{
+		if (!SCR_FactionManager.SGetPlayerFaction(playerId))
+			SetPlayerFaction(playerId, GetDefenderFactionKey());
+
+		// Until that hand-out they watch
+		OnPlayerLostBody(playerId);
+
+		if (IsAutoStart())
+			StartMatch();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! A body that was on its way to a player who has left is not waited for any longer
+	override protected void OnPlayerDisconnected(int playerId, KickCauseCode cause, int timeout)
+	{
+		super.OnPlayerDisconnected(playerId, cause, timeout);
+
+		m_mBodyRequests.Remove(playerId);
+
+		// Whatever was kept on their machine for watching is let go of with them
+		if (IsMaster())
+			StreamLivingBodiesTo(playerId, false);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Server only. The respawn system asks this before it acts on any spawn request.
+	//!
+	//! Bodies are handed out by the game mode alone, but the request that carries one is vanilla's own and
+	//! a client can send it by itself: a free spawn names a prefab and a position and nothing else. So a
+	//! request is only let through for a player the game mode is waiting on a body for. RequestPlayerBody
+	//! puts the player on that list before it sends the request, which is how its own free spawns and the
+	//! COWABUNGA possessions pass.
+	override bool CanPlayerSpawn_S(SCR_SpawnRequestComponent requestComponent, SCR_SpawnHandlerComponent handlerComponent, SCR_SpawnData data, out SCR_ESpawnResult result = SCR_ESpawnResult.SPAWN_NOT_ALLOWED)
+	{
+		int playerId = requestComponent.GetPlayerId();
+		if (!m_mBodyRequests.Contains(playerId))
+		{
+			PrintFormat("AFM_GameModeDiD: Refused a spawn request for player %1 that the game mode did not ask for",
+				playerId, level: LogLevel.WARNING);
+
+			result = SCR_ESpawnResult.SPAWN_NOT_ALLOWED;
+			return false;
+		}
+
+		return super.CanPlayerSpawn_S(requestComponent, handlerComponent, data, result);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Spawn warm-up: at match start, everyone waits without a body before the first ones are handed out.
 	//!
 	//! Taking a body is when a client has the most to replicate at once - the stage area, its arsenals and
 	//! building menus, the character's equipment and radios - and the client crash on the first spawn
-	//! (docs/known-bugs.md, bug 1) has only ever come then, never on a later respawn. Putting the spectator
-	//! cameras over the stage first gets the area streamed in while the player is only watching, so taking
-	//! the body has far less arriving at the same time.
+	//! (docs/known-bugs.md, bug 1) has only ever come then, never on a later respawn. The wait keeps the
+	//! first bodies away from the moment the match starts, when the zone and everything in it is being
+	//! created as well.
 	//!
 	//! Only the first stage start. The first stage's prepare phase is extended by the same time, so the
-	//! wait does not cost preparation.
+	//! wait does not cost preparation. A player who joins during the warm-up gets a body when it ends,
+	//! along with the rest.
 	protected void StartSpawnWarmup()
 	{
 		m_bSpawnWarmupActive = true;
@@ -856,16 +1104,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		if (m_ZoneSystem)
 			m_ZoneSystem.ExtendPrepareStage(m_iSpawnWarmupSeconds);
 
-		array<int> playerIds = {};
-		GetGame().GetPlayerManager().GetPlayers(playerIds);
-		foreach (int playerId : playerIds)
-		{
-			MoveSpectatorToFirstStage(playerId);
-		}
-
 		ShowHint(string.Format("Loading the first stage. You get your body in %1 seconds.", m_iSpawnWarmupSeconds), 10);
-		PrintFormat("AFM_GameModeDiD: Spawn warm-up - %1 players wait %2 s over the first stage before getting bodies",
-			playerIds.Count(), m_iSpawnWarmupSeconds);
+		PrintFormat("AFM_GameModeDiD: Spawn warm-up - %1 players wait %2 s before getting bodies",
+			GetGame().GetPlayerManager().GetPlayerCount(), m_iSpawnWarmupSeconds);
 
 		GetGame().GetCallqueue().CallLater(EndSpawnWarmup, m_iSpawnWarmupSeconds * 1000, false, "time is up");
 	}
@@ -882,31 +1123,6 @@ class AFM_GameModeDiD: PS_GameModeCoop
 
 		PrintFormat("AFM_GameModeDiD: Spawn warm-up over (%1), handing out bodies", reason);
 		PopulateZone(false);
-	}
-
-	//------------------------------------------------------------------------------------------------
-	//! Put a spectator's camera over the first stage's spawn point, which is what has the area streamed to them
-	protected void MoveSpectatorToFirstStage(int playerId)
-	{
-		if (!m_ZoneSystem)
-			return;
-
-		AFM_PlayerSpawnPointEntity spawnPoint = m_ZoneSystem.GetCurrentZonePlayerSpawnPoint();
-		if (!spawnPoint)
-		{
-			PrintFormat("AFM_GameModeDiD: The first stage has no player spawn point, spectators stay where they are", level: LogLevel.WARNING);
-			return;
-		}
-
-		PlayerController playerController = GetGame().GetPlayerManager().GetPlayerController(playerId);
-		if (!playerController)
-			return;
-
-		PS_PlayableControllerComponent controllerComponent = PS_PlayableControllerComponent.Cast(playerController.FindComponent(PS_PlayableControllerComponent));
-		if (!controllerComponent)
-			return;
-
-		controllerComponent.AFM_MoveSpectatorTo(spawnPoint.GetOrigin() + Vector(0, SPAWN_WARMUP_CAMERA_HEIGHT_M, 0));
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -930,12 +1146,15 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	//!
 	//! The world holds no player prefabs at all. What the players are is content like anything else, so it
 	//! comes from the defending side's config, and a mission does not have to be re-authored to be
-	//! re-sided. Bodies are spawned and handed over the way AFM_DiDCowabungaComponent does it for the
-	//! attackers, rather than through PS_GameModeCoop.Respawn, which needs a placed playable to respawn
-	//! from.
+	//! re-sided. The bodies themselves are made and handed over by the vanilla respawn system: this only
+	//! decides who gets one, which one and where, and asks for it.
 	protected void PopulateZone(bool moveSurvivors = false)
 	{
 		if (!m_ZoneSystem)
+			return;
+
+		// A hand-out is scheduled a few seconds ahead, and the match can be over by the time it is due
+		if (GetState() != SCR_EGameModeState.GAME)
 			return;
 
 		AFM_PlayerSpawnPointEntity currentSpawnPoint = m_ZoneSystem.GetCurrentZonePlayerSpawnPoint();
@@ -944,43 +1163,35 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		if (moveSurvivors)
 			spawnIndex = MoveSurvivors(currentSpawnPoint, spawnIndex);
 
-		array<int> spectators = {};
-		GetSpectatorPlayerIds(spectators);
+		array<int> bodiless = {};
+		GetBodilessPlayerIds(bodiless);
 
-		foreach (int playerId : spectators)
+		foreach (int playerId : bodiless)
 		{
 			if (SpawnPlayerBody(playerId, GetSpawnPosition(currentSpawnPoint, spawnIndex)))
 				spawnIndex++;
 		}
 
-		if (!spectators.IsEmpty())
-			PrintFormat("AFM_GameModeDiD: Spawning bodies for %1 players at the stage's spawn point", spectators.Count());
+		if (!bodiless.IsEmpty())
+			PrintFormat("AFM_GameModeDiD: Spawning bodies for %1 players at the stage's spawn point", bodiless.Count());
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Move everyone who lived through the stage to the new spawn point
-	//! \return the next free position in the spawn ring
+	//! Move everyone who lived through the stage to the new spawn point.
+	//! Returns the next free position in the spawn ring.
 	protected int MoveSurvivors(AFM_PlayerSpawnPointEntity spawnPoint, int spawnIndex)
 	{
-		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
-		if (!playableManager)
-			return spawnIndex;
+		array<int> playerIds = {};
+		GetGame().GetPlayerManager().GetPlayers(playerIds);
 
-		array<PS_PlayableContainer> playableContainers = playableManager.GetPlayablesSorted();
-		foreach (PS_PlayableContainer container : playableContainers)
+		foreach (int playerId : playerIds)
 		{
-			if (!container || container.GetDamageState() == EDamageState.DESTROYED)
+			// Only bodies somebody is alive in: a corpse stays where it fell until its owner has a new body
+			SCR_ChimeraCharacter character = GetLivingBody(playerId);
+			if (!character)
 				continue;
 
-			PS_PlayableComponent pcomp = container.GetPlayableComponent();
-			if (!pcomp)
-				continue;
-
-			// Only bodies somebody is actually holding: the rest are corpses waiting to be cleared
-			if (playableManager.GetPlayerByPlayable(pcomp.GetRplId()) <= 0)
-				continue;
-
-			if (MoveSurvivorToSpawnPoint(pcomp, GetSpawnPosition(spawnPoint, spawnIndex)))
+			if (MoveSurvivorToSpawnPoint(character, GetSpawnPosition(spawnPoint, spawnIndex)))
 				spawnIndex++;
 		}
 
@@ -988,8 +1199,8 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Spawn one body from the defending side's config and put the player in it
-	//! \return false when nothing could be spawned
+	//! Ask for one body from the defending side's config for the player.
+	//! Returns false when nothing was asked for.
 	protected bool SpawnPlayerBody(int playerId, vector spawnPos)
 	{
 		if (!m_DefenderConfig)
@@ -1006,159 +1217,248 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			return false;
 		}
 
-		if (!EnsurePlayerGroup(spawnPos))
-			return false;
-
-		vector spawnTransform[4];
-		Math3D.MatrixIdentity4(spawnTransform);
-		spawnTransform[3] = spawnPos;
-
-		EntitySpawnParams spawnParams = new EntitySpawnParams();
-		spawnParams.TransformMode = ETransformMode.WORLD;
-		spawnParams.Transform = spawnTransform;
-
-		IEntity body = GetGame().SpawnEntityPrefab(Resource.Load(prefab), GetGame().GetWorld(), spawnParams);
-		if (!body)
+		// No spawn point to stand on: the stage has none, or it has not resolved its children yet
+		if (spawnPos == vector.Zero)
 		{
-			PrintFormat("AFM_GameModeDiD: Failed to spawn player body %1", prefab, level: LogLevel.ERROR);
+			PrintFormat("AFM_GameModeDiD: The stage has no player spawn point, player %1 waits for the next hand-out",
+				playerId, level: LogLevel.WARNING);
 			return false;
 		}
 
-		PS_PlayableComponent playable = PS_PlayableComponent.Cast(body.FindComponent(PS_PlayableComponent));
-		if (!playable)
-		{
-			PrintFormat("AFM_GameModeDiD: %1 is not playable - the side config needs the PlayableSelector _P prefabs",
-				prefab, level: LogLevel.ERROR);
-			SCR_EntityHelper.DeleteEntityAndChildren(body);
+		SCR_FreeSpawnData spawnData = new SCR_FreeSpawnData(prefab, spawnPos);
+		if (!RequestPlayerBody(playerId, spawnData, GetDefenderFactionKey()))
 			return false;
-		}
 
-		m_PlayerGroup.AddAIEntityToGroup(body);
-		playable.SetPlayable(true);
 		m_iBodiesHandedOut++;
-
-		// The corpse this player is leaving behind, cleared once they hold the new body. Their rank goes
-		// with them: a fresh body starts at whatever its prefab says.
-		IEntity oldBody = GetGame().GetPlayerManager().GetPlayerControlledEntity(playerId);
-		SCR_ECharacterRank previousRank = SCR_CharacterRankComponent.GetCharacterRank(oldBody);
-
-		GetGame().GetCallqueue().CallLater(AssignPlayerBody, ASSIGN_DELAY_MS, false, playerId, body, previousRank, 0);
 		return true;
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Every player is in one group, made the first time anyone needs a body. One group keeps the whole
-	//! team on one map marker set and in one voice room, which is what a defence of this shape wants.
-	//! \return false when the side config has no group to make
-	protected bool EnsurePlayerGroup(vector spawnPos)
+	//! Server only. Ask the vanilla respawn system to put a player into a body.
+	//!
+	//! The spawn data says which body: SCR_FreeSpawnData makes a new one from a prefab at a position,
+	//! SCR_PossessSpawnData hands over a character that already stands in the world. Either way the
+	//! request goes through the player's own SCR_RespawnComponent, the way their machine would send it, so
+	//! everything vanilla hangs on a spawn happens for these bodies too - the area is preloaded on the
+	//! client before control is passed, the editor and the group manager are told, the radio is tuned.
+	//!
+	//! The player is put on the faction of the body first, and into that faction's player group. The
+	//! order matters: a group only takes players of its own faction, and vanilla tunes the radio to the
+	//! group's frequency at the moment the body arrives.
+	//!
+	//! Returns false when nothing was asked for: no such player, a request for them already in flight, or
+	//! the respawn system turning it down on the spot. A body that is on its way ends in OnPlayerBodySpawned
+	//! or OnPlayerBodyRequestFailed.
+	bool RequestPlayerBody(int playerId, notnull SCR_SpawnData spawnData, FactionKey factionKey)
 	{
-		if (m_PlayerGroup)
-			return true;
+		if (!IsMaster())
+			return false;
 
-		// Must be an empty group: whatever the prefab spawns with would stand in the players' group all match
-		ResourceName groupPrefab = m_DefenderConfig.m_sPlayerGroup;
-		if (groupPrefab.IsEmpty())
+		// Bodies belong to the match: there are none before it starts and none once it is over, whoever asks
+		if (GetState() != SCR_EGameModeState.GAME)
+			return false;
+
+		// Asked for a moment ago and still on its way
+		if (m_mBodyRequests.Contains(playerId))
+			return false;
+
+		PlayerController playerController = GetGame().GetPlayerManager().GetPlayerController(playerId);
+		if (!playerController)
+			return false;
+
+		SCR_RespawnComponent respawnComponent = SCR_RespawnComponent.Cast(playerController.GetRespawnComponent());
+		if (!respawnComponent)
 		{
-			PrintFormat("AFM_GameModeDiD: The defending side (%1) has no player group, nobody can spawn",
-				m_DefenderConfig.GetLabel(), level: LogLevel.ERROR);
+			PrintFormat("AFM_GameModeDiD: Player %1 has no SCR_RespawnComponent on their controller, they cannot be given a body",
+				playerId, level: LogLevel.ERROR);
 			return false;
 		}
 
-		vector groupTransform[4];
-		Math3D.MatrixIdentity4(groupTransform);
-		groupTransform[3] = spawnPos;
-
-		EntitySpawnParams spawnParams = new EntitySpawnParams();
-		spawnParams.TransformMode = ETransformMode.WORLD;
-		spawnParams.Transform = groupTransform;
-
-		m_PlayerGroup = SCR_AIGroup.Cast(GetGame().SpawnEntityPrefab(Resource.Load(groupPrefab), GetGame().GetWorld(), spawnParams));
-		if (!m_PlayerGroup)
-		{
-			PrintFormat("AFM_GameModeDiD: Failed to spawn the player group %1", groupPrefab, level: LogLevel.ERROR);
+		if (!SetPlayerFaction(playerId, factionKey))
 			return false;
+
+		JoinPlayerGroup(playerId);
+
+		// What this player holds now is what they leave behind: a corpse, or nothing at all
+		m_mBodyRequests.Set(playerId, playerController.GetControlledEntity());
+
+		if (!respawnComponent.RequestSpawn(spawnData))
+		{
+			m_mBodyRequests.Remove(playerId);
+			PrintFormat("AFM_GameModeDiD: The body request for player %1 could not be sent, they wait for the next hand-out",
+				playerId, level: LogLevel.WARNING);
+			return false;
+		}
+
+		// A request the respawn system refuses is answered before RequestSpawn returns, and
+		// OnPlayerBodyRequestFailed has already taken it off the list by now
+		return m_mBodyRequests.Contains(playerId);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Server only. Put a player on a faction through vanilla's own player faction component, which is
+	//! what the faction manager, the group manager and the zones' player counts all read.
+	//!
+	//! A player's faction is always the faction of the body they were last given: the defenders' for a
+	//! normal body, the attackers' while they play in the COWABUNGA squad. Dying does not change it, and a
+	//! player who has joined and never had a body is a defender.
+	//!
+	//! Does nothing when the player is on that faction already, so nobody is told about a change of sides
+	//! that did not happen - the group manager answers one by taking the player out of their group.
+	//! Returns false when the player could not be put on the faction.
+	protected bool SetPlayerFaction(int playerId, FactionKey factionKey)
+	{
+		if (!m_FactionManager)
+			return false;
+
+		Faction faction = m_FactionManager.GetFactionByKey(factionKey);
+		if (!faction)
+		{
+			PrintFormat("AFM_GameModeDiD: The faction manager has no faction '%1', player %2 cannot be put on it",
+				factionKey, playerId, level: LogLevel.ERROR);
+			return false;
+		}
+
+		PlayerController playerController = GetGame().GetPlayerManager().GetPlayerController(playerId);
+		if (!playerController)
+			return false;
+
+		SCR_PlayerFactionAffiliationComponent factionComponent = SCR_PlayerFactionAffiliationComponent.Cast(playerController.FindComponent(SCR_PlayerFactionAffiliationComponent));
+		if (!factionComponent)
+		{
+			PrintFormat("AFM_GameModeDiD: Player %1 has no SCR_PlayerFactionAffiliationComponent on their controller, they cannot be put on a faction",
+				playerId, level: LogLevel.ERROR);
+			return false;
+		}
+
+		if (factionComponent.GetAffiliatedFaction() == faction)
+			return true;
+
+		// The authority's own setter rather than RequestFaction, which is the entry a client's request comes
+		// in by: that one turns down a faction that is closed to players, and the attackers may well be
+		if (!factionComponent.SetFaction_S(faction))
+		{
+			PrintFormat("AFM_GameModeDiD: Player %1 could not be put on faction '%2'", playerId, factionKey, level: LogLevel.WARNING);
+			return false;
+		}
+
+		PrintFormat("AFM_GameModeDiD: Player %1 is on faction '%2'", playerId, factionKey);
+		return true;
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Server only. Put the player in the one group the players of their faction share.
+	//!
+	//! One group keeps the whole team on one set of map markers and one radio frequency, which is what a
+	//! defence of this shape wants. It is an ordinary playable group of SCR_GroupsManagerComponent - the
+	//! first one the faction has, made if there is none - with its size limit taken off so that the whole
+	//! server fits in.
+	//!
+	//! A player the group could not take still gets a body, so nothing in here stops the spawn.
+	protected void JoinPlayerGroup(int playerId)
+	{
+		Faction faction = SCR_FactionManager.SGetPlayerFaction(playerId);
+		if (!faction)
+			return;
+
+		SCR_GroupsManagerComponent groupsManager = SCR_GroupsManagerComponent.GetInstance();
+		SCR_PlayerControllerGroupComponent groupComponent = SCR_PlayerControllerGroupComponent.GetPlayerControllerComponent(playerId);
+		if (!groupsManager || !groupComponent)
+		{
+			PrintFormat("AFM_GameModeDiD: No group manager or no group component for player %1, they stay without a group",
+				playerId, level: LogLevel.WARNING);
+			return;
+		}
+
+		SCR_AIGroup group = groupsManager.GetFirstNotFullForFaction(faction);
+		if (!group)
+			group = groupsManager.CreateNewPlayableGroup(faction);
+
+		if (!group)
+		{
+			PrintFormat("AFM_GameModeDiD: No player group could be made for faction '%1', player %2 stays without a group",
+				faction.GetFactionKey(), playerId, level: LogLevel.WARNING);
+			return;
 		}
 
 		// 0 means no limit: the whole server goes in here
-		m_PlayerGroup.SetMaxMembers(0);
+		group.SetMaxMembers(0);
 
-		PrintFormat("AFM_GameModeDiD: Player group %1 created for the %2 side",
-			groupPrefab, m_DefenderConfig.GetLabel());
-		return true;
+		if (groupComponent.GetGroupID() == group.GetGroupID())
+			return;
+
+		// Runs here and now: a request addressed to the server, sent on the server
+		groupComponent.RequestJoinGroup(group.GetGroupID());
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Hand a spawned body to its player. The playable registers a moment after it spawns, so this retries
-	//! until it has an id to switch to.
-	protected void AssignPlayerBody(int playerId, IEntity body, SCR_ECharacterRank previousRank, int attempt)
+	//! Server only, called by AFM_DiDSpawnLogic when the respawn system has put a player into a body.
+	//!
+	//! This is the end of vanilla's own spawn sequence: the body exists, the player controls it and
+	//! vanilla's listeners have had their turn. What is left is what vanilla does for a body that came
+	//! from a loadout and not for one that came from a side config.
+	void OnPlayerBodySpawned(int playerId, IEntity body)
 	{
-		if (!body)
-			return;
+		// However the body came about, its player stops watching and can be watched
+		OnPlayerGotBody(playerId, body);
 
-		PS_PlayableComponent playable = PS_PlayableComponent.Cast(body.FindComponent(PS_PlayableComponent));
-		if (!playable)
-			return;
-
-		RplId playableId = playable.GetRplId();
-		if (!playableId.IsValid())
+		// Asked for just before the match ended and handed over after it. It goes the way every other body
+		// went, a moment later rather than in the frame of the hand-over.
+		if (GetState() == SCR_EGameModeState.POSTGAME)
 		{
-			if (attempt < ASSIGN_MAX_ATTEMPTS)
-				GetGame().GetCallqueue().CallLater(AssignPlayerBody, ASSIGN_DELAY_MS, false, playerId, body, previousRank, attempt + 1);
-			else
-				PrintFormat("AFM_GameModeDiD: Body for player %1 never registered as playable", playerId, level: LogLevel.ERROR);
-
+			m_mBodyRequests.Remove(playerId);
+			GetGame().GetCallqueue().CallLater(RemovePlayerBodies, RESPAWN_FINALIZE_DELAY_MS, false);
 			return;
 		}
 
-		IEntity oldBody = GetGame().GetPlayerManager().GetPlayerControlledEntity(playerId);
+		// Not asked for here, e.g. a Game Master taking over a character
+		IEntity oldBody;
+		if (!m_mBodyRequests.Find(playerId, oldBody))
+			return;
 
-		SwitchPlayerToPlayable(playerId, playableId);
+		m_mBodyRequests.Remove(playerId);
 
-		GetGame().GetCallqueue().CallLater(RestorePlayerRank, RANK_RESTORE_FIRST_DELAY_MS, false, playerId, previousRank);
-		GetGame().GetCallqueue().CallLater(ApplySavedLoadout, RANK_RESTORE_FIRST_DELAY_MS, false, playerId, 0);
+		// The attacker squad has no rank or loadout to carry over, and it keeps the corpses of the
+		// defenders it was made from: it arms itself from the fallen
+		Faction faction = SCR_FactionManager.SGetPlayerFaction(playerId);
+		if (!faction || faction.GetFactionKey() != GetDefenderFactionKey())
+			return;
+
+		// Their rank goes with them: a fresh body starts at whatever its prefab says
+		SCR_ECharacterRank previousRank = SCR_CharacterRankComponent.GetCharacterRank(oldBody);
+
+		RestorePlayerRank(playerId, body, previousRank);
+		ApplySavedLoadout(playerId, 0);
 		GetGame().GetCallqueue().CallLater(ClearOldBody, RESPAWN_FINALIZE_DELAY_MS, false, playerId, oldBody, previousRank);
-		GetGame().GetCallqueue().CallLater(EnsurePlayerFaction, RESPAWN_FINALIZE_DELAY_MS, false, playerId);
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Make sure the player counts as a defender, without setting the faction when it is already right.
-	//!
-	//! PS_PlayableManager.ApplyPlayable derives the player's faction from the body it puts them in, which
-	//! is this config's prefab, so normally there is nothing to do here. Setting it eagerly instead - before
-	//! the player held the body - sent SCR_GroupsManagerComponent.OnPlayerFactionChanged through a group
-	//! they had not joined yet and threw inside SCR_MapMarkerEntrySquadLeader. This only steps in if PS did
-	//! not get there, because a player whose faction is unset is invisible to the zone's defender count.
-	protected void EnsurePlayerFaction(int playerId)
+	//! Server only, called by AFM_DiDSpawnLogic when the respawn system has turned a request down.
+	//! The player stays without a body and is asked for again at the next hand-out.
+	void OnPlayerBodyRequestFailed(int playerId, SCR_ESpawnResult reason)
 	{
-		PS_PlayableManager playableManager = PS_PlayableManager.GetInstance();
-		if (!playableManager)
+		if (!m_mBodyRequests.Contains(playerId))
 			return;
 
-		FactionKey wanted = GetDefenderFactionKey();
-		if (wanted.IsEmpty())
-			return;
+		m_mBodyRequests.Remove(playerId);
 
-		FactionKey current = playableManager.GetPlayerFactionKey(playerId);
-		if (current == wanted)
-			return;
-
-		PrintFormat("AFM_GameModeDiD: Player %1 was on faction '%2', setting it to '%3'", playerId, current, wanted);
-		playableManager.SetPlayerFactionKey(playerId, wanted);
+		PrintFormat("AFM_GameModeDiD: The respawn system refused a body for player %1 (%2), they wait for the next hand-out",
+			playerId, typename.EnumToString(SCR_ESpawnResult, reason), level: LogLevel.WARNING);
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! Restore the rank once more in case the respawn overwrote it, and remove the corpse the player left.
-	//! Corpses used to have to survive for the respawn to find the player; now the player id is what is
-	//! followed, so they can go as soon as their owner is elsewhere.
+	//! Restore the rank once more in case something overwrote it since, and remove the corpse the player
+	//! left. Not done in the same breath as the hand-over: see RESPAWN_FINALIZE_DELAY_MS.
 	protected void ClearOldBody(int playerId, IEntity oldBody, SCR_ECharacterRank previousRank)
 	{
-		RestorePlayerRank(playerId, previousRank);
+		IEntity body = GetGame().GetPlayerManager().GetPlayerControlledEntity(playerId);
+		RestorePlayerRank(playerId, body, previousRank);
 
 		if (!oldBody)
 			return;
 
 		// Never the body they are holding right now
-		if (oldBody == GetGame().GetPlayerManager().GetPlayerControlledEntity(playerId))
+		if (oldBody == body)
 			return;
 
 		SCR_EntityHelper.DeleteEntityAndChildren(oldBody);
@@ -1167,14 +1467,10 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	//------------------------------------------------------------------------------------------------
 	//! Teleport a player who lived through the stage to the next zone, keeping body, loadout and rank.
 	//! Survivors are spread around the spawn point so they do not land on top of each other.
-	//! \return true when the player was moved
-	protected bool MoveSurvivorToSpawnPoint(notnull PS_PlayableComponent playableComponent, vector spawnPos)
+	//! Returns true when the player was moved.
+	protected bool MoveSurvivorToSpawnPoint(notnull SCR_ChimeraCharacter character, vector spawnPos)
 	{
 		if (spawnPos == vector.Zero)
-			return false;
-
-		SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(playableComponent.GetOwner());
-		if (!character)
 			return false;
 
 		// Riding a vehicle into the next zone would drag the vehicle's occupants apart from it
@@ -1189,7 +1485,7 @@ class AFM_GameModeDiD: PS_GameModeCoop
 		character.Teleport(transform);
 
 		// Surviving a stage should not mean starting the next one wounded or unconscious
-		SCR_CharacterDamageManagerComponent damageManager = playableComponent.GetCharacterDamageManagerComponent();
+		SCR_CharacterDamageManagerComponent damageManager = SCR_CharacterDamageManagerComponent.Cast(character.GetDamageManager());
 		if (damageManager)
 			damageManager.FullHeal();
 
@@ -1222,21 +1518,21 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	//------------------------------------------------------------------------------------------------
 	//! Re-equip whatever the player last saved at an arsenal.
 	//!
-	//! Vanilla applies saved loadouts through SCR_LoadoutManager, which calls OnLoadoutSpawned on the
-	//! chosen SCR_BasePlayerLoadout. The PS framework spawns a prefab directly and never goes near that
-	//! pipeline, so nothing applies the save. Calling the arsenal loadout's own applier is enough: it
-	//! reads the stored string from SCR_ArsenalManagerComponent itself.
+	//! Vanilla applies a saved loadout when a body spawns by calling OnLoadoutSpawned on the loadout the
+	//! player picked in SCR_PlayerLoadoutComponent. Nobody picks a loadout here - the body is whatever the
+	//! side config says is next - so nothing applies the save. Calling the arsenal loadout's own applier
+	//! is enough: it reads the stored string from SCR_ArsenalManagerComponent itself.
 	//!
 	//! The applier compares the save's faction with the body's FactionAffiliationComponent and throws if
 	//! that component has no faction yet, before a single item is applied. A body that has just been
-	//! switched to can still be without one, so this waits for it the way AssignPlayerBody waits for the
-	//! playable id.
+	//! handed over can still be without one, so this tries again until it has.
 	protected void ApplySavedLoadout(int playerId, int attempt)
 	{
 		if (!m_bApplySavedLoadouts)
 			return;
 
-		SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(GetGame().GetPlayerManager().GetPlayerControlledEntity(playerId));
+		// The living body only: until the hand-over has gone through, what the player controls is the corpse
+		SCR_ChimeraCharacter character = GetLivingBody(playerId);
 
 		Faction faction;
 		if (character)
@@ -1286,10 +1582,9 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	}
 
 	//------------------------------------------------------------------------------------------------
-	//! A respawned character starts at the rank of its prefab: the PS framework spawns it directly and
-	//! skips the vanilla spawn flow that applies the rank matching the player's XP. Carry the rank of the
-	//! previous body over, then let the XP handler raise it further if it can.
-	protected void RestorePlayerRank(int playerId, SCR_ECharacterRank previousRank)
+	//! A respawned character starts at the rank of its prefab. Carry the rank of the previous body over,
+	//! then let the XP handler have its say, as vanilla does for every body that spawns.
+	protected void RestorePlayerRank(int playerId, IEntity character, SCR_ECharacterRank previousRank)
 	{
 		PlayerController playerController = GetGame().GetPlayerManager().GetPlayerController(playerId);
 		if (!playerController)
@@ -1298,7 +1593,6 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			return;
 		}
 
-		IEntity character = playerController.GetControlledEntity();
 		if (!character)
 		{
 			PrintFormat("AFM_GameModeDiD: Player %1 controls no entity, rank not restored", playerId, level: LogLevel.WARNING);
@@ -1376,10 +1670,14 @@ class AFM_GameModeDiD: PS_GameModeCoop
 	//------------------------------------------------------------------------------------------------
 	//! Server side. Ends the match with winningFactionKey's victory.
 	//!
-	//! Through PS's state machine rather than EndGameMode. PS runs a mission as a sequence of its own
-	//! states and shows its debriefing screen on the way out; EndGameMode belongs to vanilla's own flow
-	//! and opened vanilla's game-over screen while leaving PS sitting in GAME, which is why the
-	//! debriefing used to appear only once an admin typed /adv.
+	//! Vanilla's own ending: the game mode goes to POSTGAME and every machine shows the game-over screen,
+	//! which is the debrief. The reason is one of the two this mode adds to EGameOverTypes, and the screen
+	//! shows what Configs/GameOverScreen/BaseGameOverScreensConfig.conf says for it: who won, and the match
+	//! report. A player who joins after the end gets the same screen, because the state and the reason
+	//! are replicated.
+	//!
+	//! The results go out first, so the table is on its way to a client before its state changes. The
+	//! players' bodies go last, a few seconds on: see RemovePlayerBodies.
 	//------------------------------------------------------------------------------------------------
 	protected void GameEnd(FactionKey winningFactionKey)
 	{
@@ -1402,8 +1700,58 @@ class AFM_GameModeDiD: PS_GameModeCoop
 			return;
 		}
 
-		// GAME -> DEBRIEFING, and PS opens that menu on every machine as it goes
-		AdvanceGameState(SCR_EGameModeState.NULL);
+		// -1 names no winning faction
+		int winningFactionIndex = -1;
+		if (m_FactionManager)
+		{
+			Faction winningFaction = m_FactionManager.GetFactionByKey(winningFactionKey);
+			if (winningFaction)
+				winningFactionIndex = m_FactionManager.GetFactionIndex(winningFaction);
+		}
+
+		EGameOverTypes reason = EGameOverTypes.AFM_DID_ATTACKERS_WIN;
+		if (winningFactionKey == GetDefenderFactionKey())
+			reason = EGameOverTypes.AFM_DID_DEFENDERS_WIN;
+
+		EndGameMode(SCR_GameModeEndData.CreateSimple(reason, -1, winningFactionIndex));
+
+		GetGame().GetCallqueue().CallLater(RemovePlayerBodies, DEBRIEF_BODY_REMOVAL_DELAY_MS, false);
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Server only. Takes every player out of their body once the match is over, so that everyone is in
+	//! the same situation for the debrief: no body, the spectator camera behind the game-over screen, and
+	//! the one voice channel that players without a living body share.
+	//!
+	//! A body is deleted the way the COWABUNGA squad's are, which is also how vanilla removes the body of
+	//! a player who leaves - wherever it is: on foot, unconscious or sitting in a vehicle. Vanilla reports
+	//! each one through OnPlayerDeleted, which sees to what its player is sent from then on. A dead player
+	//! keeps the corpse they control, as they do during the match.
+	//!
+	//! Nobody is given a body after the match (RequestPlayerBody), so a player who joins later is in the
+	//! same situation without anything being done for them. Does nothing while the match runs, and can be
+	//! called again: it only ever finds the bodies that are still there.
+	protected void RemovePlayerBodies()
+	{
+		if (!IsMaster() || GetState() != SCR_EGameModeState.POSTGAME)
+			return;
+
+		array<int> playerIds = {};
+		GetGame().GetPlayerManager().GetPlayers(playerIds);
+
+		int removed = 0;
+		foreach (int playerId : playerIds)
+		{
+			SCR_ChimeraCharacter body = GetLivingBody(playerId);
+			if (!body)
+				continue;
+
+			SCR_EntityHelper.DeleteEntityAndChildren(body);
+			removed++;
+		}
+
+		if (removed > 0)
+			PrintFormat("AFM_GameModeDiD: The match is over, %1 players were taken out of their bodies for the debrief", removed);
 	}
 
 	//------------------------------------------------------------------------------------------------
