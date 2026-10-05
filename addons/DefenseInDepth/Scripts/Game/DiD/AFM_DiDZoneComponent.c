@@ -123,7 +123,10 @@ class AFM_DiDZoneComponent: ScriptComponent
 	// Child entities are not all present at OnPostInit, so resolving them is delayed
 	protected static const int LATE_INIT_DELAY_MS = 5000;
 	protected bool m_bInitialized;
-	
+
+	// The children are known, but who is fighting and for how long has not been read yet
+	protected bool m_bChildrenResolved;
+
 	
 	override void OnPostInit(IEntity owner)
 	{
@@ -189,7 +192,36 @@ class AFM_DiDZoneComponent: ScriptComponent
 			PrintFormat("AFM_DiDZoneComponent %1: Missing player spawnpoint, zone wont work properly!", m_sZoneName, level:LogLevel.ERROR);
 		if (m_aSpawners.Count() == 0)
 			PrintFormat("AFM_DiDZoneComponent %1: No spawner components found, AI will not spawn!", m_sZoneName, level:LogLevel.WARNING);
-		
+
+		m_bChildrenResolved = true;
+
+		// While the match waits in the pre-game an admin can still change the sides and the timings on the
+		// setup screen, so nothing that depends on them is read yet. PrepareForMatch does it once the match
+		// starts. A match that is already running has them settled.
+		SCR_BaseGameMode baseGameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+		if (baseGameMode && baseGameMode.GetState() == SCR_EGameModeState.PREGAME)
+			return;
+
+		ResolveMatchSetup();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Called by the zone system as the match starts, which is when the sides and the timings are final.
+	//! A zone whose children are not resolved yet does this itself at the end of LateInit.
+	void PrepareForMatch()
+	{
+		if (!m_bChildrenResolved || m_bInitialized)
+			return;
+
+		ResolveMatchSetup();
+	}
+
+	//------------------------------------------------------------------------------------------------
+	//! Everything the zone takes from the two sides and from the scenario's settings: its factions, what
+	//! its spawners send and its timings. Done once per zone, and never before the match has started,
+	//! because the spawners keep what they read here.
+	protected void ResolveMatchSetup()
+	{
 		// Resolved before the spawners are prepared: that is where they read their faction content from
 		AFM_GameModeDiD gamemode = AFM_GameModeDiD.Cast(GetGame().GetGameMode());
 		if (!gamemode)

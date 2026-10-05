@@ -196,11 +196,11 @@ class AFM_DiDExtractionComponent: AFM_DiDAirSpawnerComponent
 			return;
 		}
 
-		PS_ManualMarker manualMarker = PS_ManualMarker.Cast(marker);
-		if (manualMarker)
-			manualMarker.AFM_SetDescription(name);
+		AFM_MapMarkerEntity mapMarker = AFM_MapMarkerEntity.Cast(marker);
+		if (mapMarker)
+			mapMarker.SetText(name);
 		else
-			PrintFormat("AFM_DiDExtractionComponent: Landing zone marker is not a PS_ManualMarker, it will have no name", level: LogLevel.WARNING);
+			PrintFormat("AFM_DiDExtractionComponent: Landing zone marker is not an AFM_MapMarkerEntity, it will have no name", level: LogLevel.WARNING);
 
 		m_aMarkers.Insert(marker);
 	}

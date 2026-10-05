@@ -4,7 +4,9 @@
         "scenarioId": "{336531B51C9762C1}Missions/DiD_Lamentin_Tuned.conf",
         "gameProperties": {
             "missionHeader": {
-                "_comment_sides": "Which side config each side plays. Omit both to keep what the game mode prefab names.",
+                "_comment_autostart": "Without this the match waits on the setup screen until an admin presses Start. Set it to true on a server nobody attends: the match then starts by itself when the first player has joined, with the sides and timings below.",
+                "m_bAFM_DiDAutoStart": false,
+                "_comment_sides":"Which side config each side plays. Omit both to keep what the game mode prefab names.",
                 "m_sAFM_DiDDefenderConfig": "{2FF4CFE9D80F6F76}Configs/Factions/DiD_Side_US.conf",
                 "m_sAFM_DiDAttackerConfig": "{CB5CAE38E68AEBE5}Configs/Factions/DiD_Side_USSR.conf",
                 "m_AFM_DiDDefaultPhase": {

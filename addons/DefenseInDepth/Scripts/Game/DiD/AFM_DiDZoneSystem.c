@@ -109,21 +109,33 @@ class AFM_DiDZoneSystem: GameSystem
 		Enable(true);
 		
 		PrintFormat("AFM_DiDZoneSystem: Started zone system with %1 zones", m_aZones.Count());
-		
+
+		// The sides and the timings are final from here on, so the zones can read them. Zones hold this
+		// back while the match waits in the pre-game, where an admin may still be changing them.
+		foreach (int zoneIndex, AFM_DiDZoneComponent zone : m_aZones)
+		{
+			zone.PrepareForMatch();
+		}
+
 		// Activate first zone in prepare phase. Zones register themselves as they initialise, so the
-		// first one may not be there yet; ProcessZone picks it up as soon as it registers.
+		// first one may not be there yet; ProcessZone picks it up as soon as it is.
 		if (!ActivateStartingZone())
-			PrintFormat("AFM_DiDZoneSystem: Zone %1 has not registered yet (%2 known), waiting for it",
+			PrintFormat("AFM_DiDZoneSystem: Zone %1 is not ready yet (%2 known), waiting for it",
 				m_iStartingZoneIndex, m_aZones.Count(), level: LogLevel.WARNING);
 	}
-	
+
 	//------------------------------------------------------------------------------------------------
-	//! Return false when the starting zone has not registered itself yet
+	//! Return false when the starting zone has not registered itself or has not initialised yet
 	protected bool ActivateStartingZone()
 	{
 		if (!m_aZones.Contains(m_iStartingZoneIndex))
 			return false;
-		
+
+		// A zone reads its timings while it initialises. Activated before that, it would start its prepare
+		// phase on the times authored in the world, whatever the scenario or the admin asked for.
+		if (!m_aZones[m_iStartingZoneIndex].IsInitialized())
+			return false;
+
 		m_ActiveZone = m_aZones[m_iStartingZoneIndex];
 		m_ActiveZone.ActivateZone();
 		ScheduleZoneFunding(0);

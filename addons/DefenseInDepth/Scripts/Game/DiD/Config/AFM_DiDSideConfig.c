@@ -68,10 +68,7 @@ class AFM_DiDSideConfig
 	// Defending
 	//------------------------------------------------------------------------------------------------
 
-	[Attribute("", UIWidgets.ResourceNamePicker, desc: "The one group every player joins. Must be an empty base group of this faction - a group with authored unit slots would bring AI members along", params: "et", category: "Players")]
-	ResourceName m_sPlayerGroup;
-
-	[Attribute("", UIWidgets.ResourceAssignArray, desc: "Player bodies, handed out in order as players need one and repeated once the list runs out. Must be PlayableSelector prefabs, the _P variants", params: "et", category: "Players")]
+	[Attribute("", UIWidgets.ResourceAssignArray, desc: "Player bodies, handed out in order as players need one and repeated once the list runs out. Any character prefab of this side's faction will do", params: "et", category: "Players")]
 	ref array<ResourceName> m_aPlayerCharacters;
 
 	[Attribute("", UIWidgets.ResourceNamePicker, desc: "Helicopter that comes for the players. Must be supported by REAPER_AiHelicopters", params: "et", category: "Extraction")]

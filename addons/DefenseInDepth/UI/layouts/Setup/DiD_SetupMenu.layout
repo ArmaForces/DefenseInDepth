@@ -1,0 +1,454 @@
+FrameWidgetClass {
+ Name "DiDSetupMenu"
+ {
+  ImageWidgetClass "{5C18386DE7BAC818}" {
+   Name "Backdrop"
+   Slot FrameWidgetSlot "{D4AC8016C51FC6EE}" {
+    Anchor 0 0 1 1
+    PositionX 0
+    OffsetLeft 0
+    PositionY 0
+    OffsetTop 0
+    SizeX 0
+    OffsetRight 0
+    SizeY 0
+    OffsetBottom 0
+   }
+   Color 0.007 0.012 0.014 0.97
+  }
+  SizeLayoutWidgetClass "{A97CDDE5ABC43B49}" {
+   Name "Panel"
+   Slot FrameWidgetSlot "{249D45F319C19F5F}" {
+    Anchor 0.5 0.5 0.5 0.5
+    PositionX 150
+    OffsetLeft 150
+    PositionY 0
+    OffsetTop 0
+    SizeX 1000
+    OffsetRight -1150
+    SizeY 800
+    OffsetBottom -800
+    Alignment 0.5 0.5
+   }
+   {
+    OverlayWidgetClass "{A199FFE99D2F0F01}" {
+     Name "PanelOverlay"
+     Slot AlignableSlot "{6E277A10FF543D7B}" {
+      HorizontalAlign 3
+      VerticalAlign 3
+     }
+     {
+      ImageWidgetClass "{FE545DAD7956787F}" {
+       Name "PanelBackground"
+       Slot OverlayWidgetSlot "{2A85F4A9E7EEEF7E}" {
+        HorizontalAlign 3
+        VerticalAlign 3
+       }
+       Color 0.05 0.06 0.065 0.9
+      }
+      VerticalLayoutWidgetClass "{3AD4C7D83926F275}" {
+       Name "Content"
+       Slot OverlayWidgetSlot "{ECFBE16C4DFE2076}" {
+        HorizontalAlign 3
+        VerticalAlign 3
+        Padding 48 36 48 36
+       }
+       {
+        TextWidgetClass "{732C8555DCD6C94F}" {
+         Name "Title"
+         Slot LayoutSlot "{9339026CEA99B976}" {
+         }
+         Text "Defense In Depth"
+         "Font Size" 40
+         "Min Font Size" 28
+         FontProperties FontProperties "{01BB22307616E81A}" {
+          Font "{CD2634D279AB011A}UI/Fonts/Roboto/Roboto_Bold.fnt"
+         }
+        }
+        TextWidgetClass "{FDFD406563790CEA}" {
+         Name "Subtitle"
+         Slot LayoutSlot "{CD926D791C2282C5}" {
+          Padding 0 0 0 20
+         }
+         Color 0.761 0.392 0.078 1
+         Text "Scenario setup"
+         "Font Size" 22
+         "Min Font Size" 22
+         FontProperties FontProperties "{80DF61B495B47F4F}" {
+          Font "{CD2634D279AB011A}UI/Fonts/Roboto/Roboto_Bold.fnt"
+         }
+        }
+        ButtonWidgetClass "{9D3D9D1A86E6910F}" : "{C9DF0E6590F6C388}UI/layouts/WidgetLibrary/SpinBox/WLib_SpinBox.layout" {
+         Name "DefenderSide"
+         Slot LayoutSlot "{3967195B7E14F280}" {
+          Padding 4 4 4 4
+         }
+         components {
+          SCR_SpinBoxComponent "{5472C6CBC0640458}" {
+           m_sLabel "Defending side"
+           m_bUseLightArrows 1
+           m_bShowHints 0
+          }
+         }
+        }
+        ButtonWidgetClass "{CF10C193D1DC14C3}" : "{C9DF0E6590F6C388}UI/layouts/WidgetLibrary/SpinBox/WLib_SpinBox.layout" {
+         Name "AttackerSide"
+         Slot LayoutSlot "{7078B1A1B52C0C62}" {
+          Padding 4 4 4 20
+         }
+         components {
+          SCR_SpinBoxComponent "{5472C6CBC0640458}" {
+           m_sLabel "Attacking side"
+           m_bUseLightArrows 1
+           m_bShowHints 0
+          }
+         }
+        }
+        ButtonWidgetClass "{3B0F5B73A11AB664}" : "{C9DF0E6590F6C388}UI/layouts/WidgetLibrary/SpinBox/WLib_SpinBox.layout" {
+         Name "PrepareTime"
+         Slot LayoutSlot "{81824601134B0DF6}" {
+          Padding 4 4 4 4
+         }
+         components {
+          SCR_SpinBoxComponent "{5472C6CBC0640458}" {
+           m_sLabel "Time to prepare before an attack"
+           m_bUseLightArrows 1
+           m_bShowHints 0
+          }
+         }
+        }
+        ButtonWidgetClass "{6D8405A088ABCEF9}" : "{C9DF0E6590F6C388}UI/layouts/WidgetLibrary/SpinBox/WLib_SpinBox.layout" {
+         Name "DefenseTime"
+         Slot LayoutSlot "{E563AEF6C4ECF5BF}" {
+          Padding 4 4 4 4
+         }
+         components {
+          SCR_SpinBoxComponent "{5472C6CBC0640458}" {
+           m_sLabel "Time a zone must be held"
+           m_bUseLightArrows 1
+           m_bShowHints 0
+          }
+         }
+        }
+        ButtonWidgetClass "{2DC4CB142C4677A9}" : "{C9DF0E6590F6C388}UI/layouts/WidgetLibrary/SpinBox/WLib_SpinBox.layout" {
+         Name "FailureTime"
+         Slot LayoutSlot "{8F92D6B8DA715556}" {
+          Padding 4 4 4 4
+         }
+         components {
+          SCR_SpinBoxComponent "{5472C6CBC0640458}" {
+           m_sLabel "Contested time before a zone is lost"
+           m_bUseLightArrows 1
+           m_bShowHints 0
+          }
+         }
+        }
+        ButtonWidgetClass "{A08A24294E8EDCE4}" : "{C9DF0E6590F6C388}UI/layouts/WidgetLibrary/SpinBox/WLib_SpinBox.layout" {
+         Name "SpawnWarmup"
+         Slot LayoutSlot "{AE59BC4766F9A10A}" {
+          Padding 4 4 4 4
+         }
+         components {
+          SCR_SpinBoxComponent "{5472C6CBC0640458}" {
+           m_sLabel "Wait before the first bodies"
+           m_bUseLightArrows 1
+           m_bShowHints 0
+          }
+         }
+        }
+        TextWidgetClass "{1CB577F99EF344EA}" {
+         Name "TimesNote"
+         Slot LayoutSlot "{87D52DA2D40E12C5}" {
+          Padding 4 8 4 0
+         }
+         Color 0.6 0.6 0.6 1
+         Text "The times apply to every zone, except where the scenario gives a zone its own."
+         "Font Size" 16
+         "Min Font Size" 16
+         Wrap 1
+        }
+        FrameWidgetClass "{74D56586B9FC952E}" {
+         Name "ContentFill"
+         Slot LayoutSlot "{220089F51050C9DC}" {
+          SizeMode Fill
+         }
+        }
+        TextWidgetClass "{7F4C14D99434517D}" {
+         Name "Players"
+         Slot LayoutSlot "{3BE65F9E805D532A}" {
+          Padding 4 0 4 4
+         }
+         Color 0.6 0.6 0.6 1
+         Text "0 players connected"
+         "Font Size" 18
+         "Min Font Size" 18
+        }
+        TextWidgetClass "{12C31D5320849D34}" {
+         Name "Status"
+         Slot LayoutSlot "{25725266A4D53BB6}" {
+          Padding 4 0 4 20
+         }
+         Text "Waiting for an admin or Game Master to start the match"
+         "Font Size" 22
+         "Min Font Size" 22
+         FontProperties FontProperties "{5D90C922A18EACC3}" {
+          Font "{CD2634D279AB011A}UI/Fonts/Roboto/Roboto_Bold.fnt"
+         }
+        }
+        TextWidgetClass "{3E7A5C21B90D4F68}" {
+         Name "VoteStatus"
+         Slot LayoutSlot "{91B4D06E2C7A8F35}" {
+          Padding 4 0 4 12
+         }
+         Visible 0
+         Color 0.761 0.392 0.078 1
+         Text ""
+         "Font Size" 18
+         "Min Font Size" 18
+         Wrap 1
+        }
+        HorizontalLayoutWidgetClass "{B7D2093C5E1A6F84}" {
+         Name "VoteButtons"
+         Slot LayoutSlot "{4C8E1F72A06D93B5}" {
+          Padding 4 0 4 12
+         }
+         {
+          SizeLayoutWidgetClass "{6B1E92D4F03A57C8}" {
+           Name "VolunteerButtonSize"
+           Slot LayoutSlot "{D20F4A8B6E19C375}" {
+            VerticalAlign 1
+            Padding 0 0 12 0
+           }
+           Visible 0
+           AllowWidthOverride 1
+           WidthOverride 200
+           AllowHeightOverride 1
+           HeightOverride 52
+           {
+            ButtonWidgetClass "{48E7B3A1C9D05F2E}" : "{75C912A1C89BE6C2}UI/layouts/WidgetLibrary/Buttons/WLib_ButtonText.layout" {
+             Name "VolunteerButton"
+             Slot AlignableSlot "{F5920C6D1A83E4B7}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+             }
+             components {
+              SCR_ButtonTextComponent "{5548F0143AE99095}" {
+               m_bMouseOverToFocus 1
+               m_sText "VOLUNTEER AS GM"
+              }
+             }
+            }
+           }
+          }
+          SizeLayoutWidgetClass "{9A4C07E1B3D8F562}" {
+           Name "VoteYesButtonSize"
+           Slot LayoutSlot "{1F8E5B20C7A4D693}" {
+            VerticalAlign 1
+            Padding 0 0 12 0
+           }
+           Visible 0
+           AllowWidthOverride 1
+           WidthOverride 200
+           AllowHeightOverride 1
+           HeightOverride 52
+           {
+            ButtonWidgetClass "{C6A2918E4B0F7D35}" : "{75C912A1C89BE6C2}UI/layouts/WidgetLibrary/Buttons/WLib_ButtonText.layout" {
+             Name "VoteYesButton"
+             Slot AlignableSlot "{73B0E4D9A1C5826F}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+             }
+             components {
+              SCR_ButtonTextComponent "{5548F0143AE99095}" {
+               m_bMouseOverToFocus 1
+               m_sText "VOTE YES"
+              }
+             }
+            }
+           }
+          }
+          SizeLayoutWidgetClass "{27D5F81A9C0E4B63}" {
+           Name "VoteNoButtonSize"
+           Slot LayoutSlot "{B80C3E6F5A2D1974}" {
+            VerticalAlign 1
+            Padding 0 0 12 0
+           }
+           Visible 0
+           AllowWidthOverride 1
+           WidthOverride 200
+           AllowHeightOverride 1
+           HeightOverride 52
+           {
+            ButtonWidgetClass "{5D3F7A09E2B1C486}" : "{75C912A1C89BE6C2}UI/layouts/WidgetLibrary/Buttons/WLib_ButtonText.layout" {
+             Name "VoteNoButton"
+             Slot AlignableSlot "{A19E6C4D0F7B3258}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+             }
+             components {
+              SCR_ButtonTextComponent "{5548F0143AE99095}" {
+               m_bMouseOverToFocus 1
+               m_sText "VOTE NO"
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        HorizontalLayoutWidgetClass "{31508417EBB7AFD4}" {
+         Name "Navigation"
+         Slot LayoutSlot "{1CD05889B443226E}" {
+         }
+         {
+          ButtonWidgetClass "{51DAF8C34A0AD31E}" : "{08CF3B69CB1ACBC4}UI/layouts/WidgetLibrary/Buttons/WLib_NavigationButton.layout" {
+           Name "PauseButton"
+           Slot LayoutSlot "{85C2F81D798019A5}" {
+            HorizontalAlign 1
+            VerticalAlign 1
+            Padding 0 0 20 0
+           }
+           components {
+            SCR_InputButtonComponent "{5D346C3DD81D95CD}" {
+             m_sSoundClicked ""
+             m_sActionName "MenuOpen"
+             m_sLabel "#AR-DeployMenu_PauseButton"
+            }
+           }
+          }
+          ButtonWidgetClass "{0943391EAE79E05B}" : "{08CF3B69CB1ACBC4}UI/layouts/WidgetLibrary/Buttons/WLib_NavigationButton.layout" {
+           Name "ChatButton"
+           Slot LayoutSlot "{456CD247DD9FF4D8}" {
+            HorizontalAlign 1
+            VerticalAlign 1
+            Padding 0 0 20 0
+           }
+           components {
+            SCR_InputButtonComponent "{5D346C3DD81D95CD}" {
+             m_sActionName "ChatToggle"
+             m_sLabel "#AR-Keybind_ChatOpen"
+            }
+           }
+          }
+          FrameWidgetClass "{7A98370136D5CCF3}" {
+           Name "NavigationFill"
+           Slot LayoutSlot "{9F293267D7C6DD5C}" {
+            SizeMode Fill
+           }
+          }
+          SizeLayoutWidgetClass "{5A5FA1FA54534F5B}" {
+           Name "StartButtonSize"
+           Slot LayoutSlot "{0C77D6B308908CF5}" {
+            VerticalAlign 1
+           }
+           AllowWidthOverride 1
+           WidthOverride 280
+           AllowHeightOverride 1
+           HeightOverride 52
+           {
+            ButtonWidgetClass "{F8A57E2FB82A2BFC}" : "{75C912A1C89BE6C2}UI/layouts/WidgetLibrary/Buttons/WLib_ButtonText.layout" {
+             Name "StartButton"
+             Slot AlignableSlot "{E8B518DBCB4502A2}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+             }
+             components {
+              SCR_ButtonTextComponent "{5548F0143AE99095}" {
+               m_bMouseOverToFocus 1
+               m_sText "START MATCH"
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+  FrameWidgetClass "{224535440B68F2FD}" {
+   Name "HudManagerLayout"
+   Slot FrameWidgetSlot "{42474AE8E223D801}" {
+    Anchor 0 0 1 1
+    PositionX 0
+    OffsetLeft 0
+    PositionY 0
+    OffsetTop 0
+    SizeX 0
+    OffsetRight 0
+    SizeY 0
+    OffsetBottom 0
+   }
+   components {
+    SCR_HUDMenuComponent "{4CCC865771DDDE75}" {
+     m_sIdentifier "AFM_DiDSetupMenu"
+    }
+   }
+   {
+    FrameWidgetClass "{C7DAF471BB739CFB}" {
+     Name "Layer_Slots"
+     Slot FrameWidgetSlot "{624769890D430743}" {
+      Anchor 0 0 1 1
+      PositionX 0
+      OffsetLeft 0
+      PositionY 0
+      OffsetTop 0
+      SizeX 0
+      OffsetRight 0
+      SizeY 0
+      OffsetBottom 0
+     }
+     {
+      VerticalLayoutWidgetClass "{8DAD8241E5437603}" {
+       Name "Group_Left"
+       Slot FrameWidgetSlot "{B12CB945CB8886E9}" {
+        Anchor 0 0 1 1
+        PositionX 0
+        OffsetLeft 0
+        PositionY 0
+        OffsetTop 0
+        SizeX -1320
+        OffsetRight 1320
+        SizeY 0
+        OffsetBottom 0
+       }
+       Clipping False
+       components {
+        SCR_HUDGroupUIComponent "{29B88406DC0A86E6}" {
+         m_bEnableDebugFont 0
+        }
+       }
+       {
+        FrameWidgetClass "{60B5C1E27A4D93F8}" {
+         Name "Slot_Chat"
+         Slot LayoutSlot "{9C2E47D05B81A36F}" {
+         }
+         components {
+          SCR_HUDSlotUIComponent "{D71F0A8E3C5694B2}" {
+           m_iPriority 1
+           m_aHeightSteps {
+            100 200 300
+           }
+           m_aWidthSteps {
+            600
+           }
+          }
+         }
+        }
+        FrameWidgetClass "{4E8A61C9F3027D5B}" {
+         Name "Filler"
+         Slot LayoutSlot "{B3D9057E1A6C48F2}" {
+          SizeMode Fill
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

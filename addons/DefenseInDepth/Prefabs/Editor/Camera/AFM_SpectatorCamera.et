@@ -1,0 +1,42 @@
+SCR_ManualCamera : "{D6DE32D1C0FCC1C7}Prefabs/Editor/Camera/ManualCameraBase.et" {
+ ID "AF6E5F7BBD946B24"
+ components {
+  SCR_HintConditionComponent "{56469C6250F68B35}" {
+   Enabled 0
+  }
+ }
+ m_aComponents {
+  AFM_DiDSpectatorManualCameraComponent "{C07E2452EFE824ED}" {
+   m_iPriority 40
+   m_sLayout "{14EAE18AB9985CCB}UI/layouts/HUD/DiD_SpectatorHUD.layout"
+  }
+  SCR_SettingsManualCameraComponent "{52CC693B212FF1EA}" {
+   m_Flags 3
+  }
+  SCR_SaveManualCameraComponent "{56463BC09D3AEA4D}" {
+   m_bEnabled 0
+  }
+  SCR_AttachManualCameraComponent "{52CC693B212FF1E7}" {
+   m_AttachType NONE
+   m_Layout ""
+  }
+  SCR_RotateModifierManualCameraComponent "{52CC693B212FF01A}" {
+   m_bEnabled 0
+  }
+  SCR_RotateRollManualCameraComponent "{52CC693A99CF4271}" {
+   m_bEnabled 0
+  }
+  SCR_MoveToCursorManualCameraComponent "{52CC693B212FF006}" {
+   m_bEnabled 0
+  }
+  SCR_TeleportToCursorManualCameraComponent "{52CC693B212FF03E}" {
+   m_bEnabled 0
+  }
+  SCR_MapDescriptorManualCameraComponent "{5A453478C9B69293}" {
+   m_bEnabled 0
+  }
+  SCR_ViewLinkManualCameraComponent "{5886BDE1C1639764}" {
+   m_bEnabled 0
+  }
+ }
+}

@@ -1,0 +1,31 @@
+FrameWidgetClass "{7B294FAD3CF9C776}" {
+ Name "VoiceIndicator"
+ "Ignore Cursor" 1
+ {
+  TextWidgetClass "{999E5D6315126319}" {
+   Name "Text"
+   Slot FrameWidgetSlot "{8A3E72F05A25A341}" {
+    Anchor 1 1 1 1
+    PositionX -840
+    OffsetLeft -840
+    PositionY -76
+    OffsetTop -76
+    SizeX 800
+    OffsetRight 40
+    SizeY 36
+    OffsetBottom 40
+   }
+   "Ignore Cursor" 1
+   Text "Hold [T] to talk to everyone without a body"
+   "Font Size" 20
+   "Min Font Size" 20
+   "Horizontal Alignment" Right
+   "Vertical Alignment" Center
+   FontProperties FontProperties "{7E52CC5E23FA9DEC}" {
+    Font "{EABA4FE9D014CCEF}UI/Fonts/RobotoCondensed/RobotoCondensed_Bold.fnt"
+    ShadowSize 5
+    ShadowOffset 4 4
+   }
+  }
+ }
+}

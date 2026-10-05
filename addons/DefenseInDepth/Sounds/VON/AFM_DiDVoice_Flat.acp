@@ -1,0 +1,701 @@
+AudioClass {
+ signals {
+  SignalClass "30733" {
+   id 30733
+   name "Signal 1"
+   tl -768 -512
+   res "{CF1F9C4B120DE5F8}Sounds/VON/Von.sig"
+   inputsport {
+    1
+   }
+   outputsport {
+    5 8 12
+   }
+   inputvalues {
+    1
+   }
+   inputvaluesmin {
+    0
+   }
+   inputvaluesmax {
+    1
+   }
+   path "{CF1F9C4B120DE5F8}Sounds/VON/Von.sig"
+  }
+ }
+ filters {
+  FilterClass "33814" {
+   id 33814
+   name "Filter Bitcrusher"
+   version 5
+   tl -512 -592
+   ins {
+    ConnectionsClass "con:0" {
+     id 0
+     links {
+      ConnectionClass "30733:5" {
+       id 30733
+       port 5
+      }
+     }
+    }
+   }
+   pi {
+    1 0
+   }
+   pu {
+    1 0
+   }
+   wetDry 0
+   DSPObject BitCrusherDSPTypeClass dsp {
+    bitMask "11010101"
+   }
+  }
+  FilterClass "39958" {
+   id 39958
+   name "Filter Compressor"
+   version 5
+   tl -512 -1040
+   pi {
+    1 0
+   }
+   volume_dB 4
+   DSPObject CompressorDSPTypeClass dsp {
+    threshold -25
+    ratio 8
+    attack 10
+    release 50
+   }
+  }
+  FilterClass "54294" {
+   id 54294
+   name "Filter HP"
+   version 5
+   tl -512 -1280
+   pi {
+    1 0
+   }
+   DSPObject BiquadDSPTypeClass dsp {
+    biquadType HighPass
+    fc 220
+    Q 1
+   }
+  }
+  FilterClass "58390" {
+   id 58390
+   name "Filter LP"
+   version 5
+   tl -512 -1200
+   pi {
+    1 0
+   }
+   DSPObject BiquadDSPTypeClass dsp {
+    fc 8000
+    Q 1.5
+   }
+  }
+  FilterClass "62486" {
+   id 62486
+   name "Filter LS"
+   version 5
+   tl -512 -1120
+   pi {
+    1 0
+   }
+   DSPObject BiquadDSPTypeClass dsp {
+    biquadType LowShelf
+    fc 150
+    Q 1
+    gain -6
+   }
+  }
+  FilterClass "63510" {
+   id 63510
+   name "Filter HP"
+   version 5
+   tl -512 -512
+   pi {
+    1 0
+   }
+   volume_dB 2
+   DSPObject BiquadDSPTypeClass dsp {
+    biquadType HighPass
+    fc 1200
+    Q 2
+   }
+  }
+  FilterClass "64534" {
+   id 64534
+   name "Filter LP"
+   version 5
+   tl -512 -352
+   pi {
+    1 0
+   }
+   volume_dB 2
+   DSPObject BiquadDSPTypeClass dsp {
+    fc 3600
+    Q 1.8
+   }
+  }
+  FilterClass "88086" {
+   id 88086
+   name "Filter Clipper"
+   version 5
+   tl -512 -432
+   pi {
+    1 0
+   }
+   DSPObject DistortionDSPTypeClass dsp {
+    distortionType HardClipper
+    drive 20
+   }
+  }
+ }
+ filter_chain {
+  FilterChainClass "32791" {
+   id 32791
+   name "FilterChain"
+   comment "Dont use compressor here. Creates panorama movement when DIRECT and RADIO are mixed."
+   version 5
+   tl -256 -416
+   ctl 0 -21
+   ins {
+    ConnectionsClass "con:1" {
+     id 1
+     links {
+      ConnectionClass "33814:65" {
+       id 33814
+       port 65
+      }
+     }
+    }
+    ConnectionsClass "con:2" {
+     id 2
+     links {
+      ConnectionClass "63510:65" {
+       id 63510
+       port 65
+      }
+     }
+    }
+    ConnectionsClass "con:3" {
+     id 3
+     links {
+      ConnectionClass "88086:65" {
+       id 88086
+       port 65
+      }
+     }
+    }
+    ConnectionsClass "con:4" {
+     id 4
+     links {
+      ConnectionClass "64534:65" {
+       id 64534
+       port 65
+      }
+     }
+    }
+   }
+   pi {
+    30 0
+   }
+   ports 4
+  }
+  FilterChainClass "53271" {
+   id 53271
+   name "FilterChain 52"
+   version 5
+   tl -512 -960
+   ins {
+    ConnectionsClass "con:1" {
+     id 1
+     links {
+      ConnectionClass "54294:65" {
+       id 54294
+       port 65
+      }
+     }
+    }
+    ConnectionsClass "con:2" {
+     id 2
+     links {
+      ConnectionClass "58390:65" {
+       id 58390
+       port 65
+      }
+     }
+    }
+    ConnectionsClass "con:3" {
+     id 3
+     links {
+      ConnectionClass "62486:65" {
+       id 62486
+       port 65
+      }
+     }
+    }
+    ConnectionsClass "con:4" {
+     id 4
+     links {
+      ConnectionClass "39958:65" {
+       id 39958
+       port 65
+      }
+     }
+    }
+   }
+   pi {
+    30 0
+   }
+   ports 4
+  }
+ }
+ vars {
+  VariableClass "87070" {
+   id 87070
+   name "Variable VON_Direct"
+   version 5
+   tl -256 -848
+   varName "VON_Direct"
+   varResource "{A60F08955792B575}Sounds/_SharedData/Variables/GlobalVariables.conf"
+   curve {
+    CurvePoint "1" {
+     X 1
+     Y 1
+    }
+    CurvePoint "2" {
+     X 2
+     Y 0.73
+     Shape Exponential
+     Modifier 3
+    }
+    CurvePoint "3" {
+     X 5
+     Y 0.501
+    }
+   }
+  }
+ }
+ sounds {
+  SoundClass "27657" {
+   id 27657
+   name "VON_RADIO"
+   version 5
+   tl 256 -256
+   ins {
+    ConnectionsClass "con:64" {
+     id 64
+     links {
+      ConnectionClass "46098:65" {
+       id 46098
+       port 65
+      }
+      ConnectionClass "22546:65" {
+       id 22546
+       port 65
+      }
+     }
+    }
+   }
+   varName "VON_Radio"
+   varResource "{A60F08955792B575}Sounds/_SharedData/Variables/GlobalVariables.conf"
+   outState 13323
+   outStatePort 77831
+  }
+  SoundClass "45065" {
+   id 45065
+   name "SOUND_ROGER_BEEP"
+   version 5
+   tl 256 0
+   ins {
+    ConnectionsClass "con:64" {
+     id 64
+     links {
+      ConnectionClass "40964:65" {
+       id 40964
+       port 65
+      }
+      ConnectionClass "41988:65" {
+       id 41988
+       port 65
+      }
+     }
+    }
+   }
+   outState 13323
+   outStatePort 77831
+  }
+  SoundClass "49161" {
+   id 49161
+   name "VON_DIRECT"
+   version 5
+   tl 256 -768
+   ins {
+    ConnectionsClass "con:64" {
+     id 64
+     links {
+      ConnectionClass "22546:65" {
+       id 22546
+       port 65
+      }
+     }
+    }
+   }
+   outState 13323
+   outStatePort 77831
+  }
+  SoundClass "91139" {
+   id 91139
+   name "VON_RANGE_SILENT"
+   version 5
+   tl 256 -1664
+   ins {
+    ConnectionsClass "con:64" {
+     id 64
+     links {
+      ConnectionClass "91137:65" {
+       id 91137
+       port 65
+      }
+     }
+    }
+   }
+   outState 13323
+   outStatePort 77831
+  }
+  SoundClass "56329" {
+   id 56329
+   name "VON_RAW"
+   version 5
+   tl 256 -1536
+   ins {
+    ConnectionsClass "con:64" {
+     id 64
+     links {
+      ConnectionClass "57362:65" {
+       id 57362
+       port 65
+      }
+     }
+    }
+   }
+   varName "VON_Direct"
+   varResource "{A60F08955792B575}Sounds/_SharedData/Variables/GlobalVariables.conf"
+  }
+ }
+ buses {
+  BusClass "50183" {
+   id 50183
+   name "Bus Voice + Noise"
+   version 7
+   tl -256 -256
+   ins {
+    ConnectionsClass "con:64" {
+     id 64
+     links {
+      ConnectionClass "52231:65" {
+       id 52231
+       port 65
+      }
+     }
+    }
+   }
+   pu {
+    1 0
+   }
+  }
+  BusClass "52231" {
+   id 52231
+   name "Bus Direct Processing"
+   version 7
+   tl -512 -768
+   ins {
+    ConnectionsClass "con:64" {
+     id 64
+     links {
+      ConnectionClass "26641:65" {
+       id 26641
+       port 65
+      }
+     }
+    }
+   }
+  }
+  BusClass "91138" {
+   id 91138
+   name "Bus Silent Range"
+   comment "Carries no audible signal. Keeps a path with a distance range (Amplitude, 68 m) in the project."
+   version 7
+   tl -512 -1600
+   ins {
+    ConnectionsClass "con:64" {
+     id 64
+     links {
+      ConnectionClass "26641:65" {
+       id 26641
+       port 65
+      }
+     }
+    }
+   }
+   volume 0
+   volume_dB -100
+  }
+  BusClass "84999" {
+   id 84999
+   name "Bus Ducking When Many Voices"
+   version 7
+   tl -256 -768
+   ins {
+    ConnectionsClass "con:0" {
+     id 0
+     links {
+      ConnectionClass "87070:65" {
+       id 87070
+       port 65
+      }
+     }
+    }
+    ConnectionsClass "con:64" {
+     id 64
+     links {
+      ConnectionClass "52231:65" {
+       id 52231
+       port 65
+      }
+     }
+    }
+   }
+   pi {
+    1 0
+   }
+   pu {
+    1 0
+   }
+  }
+ }
+ mixers {
+  MixerClass "13323" {
+   id 13323
+   name "OutputState"
+   version 4
+   tl 768 -768
+   res "{B764D803219C775E}Sounds/FinalMix.afm"
+   ins {
+    ConnectionsClass "con:77831" {
+     id 77831
+     links {
+      ConnectionClass "27657:65" {
+       id 27657
+       port 65
+      }
+      ConnectionClass "45065:65" {
+       id 45065
+       port 65
+      }
+      ConnectionClass "49161:65" {
+       id 49161
+       port 65
+      }
+      ConnectionClass "91139:65" {
+       id 91139
+       port 65
+      }
+     }
+    }
+   }
+   pi {
+    4096 0
+   }
+   path "{B764D803219C775E}Sounds/FinalMix.afm"
+   inputs {
+    "WPN_Handling" "WPN_Shots" "WPN_Explosions" "WNP_BulletHits" "CHAR" "ENV_AMB_2D" "VEH_Animations" "Impacts" "Dialog" "ENV_Doors" "VEH_Engine" "VEH_Tires" "VON" "SFX" "SFX_Reverb_OBSOLETE" "VON_Reverb_Small" "Dialog_Reverb" "Impacts_EXT" "ENV_AMB_3D" "WPN_SonicCracks" "CHAR_Gear" "PA" "SFX_Reverb_Exterior" "ENV_AMB_3D_Reverb_Exterior" "SFX_Direct" "SFX_Reverb_Small" "SFX_Reverb_Medium" "SFX_Reverb_Large" "WPN_Shots_Player" "Dialog_Reverb_Small" "Dialog_Reverb_Medium" "Dialog_Reverb_Large" "WPN_TravelingProjectile" "Dialog_Delay_Exterior" "SFX_Reverb_InCabin" "VON_Reverb_Medium" "VON_Reverb_Large"
+   }
+  }
+ }
+ shaders {
+  ShaderClass "22546" {
+   id 22546
+   name "Shader Direct"
+   version 5
+   tl 0 -768
+   ins {
+    ConnectionsClass "con:0" {
+     id 0
+     links {
+      ConnectionClass "48156:65" {
+       id 48156
+       port 65
+      }
+     }
+    }
+    ConnectionsClass "con:64" {
+     id 64
+     links {
+      ConnectionClass "84999:65" {
+       id 84999
+       port 65
+      }
+     }
+    }
+   }
+   pi {
+    1 0
+   }
+  }
+  ShaderClass "46098" {
+   id 46098
+   name "Shader Radio"
+   version 5
+   tl 0 -256
+   ins {
+    ConnectionsClass "con:64" {
+     id 64
+     links {
+      ConnectionClass "50183:65" {
+       id 50183
+       port 65
+      }
+     }
+    }
+   }
+  }
+  ShaderClass "91137" {
+   id 91137
+   name "Shader Silent Range"
+   version 5
+   tl 0 -1650
+   ins {
+    ConnectionsClass "con:1" {
+     id 1
+     links {
+      ConnectionClass "23571:65" {
+       id 23571
+       port 65
+      }
+     }
+    }
+    ConnectionsClass "con:64" {
+     id 64
+     links {
+      ConnectionClass "91138:65" {
+       id 91138
+       port 65
+      }
+     }
+    }
+   }
+   pi {
+    2 0
+   }
+  }
+  ShaderClass "57362" {
+   id 57362
+   name "Shader RAW"
+   version 5
+   tl 0 -1536
+   ins {
+    ConnectionsClass "con:64" {
+     id 64
+     links {
+      ConnectionClass "52231:65" {
+       id 52231
+       port 65
+      }
+     }
+    }
+   }
+  }
+ }
+ amplitudes {
+  AmplitudeClass "23571" : "{9F8145144171C64B}Sounds/_SharedData/Configs/Amplitude/_SharedData/Amplitude_-40LUFS_to_-35LUFS.conf" {
+   id 23571
+   version 5
+   tl 0 -1072
+   ctl 0 -21
+   parent "{9F8145144171C64B}Sounds/_SharedData/Configs/Amplitude/_SharedData/Amplitude_-40LUFS_to_-35LUFS.conf"
+  }
+ }
+ streams {
+  StreamClass "26641" {
+   id 26641
+   name "Stream 1"
+   version 5
+   tl -768 -768
+  }
+ }
+ banks_local {
+  BankLocalClass "40964" {
+   id 40964
+   name "Roger Beep A"
+   version 7
+   tl -512 0
+   Volume -23
+   "Volume variance" 2
+   "Pitch variance" 2
+   Samples {
+    AudioBankSampleClass "Radio_RogerBeep_A_1.wav" {
+     Filename "{1DB01BC81F7F7038}Sounds/RadioProtocol/Samples/RogerBeep/Radio_RogerBeep_A_1.wav"
+     Probability 100
+     Index 0
+     SampleMetadata ""
+    }
+    AudioBankSampleClass "Radio_RogerBeep_A_2.wav" {
+     Filename "{84AEA251029841A8}Sounds/RadioProtocol/Samples/RogerBeep/Radio_RogerBeep_A_2.wav"
+     Probability 100
+     Index 0
+     SampleMetadata ""
+    }
+    AudioBankSampleClass "Radio_RogerBeep_A_3.wav" {
+     Filename "{F3A4CAD9F63AAED8}Sounds/RadioProtocol/Samples/RogerBeep/Radio_RogerBeep_A_3.wav"
+     Probability 100
+     Index 0
+     SampleMetadata ""
+    }
+   }
+  }
+  BankLocalClass "41988" {
+   id 41988
+   name "Roger Beep B"
+   version 7
+   tl -512 96
+   Volume -25
+   "Volume variance" 2
+   "Pitch variance" 1
+   Silence 150
+   Samples {
+    AudioBankSampleClass "Radio_RogerBeep_B_1.wav" {
+     Filename "{17154B85A96F83BF}Sounds/RadioProtocol/Samples/RogerBeep/Radio_RogerBeep_B_1.wav"
+     Probability 100
+     Index 0
+     SampleMetadata ""
+    }
+    AudioBankSampleClass "Radio_RogerBeep_B_2.wav" {
+     Filename "{8E0BF21CB488B22F}Sounds/RadioProtocol/Samples/RogerBeep/Radio_RogerBeep_B_2.wav"
+     Probability 100
+     Index 0
+     SampleMetadata ""
+    }
+    AudioBankSampleClass "Radio_RogerBeep_B_3.wav" {
+     Filename "{F9019A94402A5D5F}Sounds/RadioProtocol/Samples/RogerBeep/Radio_RogerBeep_B_3.wav"
+     Probability 100
+     Index 0
+     SampleMetadata ""
+    }
+   }
+  }
+ }
+ spatialities {
+  SpatialityClass "48156" {
+   id 48156
+   name "Spatiality"
+   version 5
+   tl 0 -1152
+   spatialFactor 0
+  }
+ }
+ version 1
+ listenerWindowModel "{9F3AF591CD6DFE1A}Assets/Characters/Basebody/Basebody_Male_01.xob"
+}

@@ -1,9 +1,9 @@
 //------------------------------------------------------------------------------------------------
-//! The match report on the debriefing screen: the titles that were handed out, and the table behind
-//! them.
+//! The match report on the debrief, which is vanilla's game-over screen: the titles that were handed
+//! out, and the table behind them. The frame is part of that screen's content, DiD_GameOverContent.layout.
 //!
 //! Reads AFM_GameModeDiD.GetMatchResults, which every machine assembles for itself from the
-//! authority's broadcast. The order the two arrive in is not fixed - PS opens this menu when the game
+//! authority's broadcast. The order the two arrive in is not fixed - the screen opens when the game
 //! state changes, which can beat the last row over the wire - so this fills whatever is there on
 //! attach and fills again when the table is complete.
 //------------------------------------------------------------------------------------------------
